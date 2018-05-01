@@ -9,6 +9,7 @@
 		<string>500C19C0-9162-4033-8C27-7A7824A82D84</string>
 		<string>42B80292-8A31-4FB8-B117-A465CC649FBE</string>
 		<string>06038555-9593-4BCE-88E3-F5E8188D4FD0</string>
+		<string>F3DD154F-8CAF-4071-A9A4-4466984222E6</string>
 	</array>
 	<key>ProjectItems</key>
 	<dict>
@@ -261,6 +262,56 @@
 			</dict>
 			<key>ItemName</key>
 			<string>SerialServo.asm</string>
+			<key>ItemType</key>
+			<string>FileReference</string>
+			<key>UserOverrideItemName</key>
+			<true/>
+		</dict>
+		<key>F3DD154F-8CAF-4071-A9A4-4466984222E6</key>
+		<dict>
+			<key>ItemData</key>
+			<dict>
+				<key>BookmarkData</key>
+				<data>
+				Ym9va2gDAAAAAAQQMAAAAAAAAAAAAAAAAAAAAAAAAAAA
+				AAAAAAAAAAAAAAAAAAAAZAIAAAgAAAABAQAAUHJvamVj
+				dHMLAAAAAQEAAFNlcmlhbFNlcnZvAAgAAAABAQAARmly
+				bXdhcmUPAAAAAQEAAFJTMjMyX1BhcnNlLmluYwAQAAAA
+				AQYAAAQAAAAUAAAAKAAAADgAAAAIAAAABAMAABc4EQAA
+				AAAACAAAAAQDAACIqE8AAgAAAAgAAAAEAwAAEKlPAAIA
+				AAAIAAAABAMAAGywTwACAAAAEAAAAAEGAABoAAAAeAAA
+				AIgAAACYAAAACAAAAAAEAABBuFJemwAAABgAAAABAgAA
+				AQAAAAAAAAAPAAAAAAAAAAAAAAAAAAAAAAAAAAEFAAAE
+				AAAAAwMAAAEAAAAIAAAAAQkAAGZpbGU6Ly8vDAAAAAEB
+				AABNYWNpbnRvc2ggSEQIAAAABAMAAACwYG50AAAACAAA
+				AAAEAABBuV6xxgAAACQAAAABAQAAN0Q3RjQ2ODgtRTRC
+				Mi0zMzhBLUI0RDYtMzA1RTBEOEFFQUZGGAAAAAECAACB
+				AAAAAQAAAO8TAAABAAAAAAAAAAAAAAABAAAAAQEAAC8A
+				AAC5AAAAAQIAADg2YjllNzAwN2M2NTFlN2Q0Nzg4ZDFh
+				NjMyMjhiZDgwMTc3MDI2MDY7MDAwMDAwMDA7MDAwMDAw
+				MDA7MDAwMDAwMDAwMDAwMDAyMDtjb20uYXBwbGUuYXBw
+				LXNhbmRib3gucmVhZC13cml0ZTswMTswMTAwMDAwNjsw
+				MDAwMDAwMjAwNGZiMDZjOy9wcm9qZWN0cy9zZXJpYWxz
+				ZXJ2by9maXJtd2FyZS9yczIzMl9wYXJzZS5pbmMAAAAA
+				zAAAAP7///8BAAAAAAAAABAAAAAEEAAAUAAAAAAAAAAF
+				EAAAqAAAAAAAAAAQEAAA0AAAAAAAAABAEAAAwAAAAAAA
+				AABVEAAA+AAAAAAAAABWEAAA8AAAAAAAAAACIAAAlAEA
+				AAAAAAAFIAAABAEAAAAAAAAQIAAAFAEAAAAAAAARIAAA
+				SAEAAAAAAAASIAAAKAEAAAAAAAATIAAAOAEAAAAAAAAg
+				IAAAdAEAAAAAAAAwIAAA8AAAAAAAAAAB0AAA8AAAAAAA
+				AACA8AAAoAEAAAAAAAA=
+				</data>
+				<key>FileURL</key>
+				<string>file:///Projects/SerialServo/Firmware/RS232_Parse.inc</string>
+				<key>RelativePath</key>
+				<string>./RS232_Parse.inc</string>
+				<key>TypeID</key>
+				<string>_CFileLocator</string>
+				<key>Version</key>
+				<integer>1</integer>
+			</dict>
+			<key>ItemName</key>
+			<string>RS232_Parse.inc</string>
 			<key>ItemType</key>
 			<string>FileReference</string>
 			<key>UserOverrideItemName</key>

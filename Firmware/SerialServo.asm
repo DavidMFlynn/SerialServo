@@ -204,6 +204,12 @@ DebounceTime	EQU	d'10'
 	Timer4Lo		;4th 16 bit timer
 	Timer4Hi		; debounce timer
 ;
+	RX_ParseFlags
+	RX_Flags
+	RX_DataCount
+	RX_CSUM
+	RX_TempData:8
+	RX_Data:8
 ;
 	EncoderAccum:3		;Accumulated distance
 	EncoderVal:2		;Value last read, raw 12 bit data
@@ -214,7 +220,19 @@ DebounceTime	EQU	d'10'
 	SysFlags		;saved in eprom
 ;
 	endc
-
+;RX_ParseFlags Bits
+#Define	SyncByte1RXd	RX_ParseFlags,0
+#Define	SyncByte2RXd	RX_ParseFlags,1
+#Define	SourceAddLoRXd	RX_ParseFlags,2
+#Define	SourceAddHiRXd	RX_ParseFlags,3
+#Define	DestAddLoRXd	RX_ParseFlags,4
+#Define	DestAddHiRXd	RX_ParseFlags,5
+#Define	AllDataRXd	RX_ParseFlags,6
+;
+;RX_Flags Bits
+#Define	RXDataValidFlag	RX_Flags,0
+#Define	RXDataIsNew	RX_Flags,1
+;
 	if useRS232
 	cblock
 	TXByte		;Next byte to send
@@ -534,6 +552,8 @@ start	MOVLB	0x01	; select bank 1
 ;=========================================================================================
 MainLoop	CLRWDT
 ;
+	CALL	RS232_Parse
+;
 	CALL	ReadAN	CALL	ReadAN4
 ;
 	call	ReadEncoder
@@ -710,7 +730,7 @@ ClampInt_tooHigh	MOVLW	low kMaxPulseWidth
 ;
 	include <MagEncoder.inc>
 ;
-
+	include <RS232_Parse.inc>
 ;=========================================================================================
 ;=========================================================================================
 ;

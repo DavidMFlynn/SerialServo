@@ -1,8 +1,8 @@
 ;====================================================================================================
 ;
 ;    Filename:      RS232_Parse.inc
-;    Date:          1/12/2016                                    
-;    File Version:  1.0d1
+;    Date:          4/26/2018
+;    File Version:  1.0d2
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -13,17 +13,28 @@
 ; Notes:
 ;
 ; History:
+; 1.0d2  4/26/2018	Comments, used in robot arm project.
 ; 1.0d1  1/12/2016	Modified for I2C to RS-232 8 byte packets.
 ; 1.0d1  11/9/2015	Adapted for QD Tester
 ; 1.0    12/6/2013	First Rev'd version
 ;
 ; RS232_Parse	(X/0) Parse any bytes received by the serial port
-; Packet format: FF FF SA0 SA1 DA0 DA1 D0 D1 D2 D3 D4 D5 D6 D7 CS
+; Packet format: FF FF SA0 (SA1) DA0 (DA1) D0 D1 D2 D3 D4 D5 D6 D7 CS
 ;  FF = Sync byte, SAn = Source Address, DA = Destination Address,
 ;       Dn = Data, CS Check Sum (xor of Address and Data bytes)
 ;  SA must be RS232_RAddr ( the boss )
 ;  DA must be RS232_MyAddr ( this program )
-;  If the checksum matches put the data bytes in the I2C Tx buffer.
+;  If the checksum matches put the data bytes in the RX_Data buffer,
+;   set RXDataValidFlag and RXDataIsNew.
+;=========================================================================================
+;	constant RP_LongAddr=1		;16 bit addresses
+;
+	ifndef RP_LongAddr
+	constant RP_LongAddr=0
+	endif
+	ifndef RP_DataBytes
+	constant RP_DataBytes=8
+	endif
 ;=========================================================================================
 ; Bank0 variable used by RS232_Parse:
 ;
@@ -57,7 +68,7 @@
 ; Parse any bytes received by the serial port
 ;
 ; Receive 0xFF,Cmd,Data0,Data1,0xFF
-; 
+;
 ;
 ; Entry: none
 ; Exit: none
@@ -90,9 +101,10 @@ RS232_Parse_Sync2	btfsc	SyncByte2RXd
 	clrf	RX_CSUM
 	clrf	RX_DataCount
 	return
-;	
+;
+; LSB of Source Address
 RS232_Parse_SALo	btfsc	SourceAddLoRXd
-	bra	RS232_Parse_SAHi
+	bra	RS232_Parse_SALo_end
 	movlw	low RS232_RAddr
 	subwf	Param78,W
 	SKPZ
@@ -101,9 +113,12 @@ RS232_Parse_SALo	btfsc	SourceAddLoRXd
 	movf	Param78,W
 	xorwf	RX_CSUM,F
 	return
+RS232_Parse_SALo_end
 ;
+; MSB of Source Address
+	if RP_LongAddr
 RS232_Parse_SAHi	btfsc	SourceAddHiRXd
-	bra	RS232_Parse_DALo
+	bra	RS232_Parse_SAHi_end
 	movlw	high RS232_RAddr
 	subwf	Param78,W
 	SKPZ
@@ -112,9 +127,12 @@ RS232_Parse_SAHi	btfsc	SourceAddHiRXd
 	movf	Param78,W
 	xorwf	RX_CSUM,F
 	return
+RS232_Parse_SAHi_end
+	endif
 ;
+; LSB of Destination Address
 RS232_Parse_DALo	btfsc	DestAddLoRXd
-	bra	RS232_Parse_DAHi
+	bra	RS232_Parse_DALo_End
 	movlw	low RS232_MyAddr
 	subwf	Param78,W
 	SKPZ
@@ -123,9 +141,12 @@ RS232_Parse_DALo	btfsc	DestAddLoRXd
 	movf	Param78,W
 	xorwf	RX_CSUM,F
 	return
+RS232_Parse_DALo_End
 ;
+; MSB of Destination Address
+	if RP_LongAddr
 RS232_Parse_DAHi	btfsc	DestAddHiRXd
-	bra	RS232_Parse_Data
+	bra	RS232_Parse_DAHi_end
 	movlw	high RS232_MyAddr
 	subwf	Param78,W
 	SKPZ
@@ -134,9 +155,11 @@ RS232_Parse_DAHi	btfsc	DestAddHiRXd
 	movf	Param78,W
 	xorwf	RX_CSUM,F
 	return
+RS232_Parse_DAHi_end
+	endif
 ;
 RS232_Parse_Data	btfsc	AllDataRXd
-	bra	RS232_Parse_CSUM
+	bra	RS232_Parse_Data_end
 	movf	RX_DataCount,W
 	addlw	low RX_TempData
 	movwf	FSR0L
@@ -146,11 +169,12 @@ RS232_Parse_Data	btfsc	AllDataRXd
 	xorwf	RX_CSUM,F
 	movwf	INDF0
 	incf	RX_DataCount,F
-	movlw	0x08
+	movlw	RP_DataBytes
 	subwf	RX_DataCount,W
 	SKPNZ
 	bsf	AllDataRXd
 	return
+RS232_Parse_Data_end
 ;
 RS232_Parse_CSUM	movf	Param78,W
 	subwf	RX_CSUM,W
