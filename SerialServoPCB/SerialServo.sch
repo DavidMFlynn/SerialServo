@@ -1,0 +1,159 @@
+EESchema Schematic File Version 4
+EELAYER 26 0
+EELAYER END
+$Descr A 11000 8500
+encoding utf-8
+Sheet 1 1
+Title "Serial Servo"
+Date "2018-05-02"
+Rev "n/c"
+Comp "DMFE"
+Comment1 "TTL serial r/c servo controller"
+Comment2 ""
+Comment3 ""
+Comment4 ""
+$EndDescr
+$Comp
+L MCU_Microchip_PIC16:PIC16F648A-ISO U?
+U 1 1 5AEA82ED
+P 3500 3950
+F 0 "U?" H 2650 4600 50  0000 C CNN
+F 1 "PIC16F1847-ISO" H 3450 4200 50  0000 C CNN
+F 2 "" H 3500 3950 50  0001 C CIN
+F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/40300c.pdf" H 3500 3950 50  0001 C CNN
+	1    3500 3950
+	1    0    0    -1  
+$EndComp
+$Comp
+L Connector_Generic:Conn_01x04 J?
+U 1 1 5AEA83CA
+P 1200 1300
+F 0 "J?" H 1120 1617 50  0000 C CNN
+F 1 "Conn_01x04" H 1120 1526 50  0000 C CNN
+F 2 "" H 1200 1300 50  0001 C CNN
+F 3 "~" H 1200 1300 50  0001 C CNN
+	1    1200 1300
+	-1   0    0    -1  
+$EndComp
+$Comp
+L Regulator_Linear:L78L05_TO92 U?
+U 1 1 5AEA848B
+P 2300 2100
+F 0 "U?" H 2300 2342 50  0000 C CNN
+F 1 "L78L05_TO92" H 2300 2251 50  0000 C CNN
+F 2 "Package_TO_SOT_THT:TO-92_Inline" H 2300 2325 50  0001 C CIN
+F 3 "http://www.st.com/content/ccc/resource/technical/document/datasheet/15/55/e5/aa/23/5b/43/fd/CD00000446.pdf/files/CD00000446.pdf/jcr:content/translations/en.CD00000446.pdf" H 2300 2050 50  0001 C CNN
+	1    2300 2100
+	1    0    0    -1  
+$EndComp
+$Comp
+L Regulator_Linear:LM7805_TO220 U?
+U 1 1 5AEA8521
+P 3650 2150
+F 0 "U?" H 3650 2392 50  0000 C CNN
+F 1 "LM7805_TO220" H 3650 2301 50  0000 C CNN
+F 2 "Package_TO_SOT_THT:TO-220-3_Vertical" H 3650 2375 50  0001 C CIN
+F 3 "http://www.fairchildsemi.com/ds/LM/LM7805.pdf" H 3650 2100 50  0001 C CNN
+	1    3650 2150
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:D D?
+U 1 1 5AEA858D
+P 1650 2100
+F 0 "D?" H 1650 2316 50  0000 C CNN
+F 1 "D" H 1650 2225 50  0000 C CNN
+F 2 "" H 1650 2100 50  0001 C CNN
+F 3 "~" H 1650 2100 50  0001 C CNN
+	1    1650 2100
+	-1   0    0    -1  
+$EndComp
+$Comp
+L Switch:SW_Push SW?
+U 1 1 5AEA867D
+P 1400 5300
+F 0 "SW?" H 1400 5585 50  0000 C CNN
+F 1 "SW_Push" H 1400 5494 50  0000 C CNN
+F 2 "" H 1400 5500 50  0001 C CNN
+F 3 "" H 1400 5500 50  0001 C CNN
+	1    1400 5300
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:LED D?
+U 1 1 5AEA877B
+P 1850 5300
+F 0 "D?" H 1841 5516 50  0000 C CNN
+F 1 "LED" H 1841 5425 50  0000 C CNN
+F 2 "" H 1850 5300 50  0001 C CNN
+F 3 "~" H 1850 5300 50  0001 C CNN
+	1    1850 5300
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:R R?
+U 1 1 5AEA8860
+P 1850 5700
+F 0 "R?" V 1643 5700 50  0000 C CNN
+F 1 "R" V 1734 5700 50  0000 C CNN
+F 2 "" V 1780 5700 50  0001 C CNN
+F 3 "~" H 1850 5700 50  0001 C CNN
+	1    1850 5700
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:R R?
+U 1 1 5AEA88A0
+P 2250 5300
+F 0 "R?" V 2043 5300 50  0000 C CNN
+F 1 "R" V 2134 5300 50  0000 C CNN
+F 2 "" V 2180 5300 50  0001 C CNN
+F 3 "~" H 2250 5300 50  0001 C CNN
+	1    2250 5300
+	0    1    1    0   
+$EndComp
+$Comp
+L power:GND #PWR?
+U 1 1 5AEA89E8
+P 1100 5400
+F 0 "#PWR?" H 1100 5150 50  0001 C CNN
+F 1 "GND" H 1105 5227 50  0000 C CNN
+F 2 "" H 1100 5400 50  0001 C CNN
+F 3 "" H 1100 5400 50  0001 C CNN
+	1    1100 5400
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+5V #PWR?
+U 1 1 5AEA8A64
+P 2700 2000
+F 0 "#PWR?" H 2700 1850 50  0001 C CNN
+F 1 "+5V" H 2715 2173 50  0000 C CNN
+F 2 "" H 2700 2000 50  0001 C CNN
+F 3 "" H 2700 2000 50  0001 C CNN
+	1    2700 2000
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C_Small C?
+U 1 1 5AEA8B9F
+P 1900 2300
+F 0 "C?" H 1808 2254 50  0000 R CNN
+F 1 "C_Small" H 1808 2345 50  0000 R CNN
+F 2 "" H 1900 2300 50  0001 C CNN
+F 3 "~" H 1900 2300 50  0001 C CNN
+	1    1900 2300
+	1    0    0    1   
+$EndComp
+$Comp
+L Device:C_Small C?
+U 1 1 5AEA8C2C
+P 2700 2300
+F 0 "C?" H 2792 2346 50  0000 L CNN
+F 1 "C_Small" H 2792 2255 50  0000 L CNN
+F 2 "" H 2700 2300 50  0001 C CNN
+F 3 "~" H 2700 2300 50  0001 C CNN
+	1    2700 2300
+	1    0    0    -1  
+$EndComp
+$EndSCHEMATC
