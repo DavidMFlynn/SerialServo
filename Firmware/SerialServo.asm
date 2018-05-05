@@ -40,7 +40,7 @@
 ;   Pin 3 (RA4/AN4) Calibration Pot (Analog Input)
 ;   Pin 4 (RA5/MCLR*) VPP/MCLR*
 ;   Pin 5 (GND) Ground
-;   Pin 6 (RB0) MagEnc_DataBit (Digital Input)
+;   Pin 6 (RB0) MagEnc_CSBit
 ;   Pin 7 (RB1/AN11/SDA1) TTL Serial RX
 ;   Pin 8 (RB2/AN10/TX) TTL Serial TX
 ;   Pin 9 (RB3/CCP1) Pulse output for Servo
@@ -50,7 +50,7 @@
 ;   Pin 12 (RB6/AN5/CCP2) ICSPCLK
 ;   Pin 13 (RB7/AN6) ICSPDAT
 ;   Pin 14 (Vcc) +5 volts
-;   Pin 15 (RA6) MagEnc_DataBit
+;   Pin 15 (RA6) MagEnc_DataBit (Digital Input)
 ;   Pin 16 (RA7/CCP2) N.C.
 ;   Pin 17 (RA0/AN0) Current sensing analog input
 ;   Pin 18 (RA1) SW1/LED1 (Active Low Input/Output)

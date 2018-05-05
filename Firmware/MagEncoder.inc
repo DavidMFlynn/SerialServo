@@ -56,11 +56,11 @@ kEncHiBit	EQU	3
 #Define                MagEnc_Homed           EncoderFlags,4
 ;
 ; Change the following to use the available pins
-MagEnc_CSBit	EQU	6
+MagEnc_CSBit	EQU	0
 MagEnc_CLKBit	EQU	4
 MagEnc_DataBit	EQU	6
 MagEnc_CSLAT	EQU	LATB
-MagEnc_DataPort	EQU	PORTB
+MagEnc_DataPort	EQU	PORTA
 #Define	MagEnc_CS	MagEnc_CSLAT,MagEnc_CSBit	
 #Define	MagEnc_CLK	MagEnc_CSLAT,MagEnc_CLKBit
 #Define	MagEnc_Data	MagEnc_DataPort,MagEnc_DataBit
