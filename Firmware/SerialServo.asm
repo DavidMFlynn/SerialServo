@@ -77,10 +77,10 @@
 ; Internal/External Switchover mode is disabled
 ; Fail-Safe Clock Monitor is enabled
 ;
-	__CONFIG _CONFIG2,_WRT_OFF & _PLLEN_OFF & _LVP_OFF
+	__CONFIG _CONFIG2,_WRT_OFF & _PLLEN_ON & _LVP_OFF
 ;
 ; Write protection off
-; 4x PLL disabled
+; 4x PLL Enabled
 ; Stack Overflow or Underflow will cause a Reset
 ; Brown-out Reset Voltage (Vbor), low trip point selected.
 ; Low-voltage programming enabled
@@ -115,7 +115,6 @@ PortAValue	EQU	b'00000000'
 LED1_Bit	EQU	1	;LED1 (Active Low Output)
 LED2_Bit	EQU	2	;LED2 (Active Low Output)
 LED3_Bit	EQU	3	;LED3 (Active Low Output)
-#Define	LED123_Tris	TRISA
 #Define	LED1_Tris	LED123_Tris,LED1_Bit	;LED1 (Active Low Output)
 #Define	LED2_Tris	LED123_Tris,LED2_Bit	;LED2 (Active Low Output)
 #Define	LED3_Tris	LED123_Tris,LED3_Bit	;LED3 (Active Low Output)
@@ -132,7 +131,7 @@ PortBValue	EQU	b'00010001'
 #Define	RB2_In	PORTB,2	;TX Serial Data
 #Define	RB3_Out	PORTB,3	;CCP1 Output
 #Define	RB4_In	PORTB,4	;MagEnc_CLKBit
-#Define	RB5_In	PORTB,5	;LED4 System LED
+#Define	SW4_In	PORTB,5	;LED4 System LED
 #Define	RB6_In	PORTB,6	;ICSPCLK
 #Define	RB7_In	PORTB,7	;ICSPDAT
 SysLED_Bit	EQU	5
@@ -146,7 +145,13 @@ SysLED_Bit	EQU	5
 All_In	EQU	0xFF
 All_Out	EQU	0x00
 ;
-TMR0Val	EQU	0xB2	;0xB2=100Hz, 0.000128S/Count
+;OSCCON_Value	EQU	b'01110010'	; 8 MHz
+OSCCON_Value	EQU	b'11110000'	;32MHz
+;
+;T2CON_Value	EQU	b'01001110'	;T2 On, /16 pre, /10 post
+T2CON_Value	EQU	b'01001111'	;T2 On, /64 pre, /10 post
+PR2_Value	EQU	.125
+;
 LEDTIME	EQU	d'100'	;1.00 seconds
 LEDErrorTime	EQU	d'10'
 ;
@@ -182,12 +187,18 @@ DebounceTime	EQU	d'10'
 ;
 	cblock	0x20
 ;
-	LED_Time
-	lastc		;part of tickcount timmer
-	tickcount		;Timer tick count
+	SysLED_Time		;sys LED time
+	SysLEDCount		;sys LED Timer tick count
 ;
-	StatLED_Time
-	Stat_Count
+	LED1_Blinks		;0=off,1,2,3
+	LED2_Blinks
+	LED2_Blinks
+	LED1_BlinkCount		;LED1_Blinks..0
+	LED2_BlinkCount
+	LED3_BlinkCount
+	LED1_Count		;tick count
+	LED2_Count
+	LED3_Count
 ;
 	EEAddrTemp		;EEProm address to read or write
 	EEDataTemp		;Data to be writen to EEProm
@@ -252,9 +263,8 @@ DebounceTime	EQU	d'10'
 #Define	SW1_Flag	SysFlags,0
 #Define	SW2_Flag	SysFlags,1
 #Define	SW3_Flag	SysFlags,2
-#Define	LED1_Flag	SysFlags,3
-#Define	LED2_Flag	SysFlags,4
-#Define	LED3_Flag	SysFlags,5
+#Define	SW4_Flag	SysFlags,3
+;
 #Define	ServoOff	SysFlags,4
 ;
 ;
@@ -341,15 +351,14 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 ;
 ;
 	ORG	0x004	; interrupt vector location
+	CLRF	PCLATH
 	CLRF	BSR	; bank0
 ;
 ;
-	btfss	INTCON,T0IF
-	goto	SystemBlink_end
+	BTFSS	PIR1,TMR2IF
+	goto	SystemTick_end
 ;
-	movlw	TMR0Val	;256x39+16 cycles (10,000uS)
-	addwf	TMR0,F	; reload TMR0 with -40
-	bcf	INTCON,T0IF	; reset interupt flag bit
+	BCF	PIR1,TMR2IF	; reset interupt flag bit
 ;------------------
 ; These routines run 100 times per second
 ;
@@ -363,32 +372,55 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 ;
 ;-----------------------------------------------------------------
 ; blink LEDs
-	MOVLW	LOW LED123_Tris
-	MOVWF	FSR0L
-	MOVLW	HIGH LED123_Tris
-	MOVWF	FSR0H
-; All LEDs off
-	BSF	INDF0,LED1_Bit
-	BSF	INDF0,LED2_Bit
-	BSF	INDF0,LED3_Bit
 ;
-; Read SW's
+; All LEDs off
+	movlb	0x01	;bank 1
+	bsf	SysLED_Tris
+	BSF	LED1_Tris
+	BSF	LED2_Tris
+	BSF	LED3_Tris
+;
+; Read Switches
+	movlb	0x00	;bank 0
 	BCF	SW1_Flag
 	BCF	SW2_Flag
 	BCF	SW3_Flag
+	BCF	SW4_Flag
+;	
 	BTFSS	SW1_In
 	BSF	SW1_Flag
 	BTFSS	SW2_In
 	BSF	SW2_Flag
 	BTFSS	SW3_In
 	BSF	SW3_Flag
-; Dec LED time
-	DECFSZ	tickcount,F	;Is it time?
-	GOTO	SystemBlink_end	; No, not yet
+	BTFSS	SW4_In
+	BSF	SW4_Flag
 ;
-	MOVF	LED_Time,W
-	MOVWF	tickcount
+; Sys LED time
+	DECFSZ	SysLEDCount,F	;Is it time?
+	bra	SystemBlink_end	; No, not yet
+;
+	MOVF	SysLED_Time,W
+	MOVWF	SysLEDCount
+	movlb	0x01	;bank 1
+	bcf	SysLED_Tris
+SystemBlink_end:
 ; Flash LEDs
+	movlb	0x00	;bank 0
+	movf	LED1_Blinks,F
+	SKPZ		;LED1 active?
+	bra	LED1_Blinking	; Yes
+	clrf	LED1_BlinkCount
+	clrf	LED1_Count
+	bra	LED1_Blink_end
+;
+LED1_Blinking:
+
+	movf	LED1_BlinkCount,W
+	
+
+LED1_Blink_end:
+
 	BCF	INDF0,LED1_Bit
 	BTFSC	LED2_Flag
 	BCF	INDF0,LED2_Bit
@@ -396,7 +428,7 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 	BCF	INDF0,LED3_Bit
 ;
 ;
-SystemBlink_end
+SystemTick_end:
 ;
 ;==================================================================================
 ;
@@ -473,7 +505,7 @@ start	MOVLB	0x01	; select bank 1
 	bsf	OPTION_REG,PS2
 ;
 	MOVLB	0x01	; bank 1
-	MOVLW	b'01110010'	; 8 MHz
+	MOVLW	OSCCON_Value
 	MOVWF	OSCCON
 	movlw	b'00010111'	; WDT prescaler 1:65536 period is 2 sec (RESET value)
 	movwf	WDTCON
@@ -481,6 +513,12 @@ start	MOVLB	0x01	; select bank 1
 	MOVLB	0x03	; bank 3
 	CLRF	ANSELA
 	CLRF	ANSELB	;Digital I/O
+;
+;Setup T2 for 100/s
+	MOVLW	T2CON_Value
+	MOVWF	T2CON
+	MOVLW	PR2_Value
+	MOVWF	PR2
 ;
 ; setup timer 1 for 0.5uS/count
 ;
