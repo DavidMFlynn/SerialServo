@@ -103,6 +103,7 @@
 ;    Port A bits
 PortADDRBits	EQU	b'11111111'
 PortAValue	EQU	b'00000000'
+ANSELA_Val	EQU	b'00000001'
 ;
 #Define	RA0_In	PORTA,0	;Current, Analog Input
 #Define	SW1_In	PORTA,1	;SW1/LED1
@@ -154,6 +155,7 @@ PR2_Value	EQU	.125
 ;
 LEDTIME	EQU	d'100'	;1.00 seconds
 LEDErrorTime	EQU	d'10'
+LEDFastTime	EQU	d'20'
 ;
 T1CON_Val	EQU	b'00000001'	;PreScale=1,Fosc/4,Timer ON
 TMR1L_Val	EQU	0x3C	; -2500 = 2.5 mS, 400 steps/sec
@@ -174,6 +176,7 @@ Baud_2400	EQU	d'207'	;2.404, +0.16%
 Baud_9600	EQU	d'51'	;9.615, +0.16%
 BaudRate	EQU	Baud_9600
 ;
+kMidPulseWidth	EQU	.3000	;1500uS
 ;
 DebounceTime	EQU	d'10'
 ;
@@ -414,18 +417,106 @@ SystemBlink_end:
 	clrf	LED1_Count
 	bra	LED1_Blink_end
 ;
-LED1_Blinking:
-
-	movf	LED1_BlinkCount,W
-	
-
+LED1_Blinking	movf	LED1_Count,W
+	iorwf	LED1_BlinkCount,W
+	SKPNZ		;Startup?
+	bra	LED1_Start
+;
+	decfsz	LED1_Count,F	;Done w/ blink
+	bra	LED1_Blink_end	; no
+;
+	movf	LED1_BlinkCount,F
+	SKPNZ		;Done w/ cycle?
+	bra	LED1_Start	; Yes
+;
+	decfsz	LED1_BlinkCount,F
+	bra	LED1_NextBlink
+	movlw	LEDTIME	;long off time
+	movwf	LED1_Count
+	bra	LED1_Blink_end
+;
+LED1_Start	movf	LED1_Blinks
+	movwf	LED1_BlinkCount
+LED1_NextBlink	movlw	LEDFastTime
+	movwf	LED1_Count
+;
+	movlb	0x01
+	BCF	LED1_Tris
+	movlb	0x00
 LED1_Blink_end:
-
-	BCF	INDF0,LED1_Bit
-	BTFSC	LED2_Flag
-	BCF	INDF0,LED2_Bit
-	BTFSC	LED3_Flag
-	BCF	INDF0,LED3_Bit
+;-------------
+	movlb	0x00	;bank 0
+	movf	LED2_Blinks,F
+	SKPZ		;LED2 active?
+	bra	LED2_Blinking	; Yes
+	clrf	LED2_BlinkCount
+	clrf	LED2_Count
+	bra	LED2_Blink_end
+;
+LED2_Blinking	movf	LED2_Count,W
+	iorwf	LED2_BlinkCount,W
+	SKPNZ		;Startup?
+	bra	LED2_Start
+;
+	decfsz	LED2_Count,F	;Done w/ blink
+	bra	LED2_Blink_end	; no
+;
+	movf	LED2_BlinkCount,F
+	SKPNZ		;Done w/ cycle?
+	bra	LED2_Start	; Yes
+;
+	decfsz	LED2_BlinkCount,F
+	bra	LED2_NextBlink
+	movlw	LEDTIME	;long off time
+	movwf	LED2_Count
+	bra	LED2_Blink_end
+;
+LED2_Start	movf	LED2_Blinks
+	movwf	LED2_BlinkCount
+LED2_NextBlink	movlw	LEDFastTime
+	movwf	LED2_Count
+;
+	movlb	0x01
+	BCF	LED2_Tris
+	movlb	0x00
+LED2_Blink_end:
+;-------------
+	movlb	0x00	;bank 0
+	movf	LED3_Blinks,F
+	SKPZ		;LED3 active?
+	bra	LED3_Blinking	; Yes
+	clrf	LED3_BlinkCount
+	clrf	LED3_Count
+	bra	LED3_Blink_end
+;
+LED3_Blinking	movf	LED3_Count,W
+	iorwf	LED3_BlinkCount,W
+	SKPNZ		;Startup?
+	bra	LED3_Start
+;
+	decfsz	LED3_Count,F	;Done w/ blink
+	bra	LED3_Blink_end	; no
+;
+	movf	LED3_BlinkCount,F
+	SKPNZ		;Done w/ cycle?
+	bra	LED3_Start	; Yes
+;
+	decfsz	LED3_BlinkCount,F
+	bra	LED3_NextBlink
+	movlw	LEDTIME	;long off time
+	movwf	LED3_Count
+	bra	LED3_Blink_end
+;
+LED3_Start	movf	LED3_Blinks
+	movwf	LED3_BlinkCount
+LED3_NextBlink	movlw	LEDFastTime
+	movwf	LED3_Count
+;
+	movlb	0x01
+	BCF	LED3_Tris
+	movlb	0x00
+LED3_Blink_end:
+;-------------
 ;
 ;
 SystemTick_end:
@@ -592,10 +683,11 @@ MainLoop	CLRWDT
 ;
 	CALL	RS232_Parse
 ;
-	CALL	ReadAN	CALL	ReadAN4
+	CALL	ReadAN
 ;
 	call	ReadEncoder
 ;
+;---------------------
 ; Handle Serial Communications
 	BTFSC	PIR1,TXIF	;TX done?
 	CALL	TX_TheByte	; Yes
@@ -617,6 +709,7 @@ ML_Ser_Out	BTFSS	DataSentFlag
 	MOVWF	TXByte
 	BCF	DataSentFlag
 ML_Ser_End:
+;----------------------
 ;
 	goto	MainLoop
 ;=========================================================================================
