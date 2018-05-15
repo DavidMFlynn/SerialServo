@@ -74,9 +74,9 @@ MagEnc_DataPort	EQU	PORTA
 ReadEncoder	movlb	0	;bank0
 	movlw	nDataBits	;read 12 bits
 	movwf	Param78
-	movlw	low MagEnc_LAT
+	movlw	low MagEnc_CSLAT
 	movwf	FSR0L
-	movlw	high MagEnc_LAT
+	movlw	high MagEnc_CSLAT
 	movwf	FSR0H
 	bcf	INDF0,MagEnc_CSBit     ;assert CS*
 ;			;delay 500ns

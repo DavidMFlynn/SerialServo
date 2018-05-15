@@ -67,7 +67,7 @@
 ;=========================================================================================
 ; Parse any bytes received by the serial port
 ;
-; Receive 0xFF,Cmd,Data0,Data1,0xFF
+; Receive 0xFF,0xFF,SA0,(SA1),DA0,(DA1),Cmd,Data0,Data1,Data2,CS
 ;
 ;
 ; Entry: none
