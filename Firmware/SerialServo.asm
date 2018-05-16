@@ -31,7 +31,8 @@
 ;====================================================================================================
 ; What happens next:
 ;   At power up the system LED will blink.
-;   Mode 0: (LED 1 off) servo test mode, copy AN4 Pot value to servo.
+;   Mode 0: (LED 1 = off) servo test mode, copy AN4 Pot value to servo.
+;   Mode 1: (LED 1 = 1 flash) servo  and encoder test mode, AN4 Pot value - EncoderVal to servo dir.
 ;
 ;
 ;====================================================================================================
@@ -155,7 +156,7 @@ All_Out	EQU	0x00
 ;
 CCP1CON_Clr	EQU	b'00001001'
 CCP1CON_Set	EQU	b'00001000'
-kServoDwellTime	EQU	.40000	;20mS
+CCP1CON_Idle	EQU	b'00001010'
 ;
 ;OSCCON_Value	EQU	b'01110010'	; 8 MHz
 OSCCON_Value	EQU	b'11110000'	;32MHz
@@ -179,9 +180,12 @@ Baud_2400	EQU	d'207'	;2.404, +0.16%
 Baud_9600	EQU	d'51'	;9.615, +0.16%
 BaudRate	EQU	Baud_9600
 ;
+kServoDwellTime	EQU	.40000	;20mS
 kMinPulseWidth	EQU	.1800	;900uS
 kMidPulseWidth	EQU	.3000	;1500uS
 kMaxPulseWidth	EQU	.4200	;2100uS
+kServoFastForward	EQU	.3600	;1800uS
+kServoFastReverse	EQU	.2400	;1200uS
 ;
 DebounceTime	EQU	.10
 kMaxMode	EQU	.1
@@ -237,10 +241,13 @@ kMaxMode	EQU	.1
 	EncoderFlags		;saved in eprom
                        EncoderHome:2                                 ;Absolute Home, saved in eprom
 ;
-	SysMode
+	ServoFastForward:2		;saved in eprom
+	ServoFastReverse:2		;saved in eprom
+	SysMode		;saved in eprom
 	SysFlags		;saved in eprom
 ;
 	endc
+;-----------------------
 ;RX_ParseFlags Bits
 #Define	SyncByte1RXd	RX_ParseFlags,0
 #Define	SyncByte2RXd	RX_ParseFlags,1
@@ -276,6 +283,7 @@ kMaxMode	EQU	.1
 #Define	SW4_Flag	SysFlags,3
 ;
 #Define	ServoOff	SysFlags,4
+#Define	ServoIdle	SysFlags,5
 ;
 ;
 ;================================================================================================
@@ -342,11 +350,25 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 ;
 ;==============================================================================================
 ; EEPROM locations (NV-RAM) 0x00..0x7F (offsets)
+;
+; default values
+	ORG	0xF000
+	de	0x00	;nvEncoderFlags
+	de	0x00,0x00	;nvEncoderHome
+	de	low kServoFastForward
+	de	high kServoFastForward
+	de	low kServoFastReverse
+	de	high kServoFastReverse
+	de	0x00	;nvSysMode
+	de	0x00	;nvSysFlags
+;
 	cblock	0x0000
 ;
 	nvEncoderFlags
                        nvEncoderHome:2
 ;
+	nvServoFastForward:2
+	nvServoFastReverse:2
 	nvSysMode
 	nvSysFlags
 	endc
@@ -544,26 +566,29 @@ SystemTick_end:
 ;
 IRQ_Servo1	MOVLB	0	;bank 0
 	BTFSS	PIR1,CCP1IF
-	GOTO	IRQ_Servo1_End
+	bra	IRQ_Servo1_End
 ;
 	BTFSS	ServoOff	;Are we sending a pulse?
-	GOTO	IRQ_Servo1_1	; Yes
+	bra	IRQ_Servo1_1	; Yes
 ;
-;Oops, how did we get here???
+;Servo is off, idle CCP1 and keep output low
 	MOVLB	0x05
-	CLRF	CCP1CON
-	GOTO	IRQ_Servo1_X
+	movlw	CCP1CON_Idle
+	movwf	CCP1CON
+	bra	IRQ_Servo1_Dwell
 ;
-IRQ_Servo1_1	MOVLB	0x05
-	BTFSC	CCP1CON,CCP1M0	;Set output on match?
-	GOTO	IRQ_Servo1_OL	; No
+IRQ_Servo1_1	btfsc	ServoIdle
+	bra	IRQ_Servo1_Idle
+	MOVLB	0x05
+	BTFSC	CCP1CON,CCP1M1	;Idling?
+	bra	IRQ_Servo1_OL	; Yes, go high after dwell
+	BTFSC	CCP1CON,CCP1M0	;Cleared output on match?
+	bra	IRQ_Servo1_OL	; No
 ; An output just went high
 ;
-	MOVF	SigOutTime,W	;Put the pulse into the CCP reg.
-;	MOVLW	LOW kMidPulseWidth	;tc
+IRQ_Servo1_OH	MOVF	SigOutTime,W	;Put the pulse into the CCP reg.
 	ADDWF	CCPR1L,F
 	MOVF	SigOutTime+1,W
-;	MOVLW	HIGH kMidPulseWidth	;tc
 	ADDWFC	CCPR1H,F
 	MOVLW	CCP1CON_Clr	;Clear output on match
 	MOVWF	CCP1CON	;CCP1 clr on match
@@ -576,16 +601,28 @@ IRQ_Servo1_1	MOVLB	0x05
 	SUBWF	CalcdDwell,F
 	MOVF	SigOutTime+1,W
 	SUBWFB	CalcdDwellH,F
-	GOTO	IRQ_Servo1_X
+	bra	IRQ_Servo1_X
+;
+IRQ_Servo1_Idle	BTFSC	CCP1CON,CCP1M1	;Idling?
+	bra	IRQ_Servo1_Dwell	; yes, continue idling.
+	BTFSS	CCP1CON,CCP1M0	;Just went low?
+	bra	IRQ_Servo1_OH	; No, finish pulse
+	movlw	CCP1CON_Idle	; Yes, start idling
+	movwf	CCP1CON
+	MOVLW	LOW kServoDwellTime
+	MOVWF	CalcdDwell
+	MOVLW	HIGH kServoDwellTime
+	MOVWF	CalcdDwellH
+	bra	IRQ_Servo1_Dwell
 ;
 ; output went low so this cycle is done
-IRQ_Servo1_OL	MOVLW	LOW kServoDwellTime
-	ADDWF	CCPR1L,F
-	MOVLW	HIGH kServoDwellTime
-	ADDWFC	CCPR1H,F
-;
-	MOVLW	CCP1CON_Set	;Set output on match
+IRQ_Servo1_OL	MOVLW	CCP1CON_Set	;Set output on match
 	MOVWF	CCP1CON
+;
+IRQ_Servo1_Dwell	MOVF	CalcdDwell,W
+	ADDWF	CCPR1L,F
+	MOVLF	CalcdDwellH
+	ADDWFC	CCPR1H,F
 ;
 IRQ_Servo1_X	MOVLB	0x00
 	BCF	PIR1,CCP1IF
@@ -739,13 +776,13 @@ ML_Ser_End:
 ;----------------------
 ;
 	movlb	0x00	;bank 0
-	movlw	0x00
-	subwf	SysMode,W
-	SKPNZ
+	movf	SysMode,W
+	brw
 	goto	DoModeZero
+	goto	DoModeOne
 ;
 ModeReturn:
-	
+;
 	goto	MainLoop
 ;=========================================================================================
 ;*****************************************************************************************
@@ -763,13 +800,16 @@ HandleRXData	bcf	RXDataIsNew
 	SKPB		;kMaxMode+1>Data
 	return
 ;
-	
+	movf	RX_Data+1,W
+	movwf	SysMode
 ;	
 HandleRXData_1:
 	return
 ;
 ;=========================================================================================
+;Simple servo testing
 ; copy AN4 value x2 + .1976 to servo value
+;
 DoModeZero	lslf	Cur_AN4,W
 	movwf	Param7C
 	rlf	Cur_AN4+1,W
@@ -783,6 +823,67 @@ DoModeZero	lslf	Cur_AN4,W
 	call	Copy7CToSig
 ;
 	goto	ModeReturn
+;=========================================================================================
+;Testing servo and encoder
+; if AN4 + .950 > EncoderVal set servo to ServoFastForward
+; elseif AN4 + .1050 < EncoderVal set servo to ServoFastReverse
+; else Set ServoIdle
+;
+DoModeOne	movlb	0	;bank 0
+;
+;Param7A:Param79 = Cur_AN4 + .950
+	movlw	low .950
+	addwf	Cur_AN4,W
+	movwf	Param79
+	movlw	high .950
+	addwfc	Cur_AN4+1,W
+	movwf	Param7A
+;
+;Param7A:Param79 = Param7A:Param79 - EncoderVal
+	movf	EncoderVal,W
+	subwf	Param79,F
+	movf	EncoderVal+1,W
+	subwfb	Param7A,F
+;
+	btfss	Param7A,7	;Param7A:Param79 < 0?
+	bra	DM1_FF	; No, EncoderVal <= (AN4 + .950)
+;
+;Param7A:Param79 = Cur_AN4 + .1050
+	movlw	low .1050
+	addwf	Cur_AN4,W
+	movwf	Param79
+	movlw	high .1050
+	addwfc	Cur_AN4+1,W
+	movwf	Param7A
+;
+;Param7A:Param79 = Param7A:Param79 - EncoderVal
+	movf	EncoderVal,W
+	subwf	Param79,F
+	movf	EncoderVal+1,W
+	subwfb	Param7A,F
+;
+	btfsc	Param7A,7	;Param7A:Param79 < 0?
+	bra	DM1_FR	; Yes, EncoderVal > (AN4 + .1050)
+;
+; EncoderVal > (AN4 + .950) && EncoderVal <= (AN4 + .1050)
+	bsf	ServoIdle
+	goto	ModeReturn
+;	
+DM1_FF	movf	ServoFastForward,W
+	movwf	Param7C
+	movf	ServoFastForward+1,W
+	movwf	Param7D
+	call	Copy7CToSig
+	goto	ModeReturn
+;
+DM1_FR	movf	ServoFastReverse,W
+	movwf	Param7C
+	movf	ServoFastReverse+1,W
+	movwf	Param7D
+	call	Copy7CToSig
+	goto	ModeReturn
+;	
+;
 ;=========================================================================================
 ;DebounceTime,kMaxMode
 ;Timer4Lo,SysMode
@@ -888,17 +989,22 @@ Bank0_Rtn	MOVLB	0
 ;=========================================================================================
 ;
 ; Don't disable interrupts if you don't need to...
-Copy7CToSig	MOVLB	0x05
+Copy7CToSig	MOVLB	0x05	;bank 5
 	MOVF	Param7C,W
 	SUBWF	SigOutTime,W
 	SKPZ
 	BRA	Copy7CToSig_1
 	MOVF	Param7D,W
 	SUBWF	SigOutTimeH,W
-	SKPNZ
-	bra	Bank0_Rtn
+	SKPZ
+	bra	Copy7CToSig_1
+	movlb	0	;bank 0
+	BCF	ServoIdle
+	return
 ;
 Copy7CToSig_1	bcf	INTCON,GIE
+	btfsc	INTCON,GIE
+	bra	Copy7CToSig_1
 	MOVF	Param7C,W
 	MOVWF	SigOutTime
 	MOVF	Param7D,W
@@ -918,6 +1024,13 @@ StartServo	MOVLB	0	;bank 0
 	CALL	SetMiddlePosition
 	CALL	Copy7CToSig
 ;
+	movlb	0x05	;bank 5
+	MOVLW	LOW kServoDwellTime
+	MOVWF	CalcdDwell
+	MOVLW	HIGH kServoDwellTime
+	MOVWF	CalcdDwellH
+	movlb	0	;bank 0
+;
 	MOVLW	0x00	;start in 0x100 clocks
 	MOVWF	TMR1L
 	MOVLW	0xFF
@@ -931,12 +1044,29 @@ StartServo	MOVLB	0	;bank 0
 	MOVLB	0x00	;Bank 0
 	RETURN
 ;
+;=========
+;
 SetMiddlePosition	MOVLW	LOW kMidPulseWidth
 	MOVWF	Param7C
 	MOVLW	HIGH kMidPulseWidth
 	MOVWF	Param7D
 	Return
 ;
+;=========================================================================================
+StopServo	movlb	0	;bank 0
+	BTFSC	ServoOff
+	RETURN
+;
+	movlb	0x05	;bank 5
+	MOVLW	LOW kServoDwellTime
+	MOVWF	CalcdDwell
+	MOVLW	HIGH kServoDwellTime
+	MOVWF	CalcdDwellH
+	movlb	0	;bank 0
+	BSF	ServoIdle
+	BSF	ServoOff
+	return
+;	
 ;=========================================================================================
 ; ClampInt(Param7D:Param7C,kMinPulseWidth,kMaxPulseWidth)
 ;
