@@ -1,8 +1,8 @@
 ;====================================================================================================
 ;
 ;    Filename:      RS232_Parse.inc
-;    Date:          4/26/2018
-;    File Version:  1.0d2
+;    Date:          5/17/2018
+;    File Version:  1.0d3
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -13,13 +13,14 @@
 ; Notes:
 ;
 ; History:
+; 1.0d3  5/17/2018	Used Timer1Lo for RXTimeout.
 ; 1.0d2  4/26/2018	Comments, used in robot arm project.
 ; 1.0d1  1/12/2016	Modified for I2C to RS-232 8 byte packets.
 ; 1.0d1  11/9/2015	Adapted for QD Tester
 ; 1.0    12/6/2013	First Rev'd version
 ;
 ; RS232_Parse	(X/0) Parse any bytes received by the serial port
-; Packet format: FF FF SA0 (SA1) DA0 (DA1) D0 D1 D2 D3 D4 D5 D6 D7 CS
+; Packet format: (FF FF) SA0 (SA1) DA0 (DA1) D0 D1 D2 D3 D4 D5 D6 D7 (CS)
 ;  FF = Sync byte, SAn = Source Address, DA = Destination Address,
 ;       Dn = Data, CS Check Sum (xor of Address and Data bytes)
 ;  SA must be RS232_RAddr ( the boss )
@@ -28,13 +29,25 @@
 ;   set RXDataValidFlag and RXDataIsNew.
 ;=========================================================================================
 ;	constant RP_LongAddr=1		;16 bit addresses
+; default to a 6 byte packet SA DA D0 D1 D2 D3
+;
+	ifndef UseRS232SyncBytes
+	constant UseRS232SyncBytes=0
+	endif
 ;
 	ifndef RP_LongAddr
 	constant RP_LongAddr=0
 	endif
+;
 	ifndef RP_DataBytes
-	constant RP_DataBytes=8
+	constant RP_DataBytes=4
 	endif
+;
+	ifndef UseRS232Chksum
+	constant UseRS232Chksum=0
+	endif
+;
+	constant RXTimeout=5		;50 mS max between incoming bytes
 ;=========================================================================================
 ; Bank0 variable used by RS232_Parse:
 ;
@@ -75,14 +88,23 @@
 ; Ram Used: Param78, FSR
 ; Calls (1+0): GetSerIn
 ;
-RS232_Parse	CALL	GetSerIn
+RS232_Parse	movf	Timer1Lo,F
+	SKPZ
+	bra	RS232_Parse_Timing
+;timed out
+	clrf	RX_ParseFlags
+;
+RS232_Parse_Timing	CALL	GetSerIn
 	BTFSS	Param78,0	;Got a byte?
 	RETURN		; No
 ;
 	MOVWF	Param78	;Data Byte RXd
+	movlw	RXTimeout
+	movwf	Timer1Lo
 ; Command inturpreter
+	if UseRS232SyncBytes
 ;
-RS232_Parse_Sync	MOVF	RX_ParseFlags,F
+	MOVF	RX_ParseFlags,F
 	SKPZ		;Beginning new packet?
 	BRA	RS232_Parse_Sync2	; No
 	MOVLW	0xFF
@@ -101,6 +123,8 @@ RS232_Parse_Sync2	btfsc	SyncByte2RXd
 	clrf	RX_CSUM
 	clrf	RX_DataCount
 	return
+;
+	endif
 ;
 ; LSB of Source Address
 RS232_Parse_SALo	btfsc	SourceAddLoRXd
@@ -171,15 +195,23 @@ RS232_Parse_Data	btfsc	AllDataRXd
 	incf	RX_DataCount,F
 	movlw	RP_DataBytes
 	subwf	RX_DataCount,W
-	SKPNZ
-	bsf	AllDataRXd
+	SKPZ
 	return
+	bsf	AllDataRXd
+;
+	if UseRS232Chksum
+	return
+	endif
 RS232_Parse_Data_end
 ;
-RS232_Parse_CSUM	movf	Param78,W
+	if UseRS232Chksum
+; checksum
+	movf	Param78,W
 	subwf	RX_CSUM,W
 	SKPZ		;Checksum matches?
 	bra	RS232_Parse_Error	; No
+;
+	endif
 ;
 	movlw	low RX_TempData
 	movwf	FSR0L
@@ -191,7 +223,7 @@ RS232_Parse_CSUM	movf	Param78,W
 	movlw	high RX_Data
 	movwf	FSR1H
 ;
-	movlw	0x08
+	movlw	RP_DataBytes
 	movwf	Param78
 RS232_Parse_L1	moviw	FSR0++
 	movwi	FSR1++
