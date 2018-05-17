@@ -621,7 +621,7 @@ IRQ_Servo1_OL	MOVLW	CCP1CON_Set	;Set output on match
 ;
 IRQ_Servo1_Dwell	MOVF	CalcdDwell,W
 	ADDWF	CCPR1L,F
-	MOVLF	CalcdDwellH
+	MOVF	CalcdDwellH,W
 	ADDWFC	CCPR1H,F
 ;
 IRQ_Servo1_X	MOVLB	0x00
