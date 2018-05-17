@@ -33,7 +33,8 @@
 ;   At power up the system LED will blink.
 ;   Mode 0: (LED 1 = off) servo test mode, copy AN4 Pot value to servo.
 ;   Mode 1: (LED 1 = 1 flash) servo  and encoder test mode, AN4 Pot value - EncoderVal to servo dir.
-;
+;   Mode 2: Basic Serial Servo, Do what the master says.
+;   Mode 3: Absolute encoder position control.
 ;
 ;====================================================================================================
 ;
@@ -171,14 +172,24 @@ LEDFastTime	EQU	d'20'
 ;
 T1CON_Val	EQU	b'00000001'	;PreScale=1,Fosc/4,Timer ON
 ;
-TXSTA_Value	EQU	b'00100000'	;8 bit, TX enabled, Async, low speed
+;TXSTA_Value	EQU	b'00100000'	;8 bit, TX enabled, Async, low speed
+TXSTA_Value	EQU	b'00100100'	;8 bit, TX enabled, Async, high speed
 RCSTA_Value	EQU	b'10010000'	;RX enabled, 8 bit, Continious receive
+BAUDCON_Value	EQU	b'00001000'	;BRG16=1
 ; 8MHz clock low speed (BRGH=0,BRG16=1)
-Baud_300	EQU	d'1666'	;0.299, -0.02%
-Baud_1200	EQU	d'416'	;1.199, -0.08%
-Baud_2400	EQU	d'207'	;2.404, +0.16%
-Baud_9600	EQU	d'51'	;9.615, +0.16%
-BaudRate	EQU	Baud_9600
+;Baud_300	EQU	d'1666'	;0.299, -0.02%
+;Baud_1200	EQU	d'416'	;1.199, -0.08%
+;Baud_2400	EQU	d'207'	;2.404, +0.16%
+;Baud_9600	EQU	d'51'	;9.615, +0.16%
+; 32MHz clock low speed (BRGH=1,BRG16=1)
+Baud_300	EQU	.26666	;300, 0.00%
+Baud_1200	EQU	.6666	;1200, 0.00%
+Baud_2400	EQU	.3332	;2400, +0.01%
+Baud_9600	EQU	.832	;9604, +0.04%
+Baud_19200	EQU	.416	;19.18k, -0.08%
+Baud_38400	EQU	.207	;38.46k, +0.16%
+Baud_57600	EQU	.138	;57.55k, -0.08%
+BaudRate	EQU	Baud_38400
 ;
 kServoDwellTime	EQU	.40000	;20mS
 kMinPulseWidth	EQU	.1800	;900uS
@@ -188,7 +199,7 @@ kServoFastForward	EQU	.3600	;1800uS
 kServoFastReverse	EQU	.2400	;1200uS
 ;
 DebounceTime	EQU	.10
-kMaxMode	EQU	.1
+kMaxMode	EQU	.3
 ;
 ;================================================================================================
 ;***** VARIABLE DEFINITIONS
@@ -220,7 +231,7 @@ kMaxMode	EQU	.1
 	Cur_AN4:2		;Calibration Pot
 ;
 	Timer1Lo		;1st 16 bit timer
-	Timer1Hi		; one second RX timeiout
+	Timer1Hi		; 50 mS RX timeiout
 	Timer2Lo		;2nd 16 bit timer
 	Timer2Hi		;
 	Timer3Lo		;3rd 16 bit timer
@@ -235,15 +246,19 @@ kMaxMode	EQU	.1
 	RX_TempData:8
 	RX_Data:8
 ;
+	ssCmdPos:2		;Commanded position, 0=not used
+;
 	EncoderAccum:3		;Accumulated distance
 	EncoderVal:2		;Value last read, raw 12 bit data
 ;Below here are saved in eprom
-	EncoderFlags		;saved in eprom
-                       EncoderHome:2                                 ;Absolute Home, saved in eprom
+	EncoderFlags
+                       EncoderHome:2                                 ;Absolute Home
 ;
-	ServoFastForward:2		;saved in eprom
-	ServoFastReverse:2		;saved in eprom
-	SysMode		;saved in eprom
+	ServoFastForward:2
+	ServoFastReverse:2
+	SysMode
+	ssFlags		;Serial Servo flags
+	ssMaxI		;Max Current 0=off
 	SysFlags		;saved in eprom
 ;
 	endc
@@ -272,10 +287,13 @@ kMaxMode	EQU	.1
 #Define	DataSentFlag	SerFlags,2
 ;
 	endif
-
+;
 ;
 #Define	FirstRAMParam	EncoderFlags
 #Define	LastRAMParam	SysFlags
+;
+#Define	ssEnableOverCur	ssFlags,0	;disable if current is too high
+#Define	ssReverseDir	ssFlags,1	;if set ServoFastForward<=>ServoFastReverse
 ;
 #Define	SW1_Flag	SysFlags,0
 #Define	SW2_Flag	SysFlags,1
@@ -360,6 +378,8 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 	de	low kServoFastReverse
 	de	high kServoFastReverse
 	de	0x00	;nvSysMode
+	de	0x00	;nvssFlags
+	de	0x00	;nvssMaxI
 	de	0x00	;nvSysFlags
 ;
 	cblock	0x0000
@@ -370,6 +390,8 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 	nvServoFastForward:2
 	nvServoFastReverse:2
 	nvSysMode
+	nvssFlags
+	nvssMaxI
 	nvSysFlags
 	endc
 ;
@@ -621,7 +643,7 @@ IRQ_Servo1_OL	MOVLW	CCP1CON_Set	;Set output on match
 ;
 IRQ_Servo1_Dwell	MOVF	CalcdDwell,W
 	ADDWF	CCPR1L,F
-	MOVLF	CalcdDwellH
+	MOVF	CalcdDwellH,W
 	ADDWFC	CCPR1H,F
 ;
 IRQ_Servo1_X	MOVLB	0x00
@@ -641,98 +663,11 @@ IRQ_Servo1_End:
 ;
 ;==============================================================================================
 ;
-start	MOVLB	0x01	; select bank 1
-	bsf	OPTION_REG,NOT_WPUEN	; disable pullups on port B
-	bcf	OPTION_REG,TMR0CS	; TMR0 clock Fosc/4
-	bcf	OPTION_REG,PSA	; prescaler assigned to TMR0
-	bsf	OPTION_REG,PS0	;111 8mhz/4/256=7812.5hz=128uS/Ct=0.032768S/ISR
-	bsf	OPTION_REG,PS1	;101 8mhz/4/64=31250hz=32uS/Ct=0.008192S/ISR
-	bsf	OPTION_REG,PS2
-;
-	MOVLB	0x01	; bank 1
-	MOVLW	OSCCON_Value
-	MOVWF	OSCCON
-	movlw	b'00010111'	; WDT prescaler 1:65536 period is 2 sec (RESET value)
-	movwf	WDTCON
-;
-	MOVLB	0x03	; bank 3
-	CLRF	ANSELA
-	BSF	ANSELA,ANSA0
-	BSF	ANSELA,ANSA4
-	CLRF	ANSELB	;Digital I/O
-;
-;Setup T2 for 100/s
-	movlb	0	; bank 0
-	MOVLW	T2CON_Value
-	MOVWF	T2CON
-	MOVLW	PR2_Value
-	MOVWF	PR2
-	movlb	1	; bank 1
-	bsf	PIE1,TMR2IE	; enable Timer 2 interupt
-;
-; setup timer 1 for 0.5uS/count
-;
-	MOVLB	0x00	; bank 0
-	MOVLW	T1CON_Val
-	MOVWF	T1CON
-	bcf	T1GCON,TMR1GE	;always count
-;
-; clear memory to zero
-	CALL	ClearRam
-	CLRWDT
-	CALL	CopyToRam
-;
-; setup ccp1
-;
-	BSF	ServoOff
-;	BANKSEL	APFCON
-;	BSF	APFCON,CCP1SEL	;CCP1 on RA5
-	BANKSEL	CCP1CON
-	CLRF	CCP1CON
-;
-	MOVLB	0x01	;Bank 1
-	bsf	PIE1,CCP1IE
-;
-;
-	MOVLB	0x00	;Bank 0
-; setup data ports
-	movlw	PortBValue
-	movwf	PORTB	;init port B
-	movlw	PortAValue
-	movwf	PORTA
-	MOVLB	0x01	; bank 1
-	movlw	PortADDRBits
-	movwf	TRISA
-	movlw	PortBDDRBits	;setup for programer
-	movwf	TRISB
-;
-	if useRS232
-; setup serial I/O
-	MOVLW	TXSTA_Value
-	MOVWF	TXSTA
-	MOVLW	BaudRate
-	MOVWF	SPBRG
-	MOVLB	0x00	; bank 0
-	MOVLW	RCSTA_Value
-	MOVWF	RCSTA
-	endif
-;
-	CLRWDT
-;-----------------------
-;
-	MOVLB	0x00
-	MOVLW	LEDTIME
-	MOVWF	SysLED_Time
-;
-	CLRWDT
-	MOVLB	0x00
-;
-	bsf	INTCON,PEIE	; enable periferal interupts
-;	bsf	INTCON,T0IE	; enable TMR0 interupt
-	bsf	INTCON,GIE	; enable interupts
+start	call	InitializeIO
 ;
 	CALL	StartServo
 	CALL	ReadAN0_ColdStart
+;
 ;=========================================================================================
 ;=========================================================================================
 ;  Main Loop
@@ -740,7 +675,8 @@ start	MOVLB	0x01	; select bank 1
 ;=========================================================================================
 MainLoop	CLRWDT
 ;
-	goto	MainLoop	;tc
+;	goto	MainLoop	;tc
+;
 	CALL	RS232_Parse
 	btfsc	RXDataIsNew
 	call	HandleRXData
@@ -780,6 +716,8 @@ ML_Ser_End:
 	brw
 	goto	DoModeZero
 	goto	DoModeOne
+	goto	DoModeTwo
+	goto	DoModeThree	
 ;
 ModeReturn:
 ;
@@ -787,14 +725,24 @@ ModeReturn:
 ;=========================================================================================
 ;*****************************************************************************************
 ;=========================================================================================
-kCmd_SetMode	EQU	0x81
+kCmd_SetMode	EQU	0x81	;+1 data
+kCmd_SetCmdPos	EQU	0x82	;+2 data
+kCmd_SetMaxI	EQU	0x83	;+1 data
+kCmd_SetFFwd	EQU	0x84	;+2 data
+kCmd_SetFRev	EQU	0x85	;+2 data
+kCmd_SetMin_uS	EQU	0x86	;+2 data
+kCmd_SetMax_uS	EQU	0x87	;+2 data
+;
+kCmd_GetI	EQU	0x91	;return Cur_AN0
+kCmd_GetEnc	EQU	0x92	;return EncoderVal
+kCmd_GetEncAbs	EQU	0x93	;return EncoderAccum
 ; 
 HandleRXData	bcf	RXDataIsNew
 	movlw	kCmd_SetMode
 	subwf	RX_Data,W
 	SKPZ
 	goto	HandleRXData_1
-;
+; Set Mode
 	movlw	kMaxMode+1
 	subwf	RX_Data+1,W
 	SKPB		;kMaxMode+1>Data
@@ -802,8 +750,40 @@ HandleRXData	bcf	RXDataIsNew
 ;
 	movf	RX_Data+1,W
 	movwf	SysMode
+	return
 ;	
 HandleRXData_1:
+	movlw	kCmd_SetCmdPos
+	subwf	RX_Data,W
+	SKPZ
+	goto	HandleRXData_2
+; Set Command Position
+	movf	RX_Data+1,W
+	movwf	ssCmdPos
+	movf	RX_Data+2,W
+	movwf	ssCmdPos+1
+	return
+;
+HandleRXData_2:	
+	movlw	kCmd_GetEnc
+	subwf	RX_Data,W
+	SKPZ
+	goto	HandleRXData_3
+; Get Encoder Raw Position
+	movlw	RS232_MyAddr	;source address
+	call	StoreSerOut
+	movlw	RS232_RAddr	;destination address
+	call	StoreSerOut
+	movf	EncoderVal,W
+	call	StoreSerOut
+	movf	EncoderVal+1,W
+	call	StoreSerOut
+	movlw	0x00
+	call	StoreSerOut
+	movlw	0x00
+	call	StoreSerOut
+;
+HandleRXData_3:
 	return
 ;
 ;=========================================================================================
@@ -883,6 +863,87 @@ DM1_FR	movf	ServoFastReverse,W
 	call	Copy7CToSig
 	goto	ModeReturn
 ;	
+;=========================================================================================
+;Idle routine for Basic Serial Servo mode
+DoModeTwo	movlb	0
+	movf	ssCmdPos,W
+	iorwf	ssCmdPos+1,W
+	SKPNZ
+	bra	DoModeTwo_1
+; set command position
+	movf	ssCmdPos,W
+	movwf	Param7C
+	movf	ssCmdPos+1,W
+	movwf	Param7D
+	call	ClampInt
+	call	Copy7CToSig
+	goto	ModeReturn
+;
+DoModeTwo_1:	
+	bsf	ServoIdle	;power down servo
+	goto	ModeReturn
+;=========================================================================================
+DeadBand	EQU	.100
+;Idle routine for Absolute encoder position control.
+; if ssCmdPos > EncoderVal set servo to ServoFastForward
+; elseif ssCmdPos + DeadBand < EncoderVal set servo to ServoFastReverse
+; else Set ServoIdle
+;
+DoModeThree	movlb	0	;bank 0
+;
+;Param7A:Param79 = ssCmdPos
+	movf	ssCmdPos,W
+	movwf	Param79
+	movf	ssCmdPos+1,W
+	movwf	Param7A
+;
+;Param7A:Param79 = Param7A:Param79 - EncoderVal
+	movf	EncoderVal,W
+	subwf	Param79,F
+	movf	EncoderVal+1,W
+	subwfb	Param7A,F
+;
+	btfss	Param7A,7	;Param7A:Param79 < 0?
+	bra	DM3_FF	; No, EncoderVal <= ssCmdPos
+;
+;Param7A:Param79 = ssCmdPos + DeadBand
+	movlw	low DeadBand
+	addwf	ssCmdPos,W
+	movwf	Param79
+	movlw	high DeadBand
+	addwfc	ssCmdPos+1,W
+	movwf	Param7A
+;
+;Param7A:Param79 = Param7A:Param79 - EncoderVal
+	movf	EncoderVal,W
+	subwf	Param79,F
+	movf	EncoderVal+1,W
+	subwfb	Param7A,F
+;
+	btfsc	Param7A,7	;Param7A:Param79 < 0?
+	bra	DM3_FR	; Yes, EncoderVal > (ssCmdPos + DeadBand)
+;
+; EncoderVal > ssCmdPos && EncoderVal <= (ssCmdPos + DeadBand)
+	bsf	ServoIdle
+	goto	ModeReturn
+;	
+DM3_FF	btfsc	ssReverseDir
+	bra	DM3_FR_1
+DM3_FF_1	movf	ServoFastForward,W
+	movwf	Param7C
+	movf	ServoFastForward+1,W
+	movwf	Param7D
+	call	Copy7CToSig
+	goto	ModeReturn
+;
+DM3_FR	btfsc	ssReverseDir
+	bra	DM3_FF_1
+DM3_FR_1	movf	ServoFastReverse,W
+	movwf	Param7C
+	movf	ServoFastReverse+1,W
+	movwf	Param7D
+	call	Copy7CToSig
+	goto	ModeReturn
 ;
 ;=========================================================================================
 ;DebounceTime,kMaxMode
@@ -1110,6 +1171,105 @@ ClampInt_tooHigh	MOVLW	low kMaxPulseWidth
 	MOVWF	Param7D
 	RETURN
 ;
+;=========================================================================================
+; call once
+;=========================================================================================
+;
+InitializeIO	MOVLB	0x01	; select bank 1
+	bsf	OPTION_REG,NOT_WPUEN	; disable pullups on port B
+	bcf	OPTION_REG,TMR0CS	; TMR0 clock Fosc/4
+	bcf	OPTION_REG,PSA	; prescaler assigned to TMR0
+	bsf	OPTION_REG,PS0	;111 8mhz/4/256=7812.5hz=128uS/Ct=0.032768S/ISR
+	bsf	OPTION_REG,PS1	;101 8mhz/4/64=31250hz=32uS/Ct=0.008192S/ISR
+	bsf	OPTION_REG,PS2
+;
+	MOVLB	0x01	; bank 1
+	MOVLW	OSCCON_Value
+	MOVWF	OSCCON
+	movlw	b'00010111'	; WDT prescaler 1:65536 period is 2 sec (RESET value)
+	movwf	WDTCON
+;
+	MOVLB	0x03	; bank 3
+	CLRF	ANSELA
+	BSF	ANSELA,ANSA0
+	BSF	ANSELA,ANSA4
+	CLRF	ANSELB	;Digital I/O
+;
+;Setup T2 for 100/s
+	movlb	0	; bank 0
+	MOVLW	T2CON_Value
+	MOVWF	T2CON
+	MOVLW	PR2_Value
+	MOVWF	PR2
+	movlb	1	; bank 1
+	bsf	PIE1,TMR2IE	; enable Timer 2 interupt
+;
+; setup timer 1 for 0.5uS/count
+;
+	MOVLB	0x00	; bank 0
+	MOVLW	T1CON_Val
+	MOVWF	T1CON
+	bcf	T1GCON,TMR1GE	;always count
+;
+; clear memory to zero
+	CALL	ClearRam
+	CLRWDT
+	CALL	CopyToRam
+;
+; setup ccp1
+;
+	BSF	ServoOff
+;	BANKSEL	APFCON
+;	BSF	APFCON,CCP1SEL	;CCP1 on RA5
+	BANKSEL	CCP1CON
+	CLRF	CCP1CON
+;
+	MOVLB	0x01	;Bank 1
+	bsf	PIE1,CCP1IE
+;
+;
+	MOVLB	0x00	;Bank 0
+; setup data ports
+	movlw	PortBValue
+	movwf	PORTB	;init port B
+	movlw	PortAValue
+	movwf	PORTA
+	MOVLB	0x01	; bank 1
+	movlw	PortADDRBits
+	movwf	TRISA
+	movlw	PortBDDRBits	;setup for programer
+	movwf	TRISB
+;
+	if useRS232
+; setup serial I/O
+	BANKSEL	BAUDCON	; bank 3
+	movlw	BAUDCON_Value
+	movwf	BAUDCON
+	MOVLW	TXSTA_Value
+	MOVWF	TXSTA
+	MOVLW	low BaudRate
+	MOVWF	SPBRGL
+	MOVLW	high BaudRate
+	MOVWF	SPBRGH
+	MOVLW	RCSTA_Value
+	MOVWF	RCSTA
+	endif
+;
+	CLRWDT
+;-----------------------
+;
+	MOVLB	0x00
+	MOVLW	LEDTIME
+	MOVWF	SysLED_Time
+;
+	CLRWDT
+	MOVLB	0x00
+;
+	bsf	INTCON,PEIE	; enable periferal interupts
+;	bsf	INTCON,T0IE	; enable TMR0 interupt
+	bsf	INTCON,GIE	; enable interupts
+;
+	return
 ;
 	include <MagEncoder.inc>
 ;
