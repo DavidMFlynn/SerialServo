@@ -232,7 +232,9 @@ GetSerOutBytes	MOVLB	Ser_Buff_Bank
 ; Put the byte in W into the serial output buffer
 ;
 ; Entry: W = byte to store
-; Exit: Param78 & W = byte stored
+; Exit: Param78 & W = byte stored, Bank 0
+; Ram used: Param78, FSR0
+; Calls: (0) none
 ;
 StoreSerOut	MOVWF	Param78
 	MOVLB	Ser_Buff_Bank

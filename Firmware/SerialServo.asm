@@ -243,8 +243,9 @@ kMaxMode	EQU	.3
 	RX_Flags
 	RX_DataCount
 	RX_CSUM
-	RX_TempData:8
-	RX_Data:8
+	RX_TempData:RP_DataBytes
+	RX_Data:RP_DataBytes
+	TX_Data:RP_DataBytes
 ;
 	ssCmdPos:2		;Commanded position, 0=not used
 ;
@@ -256,6 +257,8 @@ kMaxMode	EQU	.3
 ;
 	ServoFastForward:2
 	ServoFastReverse:2
+	ServoMin_uS:2
+	ServoMax_uS:2
 	SysMode
 	ssFlags		;Serial Servo flags
 	ssMaxI		;Max Current 0=off
@@ -496,7 +499,7 @@ LED1_Blinking	movf	LED1_Count,W
 	movwf	LED1_Count
 	bra	LED1_Blink_end
 ;
-LED1_Start	movf	LED1_Blinks
+LED1_Start	movf	LED1_Blinks,W
 	movwf	LED1_BlinkCount
 LED1_NextBlink	movlw	LEDFastTime
 	movwf	LED1_Count
@@ -532,7 +535,7 @@ LED2_Blinking	movf	LED2_Count,W
 	movwf	LED2_Count
 	bra	LED2_Blink_end
 ;
-LED2_Start	movf	LED2_Blinks
+LED2_Start	movf	LED2_Blinks,W
 	movwf	LED2_BlinkCount
 LED2_NextBlink	movlw	LEDFastTime
 	movwf	LED2_Count
@@ -568,7 +571,7 @@ LED3_Blinking	movf	LED3_Count,W
 	movwf	LED3_Count
 	bra	LED3_Blink_end
 ;
-LED3_Start	movf	LED3_Blinks
+LED3_Start	movf	LED3_Blinks,W
 	movwf	LED3_BlinkCount
 LED3_NextBlink	movlw	LEDFastTime
 	movwf	LED3_Count
@@ -725,13 +728,20 @@ ModeReturn:
 ;=========================================================================================
 ;*****************************************************************************************
 ;=========================================================================================
-kCmd_SetMode	EQU	0x81	;+1 data
-kCmd_SetCmdPos	EQU	0x82	;+2 data
-kCmd_SetMaxI	EQU	0x83	;+1 data
-kCmd_SetFFwd	EQU	0x84	;+2 data
-kCmd_SetFRev	EQU	0x85	;+2 data
-kCmd_SetMin_uS	EQU	0x86	;+2 data
-kCmd_SetMax_uS	EQU	0x87	;+2 data
+kCmd_SetMode	EQU	0x81	;+1 data (SysMode)
+kCmd_GetMode	EQU	0x01
+kCmd_SetCmdPos	EQU	0x82	;+2 data (ssCmdPos)
+kCmd_GetCmdPos	EQU	0x02
+kCmd_SetMaxI	EQU	0x83	;+1 data (ssMaxI)
+kCmd_GetMaxI	EQU	0x03
+kCmd_SetFFwd	EQU	0x84	;+2 data (ServoFastForward)
+kCmd_GetFFwd	EQU	0x04
+kCmd_SetFRev	EQU	0x85	;+2 data (ServoFastReverse)
+kCmd_GetFRev	EQU	0x05
+kCmd_SetMin_uS	EQU	0x86	;+2 data (ServoMin_uS)
+kCmd_GetMin_uS	EQU	0x06
+kCmd_SetMax_uS	EQU	0x87	;+2 data (ServoMax_uS)
+kCmd_GetMax_uS	EQU	0x07
 ;
 kCmd_GetI	EQU	0x91	;return Cur_AN0
 kCmd_GetEnc	EQU	0x92	;return EncoderVal
@@ -741,7 +751,7 @@ HandleRXData	bcf	RXDataIsNew
 	movlw	kCmd_SetMode
 	subwf	RX_Data,W
 	SKPZ
-	goto	HandleRXData_1
+	bra	Cmd_SetMode_end
 ; Set Mode
 	movlw	kMaxMode+1
 	subwf	RX_Data+1,W
@@ -750,41 +760,219 @@ HandleRXData	bcf	RXDataIsNew
 ;
 	movf	RX_Data+1,W
 	movwf	SysMode
-	return
+	goto	TX_ACK
 ;	
-HandleRXData_1:
+Cmd_SetMode_end:
+;
+	movlw	kCmd_GetMode
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_GetMode_end
+; Get Mode
+	movf	SysMode,W
+	movwf	TX_Data
+	goto	RS232_Send
+;
+Cmd_GetMode_end:
+;----------------------
 	movlw	kCmd_SetCmdPos
 	subwf	RX_Data,W
 	SKPZ
-	goto	HandleRXData_2
+	bra	Cmd_SetCmdPos_end
 ; Set Command Position
 	movf	RX_Data+1,W
 	movwf	ssCmdPos
 	movf	RX_Data+2,W
 	movwf	ssCmdPos+1
-	return
+	goto	TX_ACK
 ;
-HandleRXData_2:	
+Cmd_SetCmdPos_end:
+;
+	movlw	kCmd_GetCmdPos
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_GetCmdPos_end
+; Get Command Position
+	movf	ssCmdPos,W
+	movwf	TX_Data
+	movf	ssCmdPos+1,W
+	movwf	TX_Data+1
+	goto	RS232_Send
+;
+Cmd_GetCmdPos_end:
+;----------------------
+	movlw	kCmd_SetMaxI
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_SetMaxI_end
+; Set Max Current
+	movf	RX_Data+1,W
+	movwf	ssMaxI
+	goto	TX_ACK
+;	
+Cmd_SetMaxI_end:
+;
+	movlw	kCmd_GetMaxI
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_GetMaxI_end
+; Get Mode
+	movf	ssMaxI,W
+	movwf	TX_Data
+	goto	RS232_Send
+;
+Cmd_GetMaxI_end:
+;----------------------
+	movlw	kCmd_SetFFwd
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_SetFFwd_end
+; Set ServoFastForward
+	movf	RX_Data+1,W
+	movwf	ServoFastForward
+	movf	RX_Data+2,W
+	movwf	ServoFastForward+1
+	goto	TX_ACK
+;
+Cmd_SetFFwd_end:
+;
+	movlw	kCmd_GetFFwd
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_GetFFwd_end
+; Get ServoFastForward
+	movf	ServoFastForward,W
+	movwf	TX_Data
+	movf	ServoFastForward+1,W
+	movwf	TX_Data+1
+	goto	RS232_Send
+;
+Cmd_GetFFwd_end:
+;----------------------
+	movlw	kCmd_SetFRev
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_SetFRev_end
+; Set ServoFastReverse
+	movf	RX_Data+1,W
+	movwf	ServoFastReverse
+	movf	RX_Data+2,W
+	movwf	ServoFastReverse+1
+	goto	TX_ACK
+;
+Cmd_SetFRev_end:
+;
+	movlw	kCmd_GetFRev
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_GetFRev_end
+; Get ServoFastReverse
+	movf	ServoFastReverse,W
+	movwf	TX_Data
+	movf	ServoFastReverse+1,W
+	movwf	TX_Data+1
+	goto	RS232_Send
+;
+Cmd_GetFRev_end:
+;----------------------
+	movlw	kCmd_SetMin_uS
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_SetMin_uS_end
+; Set ServoMin_uS
+	movf	RX_Data+1,W
+	movwf	ServoMin_uS
+	movf	RX_Data+2,W
+	movwf	ServoMin_uS+1
+	goto	TX_ACK
+;
+Cmd_SetMin_uS_end:
+;
+	movlw	kCmd_GetMin_uS
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_GetMin_uS_end
+; Get ServoMin_uS
+	movf	ServoMin_uS,W
+	movwf	TX_Data
+	movf	ServoMin_uS+1,W
+	movwf	TX_Data+1
+	goto	RS232_Send
+;
+Cmd_GetMin_uS_end:
+;----------------------
+	movlw	kCmd_SetMax_uS
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_SetMax_uS_end
+; Set ServoMax_uS
+	movf	RX_Data+1,W
+	movwf	ServoMax_uS
+	movf	RX_Data+2,W
+	movwf	ServoMax_uS+1
+	goto	TX_ACK
+;
+Cmd_SetMax_uS_end:
+;
+	movlw	kCmd_GetMax_uS
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_GetMax_uS_end
+; Get ServoMax_uS
+	movf	ServoMax_uS,W
+	movwf	TX_Data
+	movf	ServoMax_uS+1,W
+	movwf	TX_Data+1
+	goto	RS232_Send
+;
+Cmd_GetMax_uS_end:
+;----------------------
+	movlw	kCmd_GetI
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_GetI_end
+; Get servo current
+	movf	EncoderVal,W
+	movwf	TX_Data
+	movf	EncoderVal+1,W
+	movwf	TX_Data+1
+	goto	RS232_Send
+;
+Cmd_GetI_end:
+;----------------------
 	movlw	kCmd_GetEnc
 	subwf	RX_Data,W
 	SKPZ
-	goto	HandleRXData_3
+	bra	Cmd_GetEnc_end
 ; Get Encoder Raw Position
-	movlw	RS232_MyAddr	;source address
-	call	StoreSerOut
-	movlw	RS232_RAddr	;destination address
-	call	StoreSerOut
-	movf	EncoderVal,W
-	call	StoreSerOut
-	movf	EncoderVal+1,W
-	call	StoreSerOut
-	movlw	0x00
-	call	StoreSerOut
-	movlw	0x00
-	call	StoreSerOut
+	movf	Cur_AN0,W
+	movwf	TX_Data
+	movf	Cur_AN0+1,W
+	movwf	TX_Data+1
+	goto	RS232_Send
 ;
-HandleRXData_3:
+Cmd_GetEnc_end:
+;----------------------
+	movlw	kCmd_GetEncAbs
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_GetEncAbs_end
+; Get Encoder Accumulated Position
+	movf	EncoderAccum,W
+	movwf	TX_Data
+	movf	EncoderAccum+1,W
+	movwf	TX_Data+1
+	movf	EncoderAccum+2,W
+	movwf	TX_Data+2
+	goto	RS232_Send
+;
+Cmd_GetEncAbs_end:
+;
+;
 	return
+;
+TX_ACK	movlw	0xFF
+	goto	StoreSerOut
 ;
 ;=========================================================================================
 ;Simple servo testing

@@ -1,18 +1,25 @@
-;====================================================================================================
+;=========================================================================================
 ;
 ;    Filename:      RS232_Parse.inc
-;    Date:          5/17/2018
-;    File Version:  1.0d3
+;    Date:          5/18/2018
+;    File Version:  1.0d4
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
 ;    E-Mail:        dflynn@oxfordvue.com
 ;
-;====================================================================================================
-;====================================================================================================
+;=========================================================================================
+; Routines:
+;
+; RS232_Parse	Call from main loop
+; RS232_ClearTXData	Clear the TX data, FSR1
+; RS232_Send	Send the data at TX_data, FSR0, FSR1
+;
+;=========================================================================================
 ; Notes:
 ;
 ; History:
+; 1.0d4  5/18/2018	Added RS232_ClearTXData, RS232_Send.
 ; 1.0d3  5/17/2018	Used Timer1Lo for RXTimeout.
 ; 1.0d2  4/26/2018	Comments, used in robot arm project.
 ; 1.0d1  1/12/2016	Modified for I2C to RS-232 8 byte packets.
@@ -56,8 +63,9 @@
 ;	RX_Flags
 ;	RX_DataCount
 ;	RX_CSUM
-;	RX_TempData:8
-;	RX_Data:8
+;	RX_TempData:RP_DataBytes
+;	RX_Data:RP_DataBytes
+;	TX_Data:RP_DataBytes
 ;	endc
 ;RX_ParseFlags Bits
 ;#Define	SyncByte1RXd	RX_ParseFlags,0
@@ -240,4 +248,102 @@ RS232_Parse_L1	moviw	FSR0++
 RS232_Parse_Error	CLRF	RX_ParseFlags
 	GOTO	RS232_Parse
 ;
+;=========================================================================================
+; Clear the TX data, unused bytes are sent as 0x00
+; Entry: none
+; Exit: Bank 0
+; Ram used: Param78, FSR1
+; Calls: none
+RS232_ClearTXData	movlw	0	;bank 0
+	movlw	RP_DataBytes
+	movwf	Param78
+	movlw	low TX_Data
+	movwf	FSR1L
+	movlw	high TX_Data
+	movwf	FSR1H
+	movlw	0x00
+RS232_ClearTXData_L1	movwi	FSR1++
+	decfsz	Param78,F
+	bra	RS232_ClearTXData_L1
+	return
 ;
+;=========================================================================================
+; Send a data packet
+;
+;Ram used: Param78,Param79,Param7A,FSR0,FSR1
+;Calls: (1+0) StoreSerOut
+;
+RS232_Send	movlb	0	;bank 0
+;
+	if UseRS232SyncBytes
+	movlw	0xFF
+	call	StoreSerOut
+	movlw	0xFF
+	call	StoreSerOut
+	endif
+;
+	clrf	Param7A	;CSum
+	movlw	low RS232_MyAddr	;source address
+	xorwf	Param7A,F
+	call	StoreSerOut
+;
+	if RP_LongAddr
+	movlw	high RS232_MyAddr	;source address
+	xorwf	Param7A,F
+	call	StoreSerOut
+	endif
+;
+	movlw	low RS232_RAddr	;destination address
+	xorwf	Param7A,F
+	call	StoreSerOut
+;
+	if RP_LongAddr
+	movlw	high RS232_RAddr	;destination address
+	xorwf	Param7A,F
+	call	StoreSerOut
+	endif
+;
+	movlw	RP_DataBytes
+	movwf	Param79
+	movlw	low TX_Data
+	movwf	FSR1L
+	movlw	high TX_Data
+	movwf	FSR1H
+;
+RS232_Send_L1	moviw	FSR1++
+	xorwf	Param7A,F
+	call	StoreSerOut
+	decfsz	Param79,F
+	bra	RS232_Send_L1
+;
+	if UseRS232Chksum
+	movf	Param7A,W
+	call	StoreSerOut
+	endif
+;
+	goto	RS232_ClearTXData
+;
+;=========================================================================================
+;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
