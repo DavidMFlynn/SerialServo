@@ -1,4 +1,4 @@
-update=Friday, May 04, 2018 at 06:18:00 PM
+update=Friday, May 18, 2018 at 02:53:03 PM
 version=1
 last_client=eeschema
 [general]
