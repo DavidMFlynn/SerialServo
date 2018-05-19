@@ -49,12 +49,12 @@
 ;   Pin 9 (RB3/CCP1) Pulse output for Servo
 ;
 ;   Pin 10 (RB4/AN8/SLC1)  MagEnc_CLKBit
-;   Pin 11 (RB5/AN7)  LED4 (Active Low Output)(System LED)
+;   Pin 11 (RB5/AN7) Battery voltage sensing analog input
 ;   Pin 12 (RB6/AN5/CCP2) ICSPCLK
 ;   Pin 13 (RB7/AN6) ICSPDAT
 ;   Pin 14 (Vcc) +5 volts
 ;   Pin 15 (RA6) MagEnc_DataBit (Digital Input)
-;   Pin 16 (RA7/CCP2) N.C.
+;   Pin 16 (RA7/CCP2) LED4 (Active Low Output)(System LED)
 ;   Pin 17 (RA0/AN0) Current sensing analog input
 ;   Pin 18 (RA1) SW1/LED1 (Active Low Input/Output)
 ;
@@ -112,7 +112,7 @@ RS232_MyAddr	EQU	0x02	;This Slave's Address
 ;    Port A bits
 PortADDRBits	EQU	b'11111111'
 PortAValue	EQU	b'00000000'
-ANSELA_Val	EQU	b'00000001'
+ANSELA_Val	EQU	b'00010001'	;RA0/AN0, RA4/AN4
 ;
 #Define	RA0_In	PORTA,0	;Current, Analog Input
 #Define	SW1_In	PORTA,1	;SW1/LED1
@@ -121,31 +121,32 @@ ANSELA_Val	EQU	b'00000001'
 #Define	RA4_In	PORTA,4	;Pot, Analog Input
 #Define	RA5_In	PORTA,5	;VPP/MCLR*
 #Define	RA6_In	PORTA,6	;MagEnc_DataBit
-#Define	RA7_In	PORTA,7	;unused
+#Define	SW4_In	PORTA,7	;LED4 System LED
 LED1_Bit	EQU	1	;LED1 (Active Low Output)
 LED2_Bit	EQU	2	;LED2 (Active Low Output)
 LED3_Bit	EQU	3	;LED3 (Active Low Output)
+SysLED_Bit	EQU	7	;LED4 (Active Low Output)
 #Define	LED1_Tris	TRISA,LED1_Bit	;LED1 (Active Low Output)
 #Define	LED2_Tris	TRISA,LED2_Bit	;LED2 (Active Low Output)
 #Define	LED3_Tris	TRISA,LED3_Bit	;LED3 (Active Low Output)
+#Define	SysLED_Tris	TRISA,SysLED_Bit	;LED4 (Active Low Output)
 ;
 Servo_AddrDataMask	EQU	0xF8
 ;
 ;
 ;    Port B bits
-PortBDDRBits	EQU	b'11000110'	;LEDs Out Others In
+PortBDDRBits	EQU	b'11100111'	;CCP1, MagEnc_CLKBit
 PortBValue	EQU	b'00010001'
+ANSELB_Val	EQU	b'00100000'	;RB5/AN7
 ;
 #Define	RB0_In	PORTB,0	;MagEnc_DataBit
 #Define	RB1_In	PORTB,1	;RX Serial Data
 #Define	RB2_In	PORTB,2	;TX Serial Data
 #Define	RB3_Out	PORTB,3	;CCP1 Output
 #Define	RB4_In	PORTB,4	;MagEnc_CLKBit
-#Define	SW4_In	PORTB,5	;LED4 System LED
+#Define	RB5_In	PORTB,5	;Battery Volts, Analog Input
 #Define	RB6_In	PORTB,6	;ICSPCLK
 #Define	RB7_In	PORTB,7	;ICSPDAT
-SysLED_Bit	EQU	5
-#Define	SysLED_Tris	TRISB,SysLED_Bit
 ;
 ;
 ;========================================================================================
@@ -170,7 +171,8 @@ LEDTIME	EQU	d'100'	;1.00 seconds
 LEDErrorTime	EQU	d'10'
 LEDFastTime	EQU	d'20'
 ;
-T1CON_Val	EQU	b'00000001'	;PreScale=1,Fosc/4,Timer ON
+;T1CON_Val	EQU	b'00000001'	;Fosc=8MHz, PreScale=1,Fosc/4,Timer ON
+T1CON_Val	EQU	b'00100001'	;Fosc=32MHz, PreScale=4,Fosc/4,Timer ON
 ;
 ;TXSTA_Value	EQU	b'00100000'	;8 bit, TX enabled, Async, low speed
 TXSTA_Value	EQU	b'00100100'	;8 bit, TX enabled, Async, high speed
@@ -229,6 +231,7 @@ kMaxMode	EQU	.3
 ;
 	Cur_AN0:2		;IServo
 	Cur_AN4:2		;Calibration Pot
+	Cur_AN7:2		;Battery Volts
 ;
 	Timer1Lo		;1st 16 bit timer
 	Timer1Hi		; 50 mS RX timeiout
@@ -380,6 +383,10 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 	de	high kServoFastForward
 	de	low kServoFastReverse
 	de	high kServoFastReverse
+	de	low kMinPulseWidth	;nvServoMin_uS
+	de	high kMinPulseWidth
+	de	low kMaxPulseWidth	;nvServoMax_uS
+	de	high kMaxPulseWidth
 	de	0x00	;nvSysMode
 	de	0x00	;nvssFlags
 	de	0x00	;nvssMaxI
@@ -392,6 +399,8 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 ;
 	nvServoFastForward:2
 	nvServoFastReverse:2
+	nvServoMin_uS:2
+	nvServoMax_uS:2
 	nvSysMode
 	nvssFlags
 	nvssMaxI
@@ -453,15 +462,15 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 	BCF	SW2_Flag
 	BCF	SW3_Flag
 	BCF	SW4_Flag
-;	
+;
 	BTFSS	SW1_In
 	BSF	SW1_Flag
 	BTFSS	SW2_In
 	BSF	SW2_Flag
 	BTFSS	SW3_In
 	BSF	SW3_Flag
-	BTFSS	SW4_In
-	BSF	SW4_Flag
+;	BTFSS	SW4_In	;not used in rev n/c
+;	BSF	SW4_Flag
 ;
 ; Sys LED time
 	DECFSZ	SysLEDCount,F	;Is it time?
@@ -506,7 +515,6 @@ LED1_NextBlink	movlw	LEDFastTime
 ;
 	movlb	0x01
 	BCF	LED1_Tris
-	movlb	0x00
 LED1_Blink_end:
 ;-------------
 	movlb	0x00	;bank 0
@@ -542,7 +550,6 @@ LED2_NextBlink	movlw	LEDFastTime
 ;
 	movlb	0x01
 	BCF	LED2_Tris
-	movlb	0x00
 LED2_Blink_end:
 ;-------------
 	movlb	0x00	;bank 0
@@ -628,7 +635,8 @@ IRQ_Servo1_OH	MOVF	SigOutTime,W	;Put the pulse into the CCP reg.
 	SUBWFB	CalcdDwellH,F
 	bra	IRQ_Servo1_X
 ;
-IRQ_Servo1_Idle	BTFSC	CCP1CON,CCP1M1	;Idling?
+IRQ_Servo1_Idle	MOVLB	0x05
+	BTFSC	CCP1CON,CCP1M1	;Idling?
 	bra	IRQ_Servo1_Dwell	; yes, continue idling.
 	BTFSS	CCP1CON,CCP1M0	;Just went low?
 	bra	IRQ_Servo1_OH	; No, finish pulse
@@ -680,16 +688,17 @@ MainLoop	CLRWDT
 ;
 ;	goto	MainLoop	;tc
 ;
-	CALL	RS232_Parse
-	btfsc	RXDataIsNew
-	call	HandleRXData
+;	CALL	RS232_Parse
+;	btfsc	RXDataIsNew
+;	call	HandleRXData
 ;
 	CALL	ReadAN
 ;
-	call	ReadEncoder
+;	call	ReadEncoder
 ;
 	call	HandleButtons
 ;
+	if oldCode
 ;---------------------
 ; Handle Serial Communications
 	BTFSC	PIR1,TXIF	;TX done?
@@ -713,6 +722,7 @@ ML_Ser_Out	BTFSS	DataSentFlag
 	BCF	DataSentFlag
 ML_Ser_End:
 ;----------------------
+	endif
 ;
 	movlb	0x00	;bank 0
 	movf	SysMode,W
@@ -720,7 +730,7 @@ ML_Ser_End:
 	goto	DoModeZero
 	goto	DoModeOne
 	goto	DoModeTwo
-	goto	DoModeThree	
+	goto	DoModeThree
 ;
 ModeReturn:
 ;
@@ -746,7 +756,7 @@ kCmd_GetMax_uS	EQU	0x07
 kCmd_GetI	EQU	0x91	;return Cur_AN0
 kCmd_GetEnc	EQU	0x92	;return EncoderVal
 kCmd_GetEncAbs	EQU	0x93	;return EncoderAccum
-; 
+;
 HandleRXData	bcf	RXDataIsNew
 	movlw	kCmd_SetMode
 	subwf	RX_Data,W
@@ -761,7 +771,7 @@ HandleRXData	bcf	RXDataIsNew
 	movf	RX_Data+1,W
 	movwf	SysMode
 	goto	TX_ACK
-;	
+;
 Cmd_SetMode_end:
 ;
 	movlw	kCmd_GetMode
@@ -809,7 +819,7 @@ Cmd_GetCmdPos_end:
 	movf	RX_Data+1,W
 	movwf	ssMaxI
 	goto	TX_ACK
-;	
+;
 Cmd_SetMaxI_end:
 ;
 	movlw	kCmd_GetMaxI
@@ -1036,7 +1046,7 @@ DoModeOne	movlb	0	;bank 0
 ; EncoderVal > (AN4 + .950) && EncoderVal <= (AN4 + .1050)
 	bsf	ServoIdle
 	goto	ModeReturn
-;	
+;
 DM1_FF	movf	ServoFastForward,W
 	movwf	Param7C
 	movf	ServoFastForward+1,W
@@ -1050,7 +1060,7 @@ DM1_FR	movf	ServoFastReverse,W
 	movwf	Param7D
 	call	Copy7CToSig
 	goto	ModeReturn
-;	
+;
 ;=========================================================================================
 ;Idle routine for Basic Serial Servo mode
 DoModeTwo	movlb	0
@@ -1067,7 +1077,7 @@ DoModeTwo	movlb	0
 	call	Copy7CToSig
 	goto	ModeReturn
 ;
-DoModeTwo_1:	
+DoModeTwo_1:
 	bsf	ServoIdle	;power down servo
 	goto	ModeReturn
 ;=========================================================================================
@@ -1114,7 +1124,7 @@ DoModeThree	movlb	0	;bank 0
 ; EncoderVal > ssCmdPos && EncoderVal <= (ssCmdPos + DeadBand)
 	bsf	ServoIdle
 	goto	ModeReturn
-;	
+;
 DM3_FF	btfsc	ssReverseDir
 	bra	DM3_FR_1
 DM3_FF_1	movf	ServoFastForward,W
@@ -1163,8 +1173,8 @@ HdlBtn_1	btfsc	SW1_Flag
 	btfsc	SW4_Flag
 	bra	HdlBtn_Btn4
 	return
-;	
-; Mode	
+;
+; Mode
 HdlBtn_Btn1:
 	movf	SysMode,W
 	incf	SysMode,f
@@ -1190,6 +1200,7 @@ HdlBtn_Btn4:
 ANNumMask	EQU	0x7C
 AN0_Val	EQU	0x00
 AN4_Val	EQU	0x10
+AN7_Val	EQU	0x1C
 ;
 ReadAN	MOVLB	1	;bank 1
 	BTFSS	ADCON0,ADON	;Is the Analog input ON?
@@ -1198,20 +1209,34 @@ ReadAN	MOVLB	1	;bank 1
 	BTFSC	ADCON0,GO_NOT_DONE	;Conversion done?
 	BRA	ReadAN_Rtn	; No
 ;
-	movlw	AN4_Val
-	movwf	Param78
 	clrf	FSR0H
-	movlw	LOW Cur_AN0
-	movwf	FSR0L
-;
 	movf	ADCON0,W
 	andlw	ANNumMask
-	sublw	AN4_Val
-	SKPZ
-	bra	ReadAN_1
-	movlw	LOW Cur_AN4
+	SKPNZ
+	bra	ReadAN_AN0
+;
+	movwf	Param78
+	movlw	AN4_Val
+	subwf	Param78,W
+	SKPNZ
+	bra	ReadAN_AN4
+;
+	movlw	AN0_Val	;next to read
+	movwf	Param78
+	movlw	LOW Cur_AN7
 	movwf	FSR0L
-	clrf	Param78
+	bra	ReadAN_1
+;
+ReadAN_AN4	movlw	AN7_Val	;next to read
+	movwf	Param78
+	movlw	low Cur_AN4
+	movwf	FSR0L
+	bra	ReadAN_1
+;
+ReadAN_AN0	movlw	AN4_Val	;next to read
+	movwf	Param78
+	movlw	low Cur_AN0
+	movwf	FSR0L
 ;
 ReadAN_1	MOVF	ADRESL,W
 	MOVWI	FSR0++
@@ -1242,14 +1267,11 @@ Copy7CToSig	MOVLB	0x05	;bank 5
 	MOVF	Param7C,W
 	SUBWF	SigOutTime,W
 	SKPZ
-	BRA	Copy7CToSig_1
+	bra	Copy7CToSig_1
 	MOVF	Param7D,W
 	SUBWF	SigOutTimeH,W
-	SKPZ
-	bra	Copy7CToSig_1
-	movlb	0	;bank 0
-	BCF	ServoIdle
-	return
+	SKPNZ
+	bra	Copy7CToSig_Done
 ;
 Copy7CToSig_1	bcf	INTCON,GIE
 	btfsc	INTCON,GIE
@@ -1259,7 +1281,9 @@ Copy7CToSig_1	bcf	INTCON,GIE
 	MOVF	Param7D,W
 	MOVWF	SigOutTimeH
 	bsf	INTCON,GIE
-	bra	Bank0_Rtn
+Copy7CToSig_Done	movlb	0	;bank 0
+	BCF	ServoIdle
+	return
 ;
 ;=========================================================================================
 ;=========================================================================================
@@ -1315,7 +1339,7 @@ StopServo	movlb	0	;bank 0
 	BSF	ServoIdle
 	BSF	ServoOff
 	return
-;	
+;
 ;=========================================================================================
 ; ClampInt(Param7D:Param7C,kMinPulseWidth,kMaxPulseWidth)
 ;
@@ -1378,10 +1402,10 @@ InitializeIO	MOVLB	0x01	; select bank 1
 	movwf	WDTCON
 ;
 	MOVLB	0x03	; bank 3
-	CLRF	ANSELA
-	BSF	ANSELA,ANSA0
-	BSF	ANSELA,ANSA4
-	CLRF	ANSELB	;Digital I/O
+	movlw	ANSELA_Val
+	movwf	ANSELA
+	movlw	ANSELB_Val
+	movwf	ANSELB
 ;
 ;Setup T2 for 100/s
 	movlb	0	; bank 0
@@ -1449,18 +1473,20 @@ InitializeIO	MOVLB	0x01	; select bank 1
 	MOVLB	0x00
 	MOVLW	LEDTIME
 	MOVWF	SysLED_Time
+	movlw	0x01
+	movwf	SysLEDCount	;start blinking right away
+	movlw	.100
+	movwf	Timer4Lo	;ignor buttons for 1st second
 ;
 	CLRWDT
-	MOVLB	0x00
 ;
 	bsf	INTCON,PEIE	; enable periferal interupts
-;	bsf	INTCON,T0IE	; enable TMR0 interupt
 	bsf	INTCON,GIE	; enable interupts
 ;
 	return
 ;
+;=========================================================================================
 	include <MagEncoder.inc>
-;
 	include <SerBuff1938.inc>
 	include <RS232_Parse.inc>
 ;=========================================================================================
