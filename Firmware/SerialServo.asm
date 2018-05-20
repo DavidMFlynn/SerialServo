@@ -688,9 +688,9 @@ MainLoop	CLRWDT
 ;
 ;	goto	MainLoop	;tc
 ;
-;	CALL	RS232_Parse
-;	btfsc	RXDataIsNew
-;	call	HandleRXData
+	CALL	RS232_Parse
+	btfsc	RXDataIsNew
+	call	HandleRXData
 ;
 	CALL	ReadAN
 ;

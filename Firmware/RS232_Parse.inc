@@ -107,6 +107,7 @@ RS232_Parse_Timing	CALL	GetSerIn
 	RETURN		; No
 ;
 	MOVWF	Param78	;Data Byte RXd
+	call	StoreSerOut
 	movlw	RXTimeout
 	movwf	Timer1Lo
 ; Command inturpreter
