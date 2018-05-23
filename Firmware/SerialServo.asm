@@ -135,8 +135,8 @@ Servo_AddrDataMask	EQU	0xF8
 ;
 ;
 ;    Port B bits
-PortBDDRBits	EQU	b'11100111'	;CCP1, MagEnc_CLKBit
-PortBValue	EQU	b'00010001'
+PortBDDRBits	EQU	b'11100011'	;CCP1, MagEnc_CLKBit
+PortBValue	EQU	b'00010101'
 ANSELB_Val	EQU	b'00100000'	;RB5/AN7
 ;
 #Define	RB0_In	PORTB,0	;MagEnc_DataBit
@@ -660,10 +660,15 @@ IRQ_Servo1_Dwell	MOVF	CalcdDwell,W
 IRQ_Servo1_X	MOVLB	0x00
 	BCF	PIR1,CCP1IF
 IRQ_Servo1_End:
-;=========================================================================================
+;-----------------------------------------------------------------------------------------
+;AUSART Serial ISR
 ;
-;=========================================================================================
+IRQ_Ser	BTFSS	PIR1,RCIF	;RX has a byte?
+	BRA	IRQ_Ser_End
+	CALL	RX_TheByte
 ;
+IRQ_Ser_End:
+;-----------------------------------------------------------------------------------------
 	retfie		; return from interrupt
 ;
 ;
@@ -698,7 +703,6 @@ MainLoop	CLRWDT
 ;
 	call	HandleButtons
 ;
-	if oldCode
 ;---------------------
 ; Handle Serial Communications
 	BTFSC	PIR1,TXIF	;TX done?
@@ -722,7 +726,6 @@ ML_Ser_Out	BTFSS	DataSentFlag
 	BCF	DataSentFlag
 ML_Ser_End:
 ;----------------------
-	endif
 ;
 	movlb	0x00	;bank 0
 	movf	SysMode,W
@@ -1457,14 +1460,18 @@ InitializeIO	MOVLB	0x01	; select bank 1
 	BANKSEL	BAUDCON	; bank 3
 	movlw	BAUDCON_Value
 	movwf	BAUDCON
-	MOVLW	TXSTA_Value
-	MOVWF	TXSTA
 	MOVLW	low BaudRate
 	MOVWF	SPBRGL
 	MOVLW	high BaudRate
 	MOVWF	SPBRGH
+	MOVLW	TXSTA_Value
+	MOVWF	TXSTA
 	MOVLW	RCSTA_Value
 	MOVWF	RCSTA
+	movlb	0x01	; bank 1
+	BSF	PIE1,RCIE	; Serial Receive interupt
+	movlb	0x00	; bank 0
+;
 	endif
 ;
 	CLRWDT
