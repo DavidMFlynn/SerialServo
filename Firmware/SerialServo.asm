@@ -691,8 +691,6 @@ start	call	InitializeIO
 ;=========================================================================================
 MainLoop	CLRWDT
 ;
-;	goto	MainLoop	;tc
-;
 	CALL	RS232_Parse
 	btfsc	RXDataIsNew
 	call	HandleRXData
@@ -776,7 +774,7 @@ HandleRXData	bcf	RXDataIsNew
 	goto	TX_ACK
 ;
 Cmd_SetMode_end:
-;
+;---------------------
 	movlw	kCmd_GetMode
 	subwf	RX_Data,W
 	SKPZ

@@ -107,7 +107,7 @@ RS232_Parse_Timing	CALL	GetSerIn
 	RETURN		; No
 ;
 	MOVWF	Param78	;Data Byte RXd
-	call	StoreSerOut
+;	call	StoreSerOut	;tc echo everything
 	movlw	RXTimeout
 	movwf	Timer1Lo
 ; Command inturpreter
@@ -277,10 +277,12 @@ RS232_ClearTXData_L1	movwi	FSR1++
 RS232_Send	movlb	0	;bank 0
 ;
 	if UseRS232SyncBytes
+;
 	movlw	0xFF
 	call	StoreSerOut
 	movlw	0xFF
 	call	StoreSerOut
+;
 	endif
 ;
 	clrf	Param7A	;CSum
