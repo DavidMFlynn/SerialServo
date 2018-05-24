@@ -97,17 +97,20 @@
 ; Calls (1+0): GetSerIn
 ;
 RS232_Parse	movf	Timer1Lo,F
-	SKPZ
-	bra	RS232_Parse_Timing
+	SKPZ		;Timed out?
+	bra	RS232_Parse_Timing	; no
 ;timed out
+	movf	RX_ParseFlags,F	;Yes
+	SKPNZ		;Receive in process?
+	bra	RS232_Parse_Timing	; no
 	clrf	RX_ParseFlags
+	goto	FlushInBuff
 ;
 RS232_Parse_Timing	CALL	GetSerIn
 	BTFSS	Param78,0	;Got a byte?
 	RETURN		; No
 ;
 	MOVWF	Param78	;Data Byte RXd
-;	call	StoreSerOut	;tc echo everything
 	movlw	RXTimeout
 	movwf	Timer1Lo
 ; Command inturpreter
@@ -247,7 +250,7 @@ RS232_Parse_L1	moviw	FSR0++
 ;
 ; We didn't get the sync byte we were expecting so restart the parser
 RS232_Parse_Error	CLRF	RX_ParseFlags
-	GOTO	RS232_Parse
+	goto	FlushInBuff
 ;
 ;=========================================================================================
 ; Clear the TX data, unused bytes are sent as 0x00

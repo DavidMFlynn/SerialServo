@@ -1,8 +1,8 @@
 ;=========================================================================================
 ;
 ;    Filename:      SerBuff.inc
-;    Date:          12/15/2015                                     
-;    File Version:  1.0.3
+;    Date:          5/23/2018                                    
+;    File Version:  1.0.4
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -13,6 +13,7 @@
 ; Notes:
 ;
 ; History:
+; 1.0.4    5/23/2018	Added FlushInBuff.
 ; 1.0.3    12/15/2015	Optimized some code to be segment independent.
 ; 1.0.2    10/23/2015	Modified for 'F1938
 ; 1.0.1    12/6/2013	Modified for 'F1847
@@ -50,6 +51,7 @@
 ; RX_TheByte	(0+0) Receive one byte from UART
 ; StoreSerIn	(X/0) Put the byte in W into the serial input buffer, FSR0
 ; GetSerIn	(X/0) Get a byte from the serial input buffer, FSR0
+; FlushInBuff	(X/0) Flush the serial incoming buffer.
 ; GetSerOutBytes	(X/0) Get the number of bytes in the serial ouput buffer
 ; StoreSerOut	(X/0) Put the byte in W into the serial output buffer, FSR0
 ; POP_SerOut	(X/0) Remove the last char stored in the output buffer
@@ -217,6 +219,17 @@ GetSerIn	MOVLB	Ser_Buff_Bank
 GetSerIn_End	movlb	0
 	return
 ;
+;=========================================================================================
+; Flush the serial incoming buffer
+; Entry: none
+; Exit: bank 0
+;
+FlushInBuff	movlb	Ser_Buff_Bank
+	clrf	Ser_In_Bytes
+	clrf	Ser_In_OutPtr
+	clrf	Ser_In_InPtr
+	movlb	0
+	return
 ;=========================================================================================
 ; Get the number of bytes in the serial ouput buffer
 ;
