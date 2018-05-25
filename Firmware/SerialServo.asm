@@ -763,10 +763,15 @@ kCmd_SetMin_uS	EQU	0x86	;+2 data (ServoMin_uS)
 kCmd_GetMin_uS	EQU	0x06
 kCmd_SetMax_uS	EQU	0x87	;+2 data (ServoMax_uS)
 kCmd_GetMax_uS	EQU	0x07
+kCmd_SetRevDir	EQU	0x88	;+1 data (ssReverseDir)
+kCmd_GetRevDir	EQU	0x08
+kCmd_SetEnaOvrCur	EQU	0x89	;+1 data (ssEnableOverCur)
+kCmd_GetEnaOvrCur	EQU	0x09
 ;
 kCmd_GetI	EQU	0x91	;return Cur_AN0
 kCmd_GetEnc	EQU	0x92	;return EncoderVal
 kCmd_GetEncAbs	EQU	0x93	;return EncoderAccum
+kCmd_SaveParams	EQU	0x94	;Save all eeprom params
 ;
 HandleRXData	bcf	RXDataIsNew
 	btfss	RXDataValidFlag	;from master to me?
