@@ -1,8 +1,8 @@
 ;====================================================================================================
 ;
 ;    Filename:      SerialServo.asm
-;    Date:          4/26/2018
-;    File Version:  1.0d1
+;    Date:          5/24/2018
+;    File Version:  1.0a1
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -22,6 +22,7 @@
 ;
 ;    History:
 ;
+; 1.0a1   5/24/2018	It begins to work.
 ; 1.0d1   4/26/2018	First code.
 ;
 ;====================================================================================================
@@ -43,7 +44,7 @@
 ;   Pin 3 (RA4/AN4) Calibration Pot (Analog Input)
 ;   Pin 4 (RA5/MCLR*) VPP/MCLR*
 ;   Pin 5 (GND) Ground
-;   Pin 6 (RB0) MagEnc_CSBit
+;   Pin 6 (RB0) MagEnc_CSBit (Active Low Output)
 ;   Pin 7 (RB1/AN11/SDA1) TTL Serial RX
 ;   Pin 8 (RB2/AN10/TX) TTL Serial TX
 ;   Pin 9 (RB3/CCP1) Pulse output for Servo
@@ -97,7 +98,9 @@
 	constant	UseEEParams=1
 ;
 	constant	RP_LongAddr=0
+	constant	RP_AddressBytes=1
 	constant	RP_DataBytes=4
+;
 RS232_RAddr	EQU	0x01	;Master's Address
 RS232_MyAddr	EQU	0x02	;This Slave's Address
 ;
@@ -135,11 +138,11 @@ Servo_AddrDataMask	EQU	0xF8
 ;
 ;
 ;    Port B bits
-PortBDDRBits	EQU	b'11100011'	;CCP1, MagEnc_CLKBit
+PortBDDRBits	EQU	b'11100010'	;CCP1, MagEnc_CLKBit
 PortBValue	EQU	b'00010101'
 ANSELB_Val	EQU	b'00100000'	;RB5/AN7
 ;
-#Define	RB0_In	PORTB,0	;MagEnc_DataBit
+#Define	RB0_In	PORTB,0	;MagEnc_CSBit (Active Low Output)
 #Define	RB1_In	PORTB,1	;RX Serial Data
 #Define	RB2_In	PORTB,2	;TX Serial Data
 #Define	RB3_Out	PORTB,3	;CCP1 Output
@@ -246,6 +249,8 @@ kMaxMode	EQU	.3
 	RX_Flags
 	RX_DataCount
 	RX_CSUM
+	RX_SrcAdd:RP_AddressBytes
+	RX_DstAdd:RP_AddressBytes
 	RX_TempData:RP_DataBytes
 	RX_Data:RP_DataBytes
 	TX_Data:RP_DataBytes
@@ -281,6 +286,8 @@ kMaxMode	EQU	.3
 ;RX_Flags Bits
 #Define	RXDataValidFlag	RX_Flags,0
 #Define	RXDataIsNew	RX_Flags,1
+#Define	RXSrcIsMaster	RX_Flags,2
+#Define	RXDstIsMe	RX_Flags,3
 ;
 	if useRS232
 	cblock
@@ -691,13 +698,16 @@ start	call	InitializeIO
 ;=========================================================================================
 MainLoop	CLRWDT
 ;
-	CALL	RS232_Parse
+	call	GetSerInBytes
+	SKPZ		;Any data?
+	CALL	RS232_Parse	; yes
+;
 	btfsc	RXDataIsNew
 	call	HandleRXData
 ;
 	CALL	ReadAN
 ;
-;	call	ReadEncoder
+	call	ReadEncoder
 ;
 	call	HandleButtons
 ;
@@ -759,6 +769,9 @@ kCmd_GetEnc	EQU	0x92	;return EncoderVal
 kCmd_GetEncAbs	EQU	0x93	;return EncoderAccum
 ;
 HandleRXData	bcf	RXDataIsNew
+	btfss	RXDataValidFlag	;from master to me?
+	return		; no, ignore this packet
+;---kCmd_SetMode-------------------
 	movlw	kCmd_SetMode
 	subwf	RX_Data,W
 	SKPZ
@@ -771,10 +784,11 @@ HandleRXData	bcf	RXDataIsNew
 ;
 	movf	RX_Data+1,W
 	movwf	SysMode
+	movwf	LED1_Blinks
 	goto	TX_ACK
 ;
 Cmd_SetMode_end:
-;---------------------
+;---kCmd_GetMode------------------
 	movlw	kCmd_GetMode
 	subwf	RX_Data,W
 	SKPZ
@@ -785,7 +799,7 @@ Cmd_SetMode_end:
 	goto	RS232_Send
 ;
 Cmd_GetMode_end:
-;----------------------
+;---kCmd_SetCmdPos-------------------
 	movlw	kCmd_SetCmdPos
 	subwf	RX_Data,W
 	SKPZ
@@ -798,7 +812,7 @@ Cmd_GetMode_end:
 	goto	TX_ACK
 ;
 Cmd_SetCmdPos_end:
-;
+;---kCmd_GetCmdPos------------------
 	movlw	kCmd_GetCmdPos
 	subwf	RX_Data,W
 	SKPZ
@@ -811,7 +825,7 @@ Cmd_SetCmdPos_end:
 	goto	RS232_Send
 ;
 Cmd_GetCmdPos_end:
-;----------------------
+;---kCmd_SetMaxI-------------------
 	movlw	kCmd_SetMaxI
 	subwf	RX_Data,W
 	SKPZ
@@ -822,7 +836,7 @@ Cmd_GetCmdPos_end:
 	goto	TX_ACK
 ;
 Cmd_SetMaxI_end:
-;
+;---kCmd_GetMaxI-------------------
 	movlw	kCmd_GetMaxI
 	subwf	RX_Data,W
 	SKPZ
@@ -833,7 +847,7 @@ Cmd_SetMaxI_end:
 	goto	RS232_Send
 ;
 Cmd_GetMaxI_end:
-;----------------------
+;---kCmd_SetFFwd-------------------
 	movlw	kCmd_SetFFwd
 	subwf	RX_Data,W
 	SKPZ
@@ -846,7 +860,7 @@ Cmd_GetMaxI_end:
 	goto	TX_ACK
 ;
 Cmd_SetFFwd_end:
-;
+;---kCmd_GetFFwd-------------------
 	movlw	kCmd_GetFFwd
 	subwf	RX_Data,W
 	SKPZ
@@ -859,7 +873,7 @@ Cmd_SetFFwd_end:
 	goto	RS232_Send
 ;
 Cmd_GetFFwd_end:
-;----------------------
+;---kCmd_SetFRev-------------------
 	movlw	kCmd_SetFRev
 	subwf	RX_Data,W
 	SKPZ
@@ -872,7 +886,7 @@ Cmd_GetFFwd_end:
 	goto	TX_ACK
 ;
 Cmd_SetFRev_end:
-;
+;---kCmd_GetFRev------------------
 	movlw	kCmd_GetFRev
 	subwf	RX_Data,W
 	SKPZ
@@ -885,7 +899,7 @@ Cmd_SetFRev_end:
 	goto	RS232_Send
 ;
 Cmd_GetFRev_end:
-;----------------------
+;---kCmd_SetMin_uS-------------------
 	movlw	kCmd_SetMin_uS
 	subwf	RX_Data,W
 	SKPZ
@@ -898,7 +912,7 @@ Cmd_GetFRev_end:
 	goto	TX_ACK
 ;
 Cmd_SetMin_uS_end:
-;
+;---kCmd_GetMin_uS----------------
 	movlw	kCmd_GetMin_uS
 	subwf	RX_Data,W
 	SKPZ
@@ -911,7 +925,7 @@ Cmd_SetMin_uS_end:
 	goto	RS232_Send
 ;
 Cmd_GetMin_uS_end:
-;----------------------
+;---kCmd_SetMax_uS-------------------
 	movlw	kCmd_SetMax_uS
 	subwf	RX_Data,W
 	SKPZ
@@ -924,7 +938,7 @@ Cmd_GetMin_uS_end:
 	goto	TX_ACK
 ;
 Cmd_SetMax_uS_end:
-;
+;---kCmd_GetMax_uS-----------------
 	movlw	kCmd_GetMax_uS
 	subwf	RX_Data,W
 	SKPZ
@@ -937,33 +951,33 @@ Cmd_SetMax_uS_end:
 	goto	RS232_Send
 ;
 Cmd_GetMax_uS_end:
-;----------------------
+;---kCmd_GetI-------------------
 	movlw	kCmd_GetI
 	subwf	RX_Data,W
 	SKPZ
 	bra	Cmd_GetI_end
 ; Get servo current
-	movf	EncoderVal,W
-	movwf	TX_Data
-	movf	EncoderVal+1,W
-	movwf	TX_Data+1
-	goto	RS232_Send
-;
-Cmd_GetI_end:
-;----------------------
-	movlw	kCmd_GetEnc
-	subwf	RX_Data,W
-	SKPZ
-	bra	Cmd_GetEnc_end
-; Get Encoder Raw Position
 	movf	Cur_AN0,W
 	movwf	TX_Data
 	movf	Cur_AN0+1,W
 	movwf	TX_Data+1
 	goto	RS232_Send
 ;
+Cmd_GetI_end:
+;---kCmd_GetEnc-------------------
+	movlw	kCmd_GetEnc
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_GetEnc_end
+; Get Encoder Raw Position
+	movf	EncoderVal,W
+	movwf	TX_Data
+	movf	EncoderVal+1,W
+	movwf	TX_Data+1
+	goto	RS232_Send
+;
 Cmd_GetEnc_end:
-;----------------------
+;---kCmd_GetEncAbs-------------------
 	movlw	kCmd_GetEncAbs
 	subwf	RX_Data,W
 	SKPZ
@@ -1064,6 +1078,7 @@ DM1_FR	movf	ServoFastReverse,W
 ;
 ;=========================================================================================
 ;Idle routine for Basic Serial Servo mode
+;
 DoModeTwo	movlb	0
 	movf	ssCmdPos,W
 	iorwf	ssCmdPos+1,W
@@ -1081,8 +1096,9 @@ DoModeTwo	movlb	0
 DoModeTwo_1:
 	bsf	ServoIdle	;power down servo
 	goto	ModeReturn
+;
 ;=========================================================================================
-DeadBand	EQU	.100
+DeadBand	EQU	.100	;50uS
 ;Idle routine for Absolute encoder position control.
 ; if ssCmdPos > EncoderVal set servo to ServoFastForward
 ; elseif ssCmdPos + DeadBand < EncoderVal set servo to ServoFastReverse

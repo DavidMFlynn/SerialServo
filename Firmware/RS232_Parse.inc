@@ -96,22 +96,22 @@
 ; Ram Used: Param78, FSR
 ; Calls (1+0): GetSerIn
 ;
-RS232_Parse	movf	Timer1Lo,F
-	SKPZ		;Timed out?
-	bra	RS232_Parse_Timing	; no
-;timed out
-	movf	RX_ParseFlags,F	;Yes
+RS232_Parse	movf	RX_ParseFlags,F	;Yes
 	SKPNZ		;Receive in process?
-	bra	RS232_Parse_Timing	; no
-	clrf	RX_ParseFlags
-	goto	FlushInBuff
+	bra	RS232_Parse_Byte	; no
 ;
-RS232_Parse_Timing	CALL	GetSerIn
+	movf	Timer1Lo,F
+	SKPZ		;Timed out?
+	bra	RS232_Parse_Byte	; no
+;timed out
+	clrf	RX_ParseFlags
+;
+RS232_Parse_Byte	CALL	GetSerIn
 	BTFSS	Param78,0	;Got a byte?
 	RETURN		; No
 ;
 	MOVWF	Param78	;Data Byte RXd
-	movlw	RXTimeout
+	movlw	RXTimeout	;Reset time-out timer
 	movwf	Timer1Lo
 ; Command inturpreter
 	if UseRS232SyncBytes
@@ -132,8 +132,6 @@ RS232_Parse_Sync2	btfsc	SyncByte2RXd
 	SKPZ
 	goto	RS232_Parse_Error
 	bsf	SyncByte2RXd
-	clrf	RX_CSUM
-	clrf	RX_DataCount
 	return
 ;
 	endif
@@ -141,12 +139,17 @@ RS232_Parse_Sync2	btfsc	SyncByte2RXd
 ; LSB of Source Address
 RS232_Parse_SALo	btfsc	SourceAddLoRXd
 	bra	RS232_Parse_SALo_end
+;
+	clrf	RX_CSUM
+	clrf	RX_DataCount
+	bsf	RXSrcIsMaster
 	movlw	low RS232_RAddr
 	subwf	Param78,W
 	SKPZ
-	goto	RS232_Parse_Error
+	bcf	RXSrcIsMaster
 	bsf	SourceAddLoRXd
 	movf	Param78,W
+	movwf	RX_SrcAdd
 	xorwf	RX_CSUM,F
 	return
 RS232_Parse_SALo_end
@@ -158,9 +161,10 @@ RS232_Parse_SAHi	btfsc	SourceAddHiRXd
 	movlw	high RS232_RAddr
 	subwf	Param78,W
 	SKPZ
-	goto	RS232_Parse_Error
+	bcf	RXSrcIsMaster
 	bsf	SourceAddHiRXd
 	movf	Param78,W
+	movwf	RX_SrcAdd+1
 	xorwf	RX_CSUM,F
 	return
 RS232_Parse_SAHi_end
@@ -169,12 +173,14 @@ RS232_Parse_SAHi_end
 ; LSB of Destination Address
 RS232_Parse_DALo	btfsc	DestAddLoRXd
 	bra	RS232_Parse_DALo_End
+	bsf	RXDstIsMe
 	movlw	low RS232_MyAddr
 	subwf	Param78,W
 	SKPZ
-	goto	RS232_Parse_Error
+	bcf	RXDstIsMe
 	bsf	DestAddLoRXd
 	movf	Param78,W
+	movwf	RX_DstAdd
 	xorwf	RX_CSUM,F
 	return
 RS232_Parse_DALo_End
@@ -186,9 +192,10 @@ RS232_Parse_DAHi	btfsc	DestAddHiRXd
 	movlw	high RS232_MyAddr
 	subwf	Param78,W
 	SKPZ
-	goto	RS232_Parse_Error
+	bcf	RXDstIsMe
 	bsf	DestAddHiRXd
 	movf	Param78,W
+	movwf	RX_DstAdd+1
 	xorwf	RX_CSUM,F
 	return
 RS232_Parse_DAHi_end
@@ -242,8 +249,13 @@ RS232_Parse_L1	moviw	FSR0++
 	decfsz	Param78,F
 	bra	RS232_Parse_L1
 ;
+	bsf	RXDataIsNew	;good packet rx'd
 	bsf	RXDataValidFlag
-	bsf	RXDataIsNew
+	btfss	RXSrcIsMaster	;from master?
+	bcf	RXDataValidFlag	; no
+	btfss	RXDstIsMe	;to me?
+	bcf	RXDataValidFlag	; no
+;
 	clrf	RX_ParseFlags
 	return
 ;

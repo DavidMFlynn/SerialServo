@@ -1,8 +1,8 @@
 ;=========================================================================================
 ;
 ;    Filename:      SerBuff.inc
-;    Date:          5/23/2018                                    
-;    File Version:  1.0.4
+;    Date:          5/24/2018                                    
+;    File Version:  1.0.5
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -13,6 +13,7 @@
 ; Notes:
 ;
 ; History:
+; 1.0.5    5/24/2018   Added GetSerInBytes.
 ; 1.0.4    5/23/2018	Added FlushInBuff.
 ; 1.0.3    12/15/2015	Optimized some code to be segment independent.
 ; 1.0.2    10/23/2015	Modified for 'F1938
@@ -52,6 +53,7 @@
 ; StoreSerIn	(X/0) Put the byte in W into the serial input buffer, FSR0
 ; GetSerIn	(X/0) Get a byte from the serial input buffer, FSR0
 ; FlushInBuff	(X/0) Flush the serial incoming buffer.
+; GetSerInBytes	(X/0) Get the number of bytes in the serial input buffer
 ; GetSerOutBytes	(X/0) Get the number of bytes in the serial ouput buffer
 ; StoreSerOut	(X/0) Put the byte in W into the serial output buffer, FSR0
 ; POP_SerOut	(X/0) Remove the last char stored in the output buffer
@@ -230,6 +232,18 @@ FlushInBuff	movlb	Ser_Buff_Bank
 	clrf	Ser_In_InPtr
 	movlb	0
 	return
+;
+;=========================================================================================
+; Get the number of bytes in the serial input buffer
+;
+; Entry: none
+; Exit: W=bytes in buffer, Z
+;
+GetSerInBytes	MOVLB	Ser_Buff_Bank
+	MOVF	Ser_In_Bytes,W
+	movlb	0
+	return
+;
 ;=========================================================================================
 ; Get the number of bytes in the serial ouput buffer
 ;
