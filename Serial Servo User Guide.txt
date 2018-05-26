@@ -1,0 +1,50 @@
+TTL Serial connected to a USB to Serial.
+
+All packets are 6 bytes w/o optional sync bytes and checksum:
+Source Address, Destination Address and 4 data bytes
+
+Default master address is 1
+Default slave address is 2
+
+All commands return something. Some return a data packet (Slave,Master,Data0,Data1,Data2,Data3),
+others return only a single byte (0xFF) as an acknolagement
+
+Mode:
+------------------------------------------------------------------------------------------
+Mode 0: (LED 1 = off) servo test mode, copy AN4 Pot value to servo.
+Mode 1: (LED 1 = 1 flash) servo and encoder test mode, AN4 Pot value - EncoderVal to servo dir.
+Mode 2: Basic Serial Servo, output servo pulse of CmdPos * 0.5uS.
+Mode 3: Absolute encoder position control.
+
+
+Commands:
+kCmd_SetMode(0x81)	+1 data (SysMode), return ACK
+kCmd_GetMode(0x01)
+kCmd_SetCmdPos(0x82)	+2 data (ssCmdPos), return ACK
+kCmd_GetCmdPos(0x02)
+kCmd_SetMaxI(0x83)	+1 data (ssMaxI), return ACK
+kCmd_GetMaxI(0x03)
+kCmd_SetFFwd(0x84)	+2 data (ServoFastForward), return ACK
+kCmd_GetFFwd(0x04)
+kCmd_SetFRev(0x85)	+2 data (ServoFastReverse), return ACK
+kCmd_GetFRev(0x05)
+kCmd_SetMin_uS(0x86)	+2 data (ServoMin_uS), return ACK
+kCmd_GetMin_uS(0x06)
+kCmd_SetMax_uS(0x87)	+2 data (ServoMax_uS), return ACK
+kCmd_GetMax_uS(0x07)
+kCmd_SetRevDir(0x88)	+1 data (ssReverseDir), return ACK
+kCmd_GetRevDir(0x08)
+kCmd_SetEnaOvrCur(0x89)  +1 data (ssEnableOverCur), return ACK
+kCmd_GetEnaOvrCur(0x09)
+;
+kCmd_GetI(0x91)	return Cur_AN0
+kCmd_GetEnc(0x92)	return EncoderVal
+kCmd_GetEncAbs(0x93)	return EncoderAccum
+kCmd_SaveParams(0x94)	Save all eeprom params, return ACK
+kCmd_RestoreParams(0x95)  Copy to ram, return ACK
+kCmd_GetBattVolts(0x96)  return Cur_AN7
+kCmd_GetCalPot(0x97)	 return Cur_AN4
+;
+; these commands save params and return a 0,0,0,0 packet with the new address
+kCmd_SetMasterAddr(0xA1) +1 data, return a zero packet
+kCmd_SetSlaveAddr(0xA2) +1 data, return a zero packet

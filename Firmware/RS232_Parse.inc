@@ -1,8 +1,8 @@
 ;=========================================================================================
 ;
 ;    Filename:      RS232_Parse.inc
-;    Date:          5/18/2018
-;    File Version:  1.0d4
+;    Date:          5/25/2018
+;    File Version:  1.0d5
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -19,6 +19,7 @@
 ; Notes:
 ;
 ; History:
+; 1.0b5  5/25/2018	RS232_MasterAddr, RS232_SlaveAddr now in ram
 ; 1.0d4  5/18/2018	Added RS232_ClearTXData, RS232_Send.
 ; 1.0d3  5/17/2018	Used Timer1Lo for RXTimeout.
 ; 1.0d2  4/26/2018	Comments, used in robot arm project.
@@ -59,6 +60,8 @@
 ; Bank0 variable used by RS232_Parse:
 ;
 ;	cblock
+;	RS232_MasterAddr
+;	RS232_SlaveAddr
 ;	RX_ParseFlags
 ;	RX_Flags
 ;	RX_DataCount
@@ -68,17 +71,19 @@
 ;	TX_Data:RP_DataBytes
 ;	endc
 ;RX_ParseFlags Bits
-;#Define	SyncByte1RXd	RX_ParseFlags,0
-;#Define	SyncByte2RXd	RX_ParseFlags,1
-;#Define	SourceAddLoRXd	RX_ParseFlags,2
-;#Define	SourceAddHiRXd	RX_ParseFlags,3
-;#Define	DestAddLoRXd	RX_ParseFlags,4
-;#Define	DestAddHiRXd	RX_ParseFlags,5
-;#Define	AllDataRXd	RX_ParseFlags,6
+#Define	SyncByte1RXd	RX_ParseFlags,0
+#Define	SyncByte2RXd	RX_ParseFlags,1
+#Define	SourceAddLoRXd	RX_ParseFlags,2
+#Define	SourceAddHiRXd	RX_ParseFlags,3
+#Define	DestAddLoRXd	RX_ParseFlags,4
+#Define	DestAddHiRXd	RX_ParseFlags,5
+#Define	AllDataRXd	RX_ParseFlags,6
 ;
 ;RX_Flags Bits
-;#Define	RXDataValidFlag	RX_Flags,0
-;#Define	RXDataIsNew	RX_Flags,1
+#Define	RXDataValidFlag	RX_Flags,0
+#Define	RXDataIsNew	RX_Flags,1
+#Define	RXSrcIsMaster	RX_Flags,2
+#Define	RXDstIsMe	RX_Flags,3
 ;
 ;
 ; *** put in main loop
@@ -143,7 +148,7 @@ RS232_Parse_SALo	btfsc	SourceAddLoRXd
 	clrf	RX_CSUM
 	clrf	RX_DataCount
 	bsf	RXSrcIsMaster
-	movlw	low RS232_RAddr
+	movf	RS232_MasterAddr,W
 	subwf	Param78,W
 	SKPZ
 	bcf	RXSrcIsMaster
@@ -158,7 +163,7 @@ RS232_Parse_SALo_end
 	if RP_LongAddr
 RS232_Parse_SAHi	btfsc	SourceAddHiRXd
 	bra	RS232_Parse_SAHi_end
-	movlw	high RS232_RAddr
+	movf	RS232_MasterAddr+1,W
 	subwf	Param78,W
 	SKPZ
 	bcf	RXSrcIsMaster
@@ -174,7 +179,7 @@ RS232_Parse_SAHi_end
 RS232_Parse_DALo	btfsc	DestAddLoRXd
 	bra	RS232_Parse_DALo_End
 	bsf	RXDstIsMe
-	movlw	low RS232_MyAddr
+	movf	RS232_SlaveAddr,W
 	subwf	Param78,W
 	SKPZ
 	bcf	RXDstIsMe
@@ -189,7 +194,7 @@ RS232_Parse_DALo_End
 	if RP_LongAddr
 RS232_Parse_DAHi	btfsc	DestAddHiRXd
 	bra	RS232_Parse_DAHi_end
-	movlw	high RS232_MyAddr
+	movf	RS232_SlaveAddr+1,W
 	subwf	Param78,W
 	SKPZ
 	bcf	RXDstIsMe
@@ -301,22 +306,22 @@ RS232_Send	movlb	0	;bank 0
 	endif
 ;
 	clrf	Param7A	;CSum
-	movlw	low RS232_MyAddr	;source address
+	movf	RS232_SlaveAddr,W	;source address
 	xorwf	Param7A,F
 	call	StoreSerOut
 ;
 	if RP_LongAddr
-	movlw	high RS232_MyAddr	;source address
+	movf	RS232_SlaveAddr+1,W	;source address
 	xorwf	Param7A,F
 	call	StoreSerOut
 	endif
 ;
-	movlw	low RS232_RAddr	;destination address
+	movf	RS232_MasterAddr,W	;destination address
 	xorwf	Param7A,F
 	call	StoreSerOut
 ;
 	if RP_LongAddr
-	movlw	high RS232_RAddr	;destination address
+	movf	RS232_MasterAddr+1,W	;destination address
 	xorwf	Param7A,F
 	call	StoreSerOut
 	endif

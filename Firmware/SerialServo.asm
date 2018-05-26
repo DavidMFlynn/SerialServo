@@ -1,8 +1,8 @@
 ;====================================================================================================
 ;
 ;    Filename:      SerialServo.asm
-;    Date:          5/24/2018
-;    File Version:  1.0a1
+;    Date:          5/25/2018
+;    File Version:  1.0a2
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -21,7 +21,7 @@
 ;	Absolute magnetic encoder
 ;
 ;    History:
-;
+; 1.0a2   5/25/2018	Added some more commands.
 ; 1.0a1   5/24/2018	It begins to work.
 ; 1.0d1   4/26/2018	First code.
 ;
@@ -34,7 +34,7 @@
 ;   At power up the system LED will blink.
 ;   Mode 0: (LED 1 = off) servo test mode, copy AN4 Pot value to servo.
 ;   Mode 1: (LED 1 = 1 flash) servo  and encoder test mode, AN4 Pot value - EncoderVal to servo dir.
-;   Mode 2: Basic Serial Servo, Do what the master says.
+;   Mode 2: Basic Serial Servo, output servo pulse of CmdPos * 0.5uS.
 ;   Mode 3: Absolute encoder position control.
 ;
 ;====================================================================================================
@@ -101,8 +101,8 @@
 	constant	RP_AddressBytes=1
 	constant	RP_DataBytes=4
 ;
-RS232_RAddr	EQU	0x01	;Master's Address
-RS232_MyAddr	EQU	0x02	;This Slave's Address
+kRS232_MasterAddr	EQU	0x01	;Master's Address
+kRS232_SlaveAddr	EQU	0x02	;This Slave's Address
 ;
 #Define	_C	STATUS,C
 #Define	_Z	STATUS,Z
@@ -245,6 +245,10 @@ kMaxMode	EQU	.3
 	Timer4Lo		;4th 16 bit timer
 	Timer4Hi		; debounce timer
 ;
+	TXByte		;Next byte to send
+	RXByte		;Last byte received
+	SerFlags
+;
 	RX_ParseFlags
 	RX_Flags
 	RX_DataCount
@@ -259,6 +263,7 @@ kMaxMode	EQU	.3
 ;
 	EncoderAccum:3		;Accumulated distance
 	EncoderVal:2		;Value last read, raw 12 bit data
+;-----------------------
 ;Below here are saved in eprom
 	EncoderFlags
                        EncoderHome:2                                 ;Absolute Home
@@ -268,38 +273,17 @@ kMaxMode	EQU	.3
 	ServoMin_uS:2
 	ServoMax_uS:2
 	SysMode
+	RS232_MasterAddr
+	RS232_SlaveAddr
 	ssFlags		;Serial Servo flags
 	ssMaxI		;Max Current 0=off
 	SysFlags		;saved in eprom
 ;
 	endc
 ;-----------------------
-;RX_ParseFlags Bits
-#Define	SyncByte1RXd	RX_ParseFlags,0
-#Define	SyncByte2RXd	RX_ParseFlags,1
-#Define	SourceAddLoRXd	RX_ParseFlags,2
-#Define	SourceAddHiRXd	RX_ParseFlags,3
-#Define	DestAddLoRXd	RX_ParseFlags,4
-#Define	DestAddHiRXd	RX_ParseFlags,5
-#Define	AllDataRXd	RX_ParseFlags,6
-;
-;RX_Flags Bits
-#Define	RXDataValidFlag	RX_Flags,0
-#Define	RXDataIsNew	RX_Flags,1
-#Define	RXSrcIsMaster	RX_Flags,2
-#Define	RXDstIsMe	RX_Flags,3
-;
-	if useRS232
-	cblock
-	TXByte		;Next byte to send
-	RXByte		;Last byte received
-	SerFlags
-	endc
 ;
 #Define	DataReceivedFlag	SerFlags,1
 #Define	DataSentFlag	SerFlags,2
-;
-	endif
 ;
 ;
 #Define	FirstRAMParam	EncoderFlags
@@ -395,6 +379,8 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 	de	low kMaxPulseWidth	;nvServoMax_uS
 	de	high kMaxPulseWidth
 	de	0x00	;nvSysMode
+	de	kRS232_MasterAddr
+	de	kRS232_SlaveAddr
 	de	0x00	;nvssFlags
 	de	0x00	;nvssMaxI
 	de	0x00	;nvSysFlags
@@ -409,6 +395,8 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 	nvServoMin_uS:2
 	nvServoMax_uS:2
 	nvSysMode
+	nvRS232_MasterAddr
+	nvRS232_SlaveAddr
 	nvssFlags
 	nvssMaxI
 	nvSysFlags
@@ -679,12 +667,17 @@ IRQ_Ser_End:
 	retfie		; return from interrupt
 ;
 ;
-;==============================================================================================
-;==============================================================================================
+;=========================================================================================
+;*****************************************************************************************
+;=========================================================================================
 ;
-	include	<F1847_Common.inc>
+	include <F1847_Common.inc>
+	include <MagEncoder.inc>
+	include <SerBuff1938.inc>
+	include <RS232_Parse.inc>
+	include <SerialServoCmds.inc>
 ;
-;==============================================================================================
+;=========================================================================================
 ;
 start	call	InitializeIO
 ;
@@ -692,9 +685,7 @@ start	call	InitializeIO
 	CALL	ReadAN0_ColdStart
 ;
 ;=========================================================================================
-;=========================================================================================
-;  Main Loop
-;
+;*****************************************************************************************
 ;=========================================================================================
 MainLoop	CLRWDT
 ;
@@ -748,262 +739,6 @@ ModeReturn:
 	goto	MainLoop
 ;=========================================================================================
 ;*****************************************************************************************
-;=========================================================================================
-kCmd_SetMode	EQU	0x81	;+1 data (SysMode)
-kCmd_GetMode	EQU	0x01
-kCmd_SetCmdPos	EQU	0x82	;+2 data (ssCmdPos)
-kCmd_GetCmdPos	EQU	0x02
-kCmd_SetMaxI	EQU	0x83	;+1 data (ssMaxI)
-kCmd_GetMaxI	EQU	0x03
-kCmd_SetFFwd	EQU	0x84	;+2 data (ServoFastForward)
-kCmd_GetFFwd	EQU	0x04
-kCmd_SetFRev	EQU	0x85	;+2 data (ServoFastReverse)
-kCmd_GetFRev	EQU	0x05
-kCmd_SetMin_uS	EQU	0x86	;+2 data (ServoMin_uS)
-kCmd_GetMin_uS	EQU	0x06
-kCmd_SetMax_uS	EQU	0x87	;+2 data (ServoMax_uS)
-kCmd_GetMax_uS	EQU	0x07
-kCmd_SetRevDir	EQU	0x88	;+1 data (ssReverseDir)
-kCmd_GetRevDir	EQU	0x08
-kCmd_SetEnaOvrCur	EQU	0x89	;+1 data (ssEnableOverCur)
-kCmd_GetEnaOvrCur	EQU	0x09
-;
-kCmd_GetI	EQU	0x91	;return Cur_AN0
-kCmd_GetEnc	EQU	0x92	;return EncoderVal
-kCmd_GetEncAbs	EQU	0x93	;return EncoderAccum
-kCmd_SaveParams	EQU	0x94	;Save all eeprom params
-;
-HandleRXData	bcf	RXDataIsNew
-	btfss	RXDataValidFlag	;from master to me?
-	return		; no, ignore this packet
-;---kCmd_SetMode-------------------
-	movlw	kCmd_SetMode
-	subwf	RX_Data,W
-	SKPZ
-	bra	Cmd_SetMode_end
-; Set Mode
-	movlw	kMaxMode+1
-	subwf	RX_Data+1,W
-	SKPB		;kMaxMode+1>Data
-	return
-;
-	movf	RX_Data+1,W
-	movwf	SysMode
-	movwf	LED1_Blinks
-	goto	TX_ACK
-;
-Cmd_SetMode_end:
-;---kCmd_GetMode------------------
-	movlw	kCmd_GetMode
-	subwf	RX_Data,W
-	SKPZ
-	bra	Cmd_GetMode_end
-; Get Mode
-	movf	SysMode,W
-	movwf	TX_Data
-	goto	RS232_Send
-;
-Cmd_GetMode_end:
-;---kCmd_SetCmdPos-------------------
-	movlw	kCmd_SetCmdPos
-	subwf	RX_Data,W
-	SKPZ
-	bra	Cmd_SetCmdPos_end
-; Set Command Position
-	movf	RX_Data+1,W
-	movwf	ssCmdPos
-	movf	RX_Data+2,W
-	movwf	ssCmdPos+1
-	goto	TX_ACK
-;
-Cmd_SetCmdPos_end:
-;---kCmd_GetCmdPos------------------
-	movlw	kCmd_GetCmdPos
-	subwf	RX_Data,W
-	SKPZ
-	bra	Cmd_GetCmdPos_end
-; Get Command Position
-	movf	ssCmdPos,W
-	movwf	TX_Data
-	movf	ssCmdPos+1,W
-	movwf	TX_Data+1
-	goto	RS232_Send
-;
-Cmd_GetCmdPos_end:
-;---kCmd_SetMaxI-------------------
-	movlw	kCmd_SetMaxI
-	subwf	RX_Data,W
-	SKPZ
-	bra	Cmd_SetMaxI_end
-; Set Max Current
-	movf	RX_Data+1,W
-	movwf	ssMaxI
-	goto	TX_ACK
-;
-Cmd_SetMaxI_end:
-;---kCmd_GetMaxI-------------------
-	movlw	kCmd_GetMaxI
-	subwf	RX_Data,W
-	SKPZ
-	bra	Cmd_GetMaxI_end
-; Get Mode
-	movf	ssMaxI,W
-	movwf	TX_Data
-	goto	RS232_Send
-;
-Cmd_GetMaxI_end:
-;---kCmd_SetFFwd-------------------
-	movlw	kCmd_SetFFwd
-	subwf	RX_Data,W
-	SKPZ
-	bra	Cmd_SetFFwd_end
-; Set ServoFastForward
-	movf	RX_Data+1,W
-	movwf	ServoFastForward
-	movf	RX_Data+2,W
-	movwf	ServoFastForward+1
-	goto	TX_ACK
-;
-Cmd_SetFFwd_end:
-;---kCmd_GetFFwd-------------------
-	movlw	kCmd_GetFFwd
-	subwf	RX_Data,W
-	SKPZ
-	bra	Cmd_GetFFwd_end
-; Get ServoFastForward
-	movf	ServoFastForward,W
-	movwf	TX_Data
-	movf	ServoFastForward+1,W
-	movwf	TX_Data+1
-	goto	RS232_Send
-;
-Cmd_GetFFwd_end:
-;---kCmd_SetFRev-------------------
-	movlw	kCmd_SetFRev
-	subwf	RX_Data,W
-	SKPZ
-	bra	Cmd_SetFRev_end
-; Set ServoFastReverse
-	movf	RX_Data+1,W
-	movwf	ServoFastReverse
-	movf	RX_Data+2,W
-	movwf	ServoFastReverse+1
-	goto	TX_ACK
-;
-Cmd_SetFRev_end:
-;---kCmd_GetFRev------------------
-	movlw	kCmd_GetFRev
-	subwf	RX_Data,W
-	SKPZ
-	bra	Cmd_GetFRev_end
-; Get ServoFastReverse
-	movf	ServoFastReverse,W
-	movwf	TX_Data
-	movf	ServoFastReverse+1,W
-	movwf	TX_Data+1
-	goto	RS232_Send
-;
-Cmd_GetFRev_end:
-;---kCmd_SetMin_uS-------------------
-	movlw	kCmd_SetMin_uS
-	subwf	RX_Data,W
-	SKPZ
-	bra	Cmd_SetMin_uS_end
-; Set ServoMin_uS
-	movf	RX_Data+1,W
-	movwf	ServoMin_uS
-	movf	RX_Data+2,W
-	movwf	ServoMin_uS+1
-	goto	TX_ACK
-;
-Cmd_SetMin_uS_end:
-;---kCmd_GetMin_uS----------------
-	movlw	kCmd_GetMin_uS
-	subwf	RX_Data,W
-	SKPZ
-	bra	Cmd_GetMin_uS_end
-; Get ServoMin_uS
-	movf	ServoMin_uS,W
-	movwf	TX_Data
-	movf	ServoMin_uS+1,W
-	movwf	TX_Data+1
-	goto	RS232_Send
-;
-Cmd_GetMin_uS_end:
-;---kCmd_SetMax_uS-------------------
-	movlw	kCmd_SetMax_uS
-	subwf	RX_Data,W
-	SKPZ
-	bra	Cmd_SetMax_uS_end
-; Set ServoMax_uS
-	movf	RX_Data+1,W
-	movwf	ServoMax_uS
-	movf	RX_Data+2,W
-	movwf	ServoMax_uS+1
-	goto	TX_ACK
-;
-Cmd_SetMax_uS_end:
-;---kCmd_GetMax_uS-----------------
-	movlw	kCmd_GetMax_uS
-	subwf	RX_Data,W
-	SKPZ
-	bra	Cmd_GetMax_uS_end
-; Get ServoMax_uS
-	movf	ServoMax_uS,W
-	movwf	TX_Data
-	movf	ServoMax_uS+1,W
-	movwf	TX_Data+1
-	goto	RS232_Send
-;
-Cmd_GetMax_uS_end:
-;---kCmd_GetI-------------------
-	movlw	kCmd_GetI
-	subwf	RX_Data,W
-	SKPZ
-	bra	Cmd_GetI_end
-; Get servo current
-	movf	Cur_AN0,W
-	movwf	TX_Data
-	movf	Cur_AN0+1,W
-	movwf	TX_Data+1
-	goto	RS232_Send
-;
-Cmd_GetI_end:
-;---kCmd_GetEnc-------------------
-	movlw	kCmd_GetEnc
-	subwf	RX_Data,W
-	SKPZ
-	bra	Cmd_GetEnc_end
-; Get Encoder Raw Position
-	movf	EncoderVal,W
-	movwf	TX_Data
-	movf	EncoderVal+1,W
-	movwf	TX_Data+1
-	goto	RS232_Send
-;
-Cmd_GetEnc_end:
-;---kCmd_GetEncAbs-------------------
-	movlw	kCmd_GetEncAbs
-	subwf	RX_Data,W
-	SKPZ
-	bra	Cmd_GetEncAbs_end
-; Get Encoder Accumulated Position
-	movf	EncoderAccum,W
-	movwf	TX_Data
-	movf	EncoderAccum+1,W
-	movwf	TX_Data+1
-	movf	EncoderAccum+2,W
-	movwf	TX_Data+2
-	goto	RS232_Send
-;
-Cmd_GetEncAbs_end:
-;
-;
-	return
-;
-TX_ACK	movlw	0xFF
-	goto	StoreSerOut
-;
 ;=========================================================================================
 ;Simple servo testing
 ; copy AN4 value x2 + .1976 to servo value
@@ -1511,10 +1246,6 @@ InitializeIO	MOVLB	0x01	; select bank 1
 ;
 	return
 ;
-;=========================================================================================
-	include <MagEncoder.inc>
-	include <SerBuff1938.inc>
-	include <RS232_Parse.inc>
 ;=========================================================================================
 ;=========================================================================================
 ;
