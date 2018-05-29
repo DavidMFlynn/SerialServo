@@ -36,6 +36,8 @@ kCmd_SetRevDir(0x88)	+1 data (ssReverseDir), return ACK
 kCmd_GetRevDir(0x08)
 kCmd_SetEnaOvrCur(0x89)  +1 data (ssEnableOverCur), return ACK
 kCmd_GetEnaOvrCur(0x09)
+kCmd_Set_HighZ_TX(0x8A)  +1 data (ssEnableHighZTZ), return ACK
+kCmd_Get_HighZ_TX(0x0A)
 ;
 kCmd_GetI(0x91)	return Cur_AN0
 kCmd_GetEnc(0x92)	return EncoderVal

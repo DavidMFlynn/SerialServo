@@ -150,6 +150,7 @@ ANSELB_Val	EQU	b'00100000'	;RB5/AN7
 #Define	RB5_In	PORTB,5	;Battery Volts, Analog Input
 #Define	RB6_In	PORTB,6	;ICSPCLK
 #Define	RB7_In	PORTB,7	;ICSPDAT
+#Define	TX_TRIS	TRISB,2	;for High-Z control
 ;
 ;
 ;========================================================================================
@@ -232,6 +233,7 @@ kMaxMode	EQU	.3
 	EEAddrTemp		;EEProm address to read or write
 	EEDataTemp		;Data to be writen to EEProm
 ;
+	ANFlags
 	Cur_AN0:2		;IServo
 	Cur_AN4:2		;Calibration Pot
 	Cur_AN7:2		;Battery Volts
@@ -282,6 +284,8 @@ kMaxMode	EQU	.3
 	endc
 ;-----------------------
 ;
+#Define	PreSample	ANFlags,0
+;
 #Define	DataReceivedFlag	SerFlags,1
 #Define	DataSentFlag	SerFlags,2
 ;
@@ -291,6 +295,7 @@ kMaxMode	EQU	.3
 ;
 #Define	ssEnableOverCur	ssFlags,0	;disable if current is too high
 #Define	ssReverseDir	ssFlags,1	;if set ServoFastForward<=>ServoFastReverse
+#Define	ssEnableHighZTZ	ssFlags,2	;if set TX is High-Z when not active
 ;
 #Define	SW1_Flag	SysFlags,0
 #Define	SW2_Flag	SysFlags,1
@@ -703,6 +708,26 @@ MainLoop	CLRWDT
 	call	HandleButtons
 ;
 ;---------------------
+; Handle High-Z Serial control
+; if TXIF and GetSerOutBytes=0 and ssEnableHighZTZ
+;  set Tris
+; else
+;  clr Tris
+	btfss	ssEnableHighZTZ	;High-Z Enabled?
+	bra	ML_TXActive	; No
+	btfsc	PIR1,TXIF	;TX in progress?
+	bra	ML_TXActive	; Yes
+	call	GetSerOutBytes
+	SKPZ		;Any bytes to TX?
+	bra	ML_TXActive	; Yes
+	movlb	0x01	; bank 1
+	bsf	TX_TRIS	;go High-Z
+	bra	ML_HighZTX_End
+ML_TXActive	movlb	0x01	; bank1
+	bcf	TX_TRIS	;Output Active
+ML_HighZTX_End	movlb	0x00	; bank 0
+;
+;---------------------
 ; Handle Serial Communications
 	BTFSC	PIR1,TXIF	;TX done?
 	CALL	TX_TheByte	; Yes
@@ -966,6 +991,14 @@ ReadAN	MOVLB	1	;bank 1
 	BTFSC	ADCON0,GO_NOT_DONE	;Conversion done?
 	BRA	ReadAN_Rtn	; No
 ;
+	movlb	0x00	; bank 0
+	btfss	PreSample
+	bra	ReadAN_2
+	bcf	PreSample
+	MOVLB	1	;bank 1
+	bra	ReadAN_3
+		
+ReadAN_2	MOVLB	1	;bank 1
 	clrf	FSR0H
 	movf	ADCON0,W
 	andlw	ANNumMask
@@ -1004,15 +1037,18 @@ ReadAN_1	MOVF	ADRESL,W
 	BSF	WREG,0	;ADC ON
 	MOVWF	ADCON0
 	BSF	ADCON0,ADGO	;Start next conversion.
-	BRA	ReadAN_Rtn
+	movlb	0x00	; bank 0
+	bsf	PreSample
+	return
 ;
 ReadAN0_ColdStart	MOVLB	1
-	MOVLW	0xA0	;Right Just, fosc/32
+	MOVLW	b'11100000'	;Right Just, fosc/64
+;	MOVLW	b'11110000'	;Right Just, Frc
 	MOVWF	ADCON1
 	MOVLW	AN0_Val	;Select AN0
 	BSF	WREG,0	;ADC ON
 	MOVWF	ADCON0
-	BSF	ADCON0,GO
+ReadAN_3	BSF	ADCON0,GO
 ReadAN_Rtn:
 Bank0_Rtn	MOVLB	0
 	Return
@@ -1098,18 +1134,19 @@ StopServo	movlb	0	;bank 0
 	return
 ;
 ;=========================================================================================
-; ClampInt(Param7D:Param7C,kMinPulseWidth,kMaxPulseWidth)
+; ClampInt(Param7D:Param7C,ServoMin_uS,kMaxPulseWidth)
 ;
 ; Entry: Param7D:Param7C
 ; Exit: Param7D:Param7C=ClampInt(Param7D:Param7C,kMinPulseWidth,kMaxPulseWidth)
 ;
-ClampInt	MOVLW	high kMaxPulseWidth
+ClampInt	movlb	0
+	MOVF	ServoMax_uS+1,W
 	SUBWF	Param7D,W	;7D-kMaxPulseWidth
 	SKPNB		;7D<Max?
 	GOTO	ClampInt_1	; Yes
 	SKPZ		;7D=Max?
 	GOTO	ClampInt_tooHigh	; No, its greater.
-	MOVLW	low kMaxPulseWidth	; Yes, MSB was equal check LSB
+	MOVF	ServoMax_uS,W	; Yes, MSB was equal check LSB
 	SUBWF	Param7C,W	;7C-kMaxPulseWidth
 	SKPNZ		;=kMaxPulseWidth
 	RETURN		;Yes
@@ -1117,26 +1154,26 @@ ClampInt	MOVLW	high kMaxPulseWidth
 	GOTO	ClampInt_tooHigh	; No
 	RETURN		; Yes
 ;
-ClampInt_1	MOVLW	high kMinPulseWidth
+ClampInt_1	MOVF	ServoMin_uS+1,W
 	SUBWF	Param7D,W	;7D-kMinPulseWidth
 	SKPNB		;7D<Min?
 	GOTO	ClampInt_tooLow	; Yes
 	SKPZ		;=Min?
 	RETURN		; No, 7D>kMinPulseWidth
-	MOVLW	low kMinPulseWidth	; Yes, MSB is a match
+	MOVF	ServoMin_uS,F	; Yes, MSB is a match
 	SUBWF	Param7C,W	;7C-kMinPulseWidth
 	SKPB		;7C>=Min?
 	RETURN		; Yes
 ;
-ClampInt_tooLow	MOVLW	low kMinPulseWidth
+ClampInt_tooLow	MOVF	ServoMin_uS,W
 	MOVWF	Param7C
-	MOVLW	high kMinPulseWidth
+	MOVF	ServoMin_uS+1,W
 	MOVWF	Param7D
 	RETURN
 ;
-ClampInt_tooHigh	MOVLW	low kMaxPulseWidth
+ClampInt_tooHigh	MOVF	ServoMax_uS
 	MOVWF	Param7C
-	MOVLW	high kMaxPulseWidth
+	MOVF	ServoMax_uS+1
 	MOVWF	Param7D
 	RETURN
 ;
