@@ -100,17 +100,16 @@ ClearRam_L2	CLRF	INDF0
 CopyToRam	MOVLW	nvFirstParamByte
 	MOVWF	EEAddrTemp
 	MOVLW	FirstRAMParam
-	MOVWF	FSR0
+	MOVWF	FSR0L
 	CLRF	FSR0H
 CopyToRam_L1	CALL	EERead
-	MOVWF	INDF0
-	MOVLW	LastRAMParam
-	SUBWF	FSR0,W
-	SKPNZ
-	RETURN
-	INCF	FSR0,F
+	movwi	FSR0++
 	INCF	EEAddrTemp,F
+	MOVLW	LastRAMParam+1
+	SUBWF	FSR0L,W
+	SKPZ
 	BRA	CopyToRam_L1
+	RETURN
 ;
 ;===========================================================================
 ; copy ram to param memory
@@ -118,18 +117,17 @@ CopyToRam_L1	CALL	EERead
 SaveParams	MOVLW	nvFirstParamByte
 	MOVWF	EEAddrTemp
 	MOVLW	FirstRAMParam
-	MOVWF	FSR0
+	MOVWF	FSR0L
 	CLRF	FSR0H
-SaveParams_L1	MOVF	INDF0,W
+SaveParams_L1	moviw	FSR0++
 	MOVWF	EEDataTemp
 	CALL	EEWrite
-	MOVLW	LastRAMParam	;last byte
-	SUBWF	FSR0,W
-	SKPNZ
-	RETURN
-	INCF	FSR0,F
 	INCF	EEAddrTemp,F
+	MOVLW	LastRAMParam+1	;last byte
+	SUBWF	FSR0L,W
+	SKPZ
 	BRA	SaveParams_L1
+	RETURN
 ;
 	endif
 ;=====================================================================================================
@@ -178,8 +176,9 @@ TestT1_Zero	movf	Timer1Lo,W
 	iorwf	Timer1Hi,W
 	return	
 ;
+	if oldCode
 ;======================================================================================
-;Delay uS    1 cycle = 1uS, 8Mhz clock version
+;Delay uS    1 cycle = 1uS, 8MHz clock version
 ; RAM used: Param77
 ; Calls:(0) none
 ;
@@ -193,6 +192,23 @@ DelayWuS_Loop	DECFSZ	Param77,F
 	bra	DelayWuS_Loop
 	RETURN
 ;
+	endif
+;======================================================================================
+;Delay uS    1 cycle = .125uS, 32MHz clock version
+; RAM used: Param77
+; Calls:(0) none
+;
+Delay10uS	MOVLW	0x05	;(2*3+5)/2=10
+	bra	DelayWuS
+Delay100uS	MOVLW	d'65'	;(28*3+5)/2=100
+	bra	DelayWuS
+Delay40uS	MOVLW	d'25'	;(11*3+5)=40
+DelayWuS	MOVWF	Param77
+DelayWuS_Loop	nop
+	nop
+	DECFSZ	Param77,F
+	bra	DelayWuS_Loop
+	RETURN
 ;==============================================================================================
 ; Read EEPROM
 ; entry: EEPROM address to read in W
@@ -231,15 +247,12 @@ EEWriteW	movwf	EEAddrTemp
 ;        Bank 0 selected
 ; exit: Bank 0 selected
 ;
-EEWrite	
-	MOVLW	EEAddrTemp
-	MOVWF	FSR0
-	CLRF	FSR0H
+EEWrite	MOVF	EEAddrTemp,W
 	MOVLB	0x03	;Bank 3
-	MOVF	INDF0,W	;EEAddrTemp
 	movwf	EEADR	;Address to write
-	INCF	FSR0,F
-	movf	INDF0,W	;EEDataTemp
+	movlb	0x00	; bank 0
+	movf	EEDataTemp,W
+	movlb	0x03
 	movwf	EEDAT
 	bsf	EECON1,WREN
 	bcf	INTCON,GIE	;Disale Ints

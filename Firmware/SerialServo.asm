@@ -233,7 +233,6 @@ kMaxMode	EQU	.3
 	EEAddrTemp		;EEProm address to read or write
 	EEDataTemp		;Data to be writen to EEProm
 ;
-	ANFlags
 	Cur_AN0:2		;IServo
 	Cur_AN4:2		;Calibration Pot
 	Cur_AN7:2		;Battery Volts
@@ -283,8 +282,6 @@ kMaxMode	EQU	.3
 ;
 	endc
 ;-----------------------
-;
-#Define	PreSample	ANFlags,0
 ;
 #Define	DataReceivedFlag	SerFlags,1
 #Define	DataSentFlag	SerFlags,2
@@ -991,14 +988,6 @@ ReadAN	MOVLB	1	;bank 1
 	BTFSC	ADCON0,GO_NOT_DONE	;Conversion done?
 	BRA	ReadAN_Rtn	; No
 ;
-	movlb	0x00	; bank 0
-	btfss	PreSample
-	bra	ReadAN_2
-	bcf	PreSample
-	MOVLB	1	;bank 1
-	bra	ReadAN_3
-		
-ReadAN_2	MOVLB	1	;bank 1
 	clrf	FSR0H
 	movf	ADCON0,W
 	andlw	ANNumMask
@@ -1036,9 +1025,10 @@ ReadAN_1	MOVF	ADRESL,W
 	movf	Param78,W
 	BSF	WREG,0	;ADC ON
 	MOVWF	ADCON0
+	movlw	0x04	;Acquisition time 5uS
+	call	DelayWuS	
 	BSF	ADCON0,ADGO	;Start next conversion.
 	movlb	0x00	; bank 0
-	bsf	PreSample
 	return
 ;
 ReadAN0_ColdStart	MOVLB	1
@@ -1048,6 +1038,8 @@ ReadAN0_ColdStart	MOVLB	1
 	MOVLW	AN0_Val	;Select AN0
 	BSF	WREG,0	;ADC ON
 	MOVWF	ADCON0
+	movlw	0x04	;Acquisition time 5uS
+	call	DelayWuS
 ReadAN_3	BSF	ADCON0,GO
 ReadAN_Rtn:
 Bank0_Rtn	MOVLB	0
