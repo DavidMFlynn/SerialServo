@@ -1268,6 +1268,9 @@ InitializeIO	MOVLB	0x01	; select bank 1
 	movlw	.100
 	movwf	Timer4Lo	;ignor buttons for 1st second
 ;
+	movf	SysMode,W
+	movwf	LED1_Blinks
+;
 	CLRWDT
 ;
 	bsf	INTCON,PEIE	; enable periferal interupts
