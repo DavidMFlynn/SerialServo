@@ -1,8 +1,8 @@
 ;====================================================================================================
 ;
 ;    Filename:      SerialServo.asm
-;    Date:          5/25/2018
-;    File Version:  1.0a2
+;    Date:          5/31/2018
+;    File Version:  1.0a3
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -21,6 +21,7 @@
 ;	Absolute magnetic encoder
 ;
 ;    History:
+; 1.0a3   5/31/2018    Added Speed, StopCenter.
 ; 1.0a2   5/25/2018	Added some more commands.
 ; 1.0a1   5/24/2018	It begins to work.
 ; 1.0d1   4/26/2018	First code.
@@ -261,6 +262,7 @@ kMaxMode	EQU	.3
 	TX_Data:RP_DataBytes
 ;
 	ssCmdPos:2		;Commanded position, 0=not used
+	ssCurPos:2
 ;
 	EncoderAccum:3		;Accumulated distance
 	EncoderVal:2		;Value last read, raw 12 bit data
@@ -271,8 +273,10 @@ kMaxMode	EQU	.3
 ;
 	ServoFastForward:2
 	ServoFastReverse:2
+	ServoStopCenter:2		;Mode 3 Idle position
 	ServoMin_uS:2
 	ServoMax_uS:2
+	ServoSpeed		;0 = off, 1..63 position change per cycle
 	SysMode
 	RS232_MasterAddr
 	RS232_SlaveAddr
@@ -293,6 +297,7 @@ kMaxMode	EQU	.3
 #Define	ssEnableOverCur	ssFlags,0	;disable if current is too high
 #Define	ssReverseDir	ssFlags,1	;if set ServoFastForward<=>ServoFastReverse
 #Define	ssEnableHighZTZ	ssFlags,2	;if set TX is High-Z when not active
+#Define	ssMode3IdleCenter	ssFlags,3	;0= Disable PWM, 1= output ServoStopCenter
 ;
 #Define	SW1_Flag	SysFlags,0
 #Define	SW2_Flag	SysFlags,1
@@ -376,10 +381,13 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 	de	high kServoFastForward
 	de	low kServoFastReverse
 	de	high kServoFastReverse
+	de	low kMidPulseWidth	;nvServoStopCenter
+	de	high kMidPulseWidth
 	de	low kMinPulseWidth	;nvServoMin_uS
 	de	high kMinPulseWidth
 	de	low kMaxPulseWidth	;nvServoMax_uS
 	de	high kMaxPulseWidth
+	de	0x00	;nvServoSpeed
 	de	0x00	;nvSysMode
 	de	kRS232_MasterAddr
 	de	kRS232_SlaveAddr
@@ -394,8 +402,10 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 ;
 	nvServoFastForward:2
 	nvServoFastReverse:2
+	nvServoStopCenter:2
 	nvServoMin_uS:2
 	nvServoMax_uS:2
+	nvServoSpeed
 	nvSysMode
 	nvRS232_MasterAddr
 	nvRS232_SlaveAddr
@@ -846,10 +856,81 @@ DoModeTwo	movlb	0
 	iorwf	ssCmdPos+1,W
 	SKPNZ
 	bra	DoModeTwo_1
-; set command position
-	movf	ssCmdPos,W
+;
+	movf	ServoSpeed,F
+	SKPNZ
+	bra	DoModeTwo_NoSpeed
+;Param7D:Param7C = Cmd-Cur
+	movf	ssCurPos,W
+	subwf	ssCmdPos,W
 	movwf	Param7C
+	movf	ssCurPos+1,W
+	subwfb	ssCmdPos+1,W
+; if Param7D:Param7C = 0 then we are In Position
+	movwf	Param7D
+	iorwf	Param7C,W
+	SKPNZ
+	bra	DoModeTwo_Go	; if Cmd = Cur Go
+;
+;
+	BTFSS	Param7D,7	;Cmd<Cur? Set if Cur>Cmd
+	GOTO	DoModeTwo_MovPlus	; Yes
+;Move minus
+	movf	ServoSpeed,W
+	MOVWF	Param78
+	INCFSZ	Param7D,W	;Dist=0xFFxx?
+	GOTO	DoModeTwo_Minus	; No
+DoModeTwo_L1	MOVF	Param78,W
+	ADDWF	Param7C,W
+	BTFSS	_C	;Dist<Param78?
+	GOTO	DoModeTwo_Minus	; No
+	DECFSZ	Param78,W	;Speed>1?
+	GOTO	DoModeTwo_DecAcc	; Yes
+	GOTO	DoModeTwo_Minus
+DoModeTwo_DecAcc	DECF	Param78,F
+	GOTO	DoModeTwo_L1	
+;
+; Subtract speed from current position
+DoModeTwo_Minus	MOVF	Param78,W
+	SUBWF	ssCurPos,F	;SigOutTime
+	MOVLW	0x00
+	SUBWFB	ssCurPos+1,F	;SigOutTimeH
+	bra	DoModeTwo_Go
+;
+;=============================
+; 7D:7C = distance to go
+;
+DoModeTwo_MovPlus	movf	ServoSpeed,W	; Get Speed
+	MOVWF	Param78
+	MOVF	Param7D,F
+	SKPZ		;>255 to go?
+	GOTO	DoModeTwo_Plus	; Yes
+DoModeTwo_L2	MOVF	Param78,W
+	SUBWF	Param7C,W	;Dist-Speed
+	SKPB		;Speed>Dist?
+	GOTO	DoModeTwo_Plus	; No
+	DECFSZ	Param78,W
+	GOTO	DoModeTwo_IncAcc
+	GOTO	DoModeTwo_Plus
+DoModeTwo_IncAcc	DECF	Param78,F
+	GOTO	DoModeTwo_L2	
+;
+DoModeTwo_Plus	MOVF	Param78,W	;7D:7C = CurPos + Speed
+	ADDWF	ssCurPos,F
+	CLRW
+	ADDWFC	ssCurPos+1,W
+	bra	DoModeTwo_Go
+;
+;
+; set current position at command position
+DoModeTwo_NoSpeed	movf	ssCmdPos,W
+	movwf	ssCurPos
 	movf	ssCmdPos+1,W
+	movwf	ssCurPos+1
+; make it so
+DoModeTwo_Go	movf	ssCurPos
+	movwf	Param7C
+	movf	ssCurPos+1,W
 	movwf	Param7D
 	call	ClampInt
 	call	Copy7CToSig
@@ -901,7 +982,16 @@ DoModeThree	movlb	0	;bank 0
 	bra	DM3_FR	; Yes, EncoderVal > (ssCmdPos + DeadBand)
 ;
 ; EncoderVal > ssCmdPos && EncoderVal <= (ssCmdPos + DeadBand)
-	bsf	ServoIdle
+	btfss	ssMode3IdleCenter
+	bra	DM3_IdleInactive
+	movf	ServoStopCenter,W
+	movwf	Param7C
+	movf	ServoStopCenter+1,W
+	movwf	Param7D
+	call	Copy7CToSig
+	goto	ModeReturn
+;	
+DM3_IdleInactive	bsf	ServoIdle
 	goto	ModeReturn
 ;
 DM3_FF	btfsc	ssReverseDir

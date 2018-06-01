@@ -38,6 +38,12 @@ kCmd_SetEnaOvrCur(0x89)  +1 data (ssEnableOverCur), return ACK
 kCmd_GetEnaOvrCur(0x09)
 kCmd_Set_HighZ_TX(0x8A)  +1 data (ssEnableHighZTZ), return ACK
 kCmd_Get_HighZ_TX(0x0A)
+kCmd_SetStopCenter(0x8B) +2 data (ServoStopCenter), return ACK
+kCmd_GetStopCenter(0x0B)
+kCmd_SetSpeed(0x8C)      +1 data (ServoSpeed), return ACK
+kCmd_GetSpeed(0x0C)
+kCmd_SetUseIdleCenter(0x8D) +1 data (ssMode3IdleCenter), return ACK
+kCmd_GetUseIdleCenter(0x0D)
 ;
 kCmd_GetI(0x91)	return Cur_AN0
 kCmd_GetEnc(0x92)	return EncoderVal

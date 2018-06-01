@@ -37,6 +37,12 @@ kCmd_SetEnaOvrCur	EQU	0x89	;+1 data (ssEnableOverCur), return ACK
 kCmd_GetEnaOvrCur	EQU	0x09
 kCmd_Set_HighZ_TX	EQU	0x8A	;+1 data (ssEnableHighZTZ), return ACK
 kCmd_Get_HighZ_TX	EQU	0x0A
+kCmd_SetStopCenter	EQU	0x8B	;+2 data (ServoStopCenter), return ACK
+kCmd_GetStopCenter	EQU	0x0B
+kCmd_SetSpeed	EQU	0x8C	;+1 data (ServoSpeed), return ACK
+kCmd_GetSpeed	EQU	0x0C
+kCmd_SetUseIdleCenter	EQU	0x8D	;+1 data (ssMode3IdleCenter), return ACK
+kCmd_GetUseIdleCenter	EQU	0x0D
 ;
 kCmd_GetI	EQU	0x91	;return Cur_AN0
 kCmd_GetEnc	EQU	0x92	;return EncoderVal
@@ -299,6 +305,68 @@ Cmd_Set_HighZ_TX_End:
 	bsf	TX_Data,0
 	goto	RS232_Send
 Cmd_Get_HighZ_TX_End:
+;---kCmd_SetStopCenter---------
+	movlw	kCmd_SetStopCenter
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_SetStopCenter_End
+	movf	RX_Data+1,W
+	movwf	ServoStopCenter
+	movf	RX_Data+2,W
+	movwf	ServoStopCenter+1
+	goto	TX_ACK
+Cmd_SetStopCenter_End:
+;---kCmd_GetStopCenter---------
+	movlw	kCmd_GetStopCenter
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_GetStopCenter_End
+	movf	ServoStopCenter,W
+	movwf	TX_Data
+	movf	ServoStopCenter+1,W
+	movwf	TX_Data+1
+	goto	RS232_Send
+Cmd_GetStopCenter_End:
+;---kCmd_SetSpeed--------------
+	movlw	kCmd_SetSpeed
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_SetSpeed_End
+	movf	RX_Data+1,W
+	andlw	0x3F	;0..63
+	movwf	ServoSpeed
+	goto	TX_ACK
+Cmd_SetSpeed_End:
+;---kCmd_GetSpeed--------------
+	movlw	kCmd_GetSpeed
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_GetSpeed_End
+	movf	ServoSpeed,W
+	movwf	TX_Data
+	goto	RS232_Send
+Cmd_GetSpeed_End:
+;---kCmd_SetUseIdleCenter------
+	movlw	kCmd_SetUseIdleCenter
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_SetUseIdleCenter_End
+	bcf	ssMode3IdleCenter
+	movlw	0x01
+	xorwf	RX_Data+1,W
+	SKPNZ
+	bsf	ssMode3IdleCenter
+	goto	TX_ACK
+Cmd_SetUseIdleCenter_End:
+;---kCmd_GetUseIdleCenter------
+	movlw	kCmd_GetUseIdleCenter
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_GetUseIdleCenter_End
+	btfsc	ssMode3IdleCenter
+	bsf	TX_Data,0
+	goto	RS232_Send
+Cmd_GetUseIdleCenter_End:
 ;---kCmd_GetI-------------------
 	movlw	kCmd_GetI
 	subwf	RX_Data,W
