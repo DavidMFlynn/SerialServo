@@ -11,7 +11,7 @@
    <key>CFBundleInfoDictionaryVersion</key>
    <string>6.0</string>
    <key>CFBundleVersion</key>
-   <string>1.0.0.0.1</string>
+   <string>1.0.0.0.2</string>
    <key>CFBundleDevelopmentRegion</key>
    <string>en</string>
    <key>CFBundlePackageType</key>
@@ -21,7 +21,7 @@
    <key>NSHumanReadableCopyright</key>
    <string>DMFE 2018</string>
    <key>CFBundleShortVersionString</key>
-   <string>1.0d1</string>
+   <string>1.0d2</string>
    <key>CFBundleIconFile</key>
    <string>App</string>
    <key>LSMinimumSystemVersion</key>
