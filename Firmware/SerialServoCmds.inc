@@ -1,8 +1,8 @@
 ;=========================================================================================
 ;
 ;    Filename:      SerialServoCmds.inc
-;    Date:          5/25/2018
-;    File Version:  1.0
+;    Date:          6/1/2018
+;    File Version:  1.1
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -14,6 +14,7 @@
 ;  Command interpreter for SerialServo
 ;
 ; History
+; 1.1    6/1/2018	All commands are here now.
 ; 1.0    5/25/2018	Moved out of SerialServo.asm
 ;=========================================================================================
 ;
@@ -43,6 +44,8 @@ kCmd_SetSpeed	EQU	0x8C	;+1 data (ServoSpeed), return ACK
 kCmd_GetSpeed	EQU	0x0C
 kCmd_SetUseIdleCenter	EQU	0x8D	;+1 data (ssMode3IdleCenter), return ACK
 kCmd_GetUseIdleCenter	EQU	0x0D
+kCmd_SetDeadBand	EQU	0x8E	;+1 data (DeadBand), return ACK
+kCmd_GetDeadBand	EQU	0x0E
 ;
 kCmd_GetI	EQU	0x91	;return Cur_AN0
 kCmd_GetEnc	EQU	0x92	;return EncoderVal
@@ -367,6 +370,24 @@ Cmd_SetUseIdleCenter_End:
 	bsf	TX_Data,0
 	goto	RS232_Send
 Cmd_GetUseIdleCenter_End:
+;---kCmd_SetDeadBand------------
+	movlw	kCmd_SetDeadBand
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_SetDeadBand_End
+	movf	RX_Data+1,W
+	movwf	DeadBand
+	goto	TX_ACK	
+Cmd_SetDeadBand_End:
+;---kCmd_GetDeadBand------------
+	movlw	kCmd_GetDeadBand
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_GetDeadBand_End
+	movf	DeadBand,W
+	movwf	TX_Data
+	goto	RS232_Send
+Cmd_GetDeadBand_End:
 ;---kCmd_GetI-------------------
 	movlw	kCmd_GetI
 	subwf	RX_Data,W

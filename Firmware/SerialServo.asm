@@ -1,8 +1,8 @@
 ;====================================================================================================
 ;
 ;    Filename:      SerialServo.asm
-;    Date:          5/31/2018
-;    File Version:  1.0a3
+;    Date:          6/1/2018
+;    File Version:  1.0b1
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -20,7 +20,13 @@
 ;	3 Buttons/LEDs for config
 ;	Absolute magnetic encoder
 ;
+;Mode 0: (LED 1 = off) servo test mode, copy AN4 Pot value x 2 + 1976 to servo PWM.
+;Mode 1: (LED 1 = 1 flash) servo and encoder test mode, AN4 Pot value + 950 - EncoderVal to servo dir.
+;Mode 2: Basic Serial Servo, output servo pulse of CmdPos x 0.5uS.
+;Mode 3: Absolute encoder position control. CmdPos = 0..4095
+;
 ;    History:
+; 1.0b1   6/1/2018	Modes 2 and 3 are working. No current limit yet.
 ; 1.0a3   5/31/2018    Added Speed, StopCenter.
 ; 1.0a2   5/25/2018	Added some more commands.
 ; 1.0a1   5/24/2018	It begins to work.
@@ -205,6 +211,7 @@ kMidPulseWidth	EQU	.3000	;1500uS
 kMaxPulseWidth	EQU	.4200	;2100uS
 kServoFastForward	EQU	.3600	;1800uS
 kServoFastReverse	EQU	.2400	;1200uS
+kDeadBand	EQU	.100	;100 encoder counts
 ;
 DebounceTime	EQU	.10
 kMaxMode	EQU	.3
@@ -284,6 +291,7 @@ kMaxMode	EQU	.3
 	RS232_SlaveAddr
 	ssFlags		;Serial Servo flags
 	ssMaxI		;Max Current 0=off
+	DeadBand		;Used by Mode 2
 	SysFlags		;saved in eprom
 ;
 	endc
@@ -396,6 +404,7 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 	de	kRS232_SlaveAddr
 	de	0x00	;nvssFlags
 	de	0x00	;nvssMaxI
+	de	kDeadBand	;nvDeadBand
 	de	0x00	;nvSysFlags
 ;
 	cblock	0x0000
@@ -414,6 +423,7 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 	nvRS232_SlaveAddr
 	nvssFlags
 	nvssMaxI
+	nvDeadBand
 	nvSysFlags
 	endc
 ;
@@ -935,7 +945,6 @@ DoModeTwo_1:
 	goto	ModeReturn
 ;
 ;=========================================================================================
-DeadBand	EQU	.100	;50uS
 ;Idle routine for Absolute encoder position control.
 ; if ssCmdPos > EncoderVal set servo to ServoFastForward
 ; elseif ssCmdPos + DeadBand < EncoderVal set servo to ServoFastReverse
@@ -959,10 +968,10 @@ DoModeThree	movlb	0	;bank 0
 	bra	DM3_FF	; No, EncoderVal <= ssCmdPos
 ;
 ;Param7A:Param79 = ssCmdPos + DeadBand
-	movlw	low DeadBand
+	movf	DeadBand,W
 	addwf	ssCmdPos,W
 	movwf	Param79
-	movlw	high DeadBand
+	movlw	0x00
 	addwfc	ssCmdPos+1,W
 	movwf	Param7A
 ;
