@@ -199,6 +199,7 @@ Baud_57600	EQU	.138	;57.55k, -0.08%
 BaudRate	EQU	Baud_38400
 ;
 kServoDwellTime	EQU	.40000	;20mS
+;kServoDwellTime	EQU	.20000	;10mS
 kMinPulseWidth	EQU	.1800	;900uS
 kMidPulseWidth	EQU	.3000	;1500uS
 kMaxPulseWidth	EQU	.4200	;2100uS
@@ -263,6 +264,7 @@ kMaxMode	EQU	.3
 ;
 	ssCmdPos:2		;Commanded position, 0=not used
 	ssCurPos:2
+	ssTempFlags
 ;
 	EncoderAccum:3		;Accumulated distance
 	EncoderVal:2		;Value last read, raw 12 bit data
@@ -290,10 +292,15 @@ kMaxMode	EQU	.3
 #Define	DataReceivedFlag	SerFlags,1
 #Define	DataSentFlag	SerFlags,2
 ;
+;---ssTempFlags bits---
+#Define	PulseSent	ssTempFlags,0
+#Define	ServoOff	ssTempFlags,1
+#Define	ServoIdle	ssTempFlags,2
 ;
 #Define	FirstRAMParam	EncoderFlags
 #Define	LastRAMParam	SysFlags
 ;
+;---ssFlags bits---
 #Define	ssEnableOverCur	ssFlags,0	;disable if current is too high
 #Define	ssReverseDir	ssFlags,1	;if set ServoFastForward<=>ServoFastReverse
 #Define	ssEnableHighZTZ	ssFlags,2	;if set TX is High-Z when not active
@@ -303,10 +310,6 @@ kMaxMode	EQU	.3
 #Define	SW2_Flag	SysFlags,1
 #Define	SW3_Flag	SysFlags,2
 #Define	SW4_Flag	SysFlags,3
-;
-#Define	ServoOff	SysFlags,4
-#Define	ServoIdle	SysFlags,5
-;
 ;
 ;================================================================================================
 ;  Bank2 Ram 120h-16Fh 80 Bytes
@@ -607,6 +610,8 @@ IRQ_Servo1	MOVLB	0	;bank 0
 	BTFSS	PIR1,CCP1IF
 	bra	IRQ_Servo1_End
 ;
+	bsf	PulseSent	;ok to update CurPos
+;
 	BTFSS	ServoOff	;Are we sending a pulse?
 	bra	IRQ_Servo1_1	; Yes
 ;
@@ -854,20 +859,23 @@ DM1_FR	movf	ServoFastReverse,W
 DoModeTwo	movlb	0
 	movf	ssCmdPos,W
 	iorwf	ssCmdPos+1,W
-	SKPNZ
-	bra	DoModeTwo_1
+	SKPNZ		;Any command issued?
+	bra	DoModeTwo_1	; No
 ;
 	movf	ServoSpeed,F
-	SKPNZ
-	bra	DoModeTwo_NoSpeed
+	SKPNZ		;Speed = 0?
+	bra	DoModeTwo_NoSpeed	; yes
+	btfss	PulseSent	;Time to update?
+	goto	ModeReturn	; No
+	bcf	PulseSent
 ;Param7D:Param7C = Cmd-Cur
 	movf	ssCurPos,W
 	subwf	ssCmdPos,W
 	movwf	Param7C
 	movf	ssCurPos+1,W
 	subwfb	ssCmdPos+1,W
-; if Param7D:Param7C = 0 then we are In Position
 	movwf	Param7D
+; if Param7D:Param7C = 0 then we are In Position
 	iorwf	Param7C,W
 	SKPNZ
 	bra	DoModeTwo_Go	; if Cmd = Cur Go
@@ -876,22 +884,15 @@ DoModeTwo	movlb	0
 	BTFSS	Param7D,7	;Cmd<Cur? Set if Cur>Cmd
 	GOTO	DoModeTwo_MovPlus	; Yes
 ;Move minus
-	movf	ServoSpeed,W
-	MOVWF	Param78
 	INCFSZ	Param7D,W	;Dist=0xFFxx?
 	GOTO	DoModeTwo_Minus	; No
-DoModeTwo_L1	MOVF	Param78,W
+	MOVF	ServoSpeed,W
 	ADDWF	Param7C,W
-	BTFSS	_C	;Dist<Param78?
-	GOTO	DoModeTwo_Minus	; No
-	DECFSZ	Param78,W	;Speed>1?
-	GOTO	DoModeTwo_DecAcc	; Yes
-	GOTO	DoModeTwo_Minus
-DoModeTwo_DecAcc	DECF	Param78,F
-	GOTO	DoModeTwo_L1	
+	BTFSC	_C	;Dist<Speed?
+	bra	DoModeTwo_NoSpeed	; No
 ;
 ; Subtract speed from current position
-DoModeTwo_Minus	MOVF	Param78,W
+DoModeTwo_Minus	MOVF	ServoSpeed,W
 	SUBWF	ssCurPos,F	;SigOutTime
 	MOVLW	0x00
 	SUBWFB	ssCurPos+1,F	;SigOutTimeH
@@ -900,25 +901,18 @@ DoModeTwo_Minus	MOVF	Param78,W
 ;=============================
 ; 7D:7C = distance to go
 ;
-DoModeTwo_MovPlus	movf	ServoSpeed,W	; Get Speed
-	MOVWF	Param78
-	MOVF	Param7D,F
-	SKPZ		;>255 to go?
-	GOTO	DoModeTwo_Plus	; Yes
-DoModeTwo_L2	MOVF	Param78,W
+DoModeTwo_MovPlus	MOVF	Param7D,F
+	SKPZ		;Dist>255 to go?
+	bra	DoModeTwo_Plus	; Yes
+	MOVF	ServoSpeed,W
 	SUBWF	Param7C,W	;Dist-Speed
-	SKPB		;Speed>Dist?
-	GOTO	DoModeTwo_Plus	; No
-	DECFSZ	Param78,W
-	GOTO	DoModeTwo_IncAcc
-	GOTO	DoModeTwo_Plus
-DoModeTwo_IncAcc	DECF	Param78,F
-	GOTO	DoModeTwo_L2	
+	SKPNB		;Speed>Dist?
+	bra	DoModeTwo_NoSpeed	; Yes
 ;
-DoModeTwo_Plus	MOVF	Param78,W	;7D:7C = CurPos + Speed
+DoModeTwo_Plus	MOVF	ServoSpeed,W	;7D:7C = CurPos + Speed
 	ADDWF	ssCurPos,F
 	CLRW
-	ADDWFC	ssCurPos+1,W
+	ADDWFC	ssCurPos+1,F
 	bra	DoModeTwo_Go
 ;
 ;
@@ -928,7 +922,7 @@ DoModeTwo_NoSpeed	movf	ssCmdPos,W
 	movf	ssCmdPos+1,W
 	movwf	ssCurPos+1
 ; make it so
-DoModeTwo_Go	movf	ssCurPos
+DoModeTwo_Go	movf	ssCurPos,W
 	movwf	Param7C
 	movf	ssCurPos+1,W
 	movwf	Param7D
@@ -1253,9 +1247,9 @@ ClampInt_tooLow	MOVF	ServoMin_uS,W
 	MOVWF	Param7D
 	RETURN
 ;
-ClampInt_tooHigh	MOVF	ServoMax_uS
+ClampInt_tooHigh	MOVF	ServoMax_uS,W
 	MOVWF	Param7C
-	MOVF	ServoMax_uS+1
+	MOVF	ServoMax_uS+1,W
 	MOVWF	Param7D
 	RETURN
 ;
