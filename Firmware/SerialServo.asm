@@ -22,8 +22,8 @@
 ;
 ;Mode 0: (LED 1 = off) servo test mode, copy AN4 Pot value x 2 + 1976 to servo PWM.
 ;Mode 1: (LED 1 = 1 flash) servo and encoder test mode, AN4 Pot value + 950 - EncoderVal to servo dir.
-;Mode 2: Basic Serial Servo, output servo pulse of CmdPos x 0.5uS.
-;Mode 3: Absolute encoder position control. CmdPos = 0..4095
+;Mode 2: Basic Serial Servo, output servo pulse of ssCmdPos x 0.5uS.
+;Mode 3: Absolute encoder position control. ssCmdPos = 0..4095
 ;
 ;    History:
 ; 1.0b1   6/1/2018	Modes 2 and 3 are working. No current limit yet.
@@ -304,6 +304,7 @@ kMaxMode	EQU	.3
 #Define	PulseSent	ssTempFlags,0
 #Define	ServoOff	ssTempFlags,1
 #Define	ServoIdle	ssTempFlags,2
+#Define	OverCurrentFlag	ssTempFlags,3
 ;
 #Define	FirstRAMParam	EncoderFlags
 #Define	LastRAMParam	SysFlags
@@ -864,14 +865,44 @@ DM1_FR	movf	ServoFastReverse,W
 	goto	ModeReturn
 ;
 ;=========================================================================================
+;
+CheckCurrent	movlb	0x00	;Bank 0
+	bcf	OverCurrentFlag
+	btfss	ssEnableOverCur
+	return
+;Param79:Param78 = ssMaxI * 4
+	clrf	Param79
+	lslf	ssMaxI,W
+	movwf	Param78
+	rlf	Param79,F
+	lslf	Param78,F
+	rlf	Param79
+;Param79:Param78 -= Cur_AN0
+	movf	Cur_AN0,W
+	subwf	Param78,F
+	movf	Cur_AN0+1,W
+	subwfb	Param79,F
+;
+	btfsc	Param79,7	;Cur_AN0>ssMaxI*4?
+	bsf	OverCurrentFlag
+	return
+;
+;=========================================================================================
 ;Idle routine for Basic Serial Servo mode
 ;
 DoModeTwo	movlb	0
-	movf	ssCmdPos,W
-	iorwf	ssCmdPos+1,W
-	SKPNZ		;Any command issued?
-	bra	DoModeTwo_1	; No
+	btfsc	ssCmdPos+1,7	;Any command issued?
+	bra	DoModeTwo_1	; No, Idle the servo
 ;
+	call	CheckCurrent
+	btfss	OverCurrentFlag
+	bra	DM2_NotOverCurrent
+	clrf	ssCmdPos
+	clrf	ssCmdPos+1
+	bsf	ssCmdPos+1,7
+	bra	DoModeTwo_1
+;
+DM2_NotOverCurrent:
 	movf	ServoSpeed,F
 	SKPNZ		;Speed = 0?
 	bra	DoModeTwo_NoSpeed	; yes
@@ -951,6 +982,8 @@ DoModeTwo_1:
 ; else Set ServoIdle
 ;
 DoModeThree	movlb	0	;bank 0
+	btfsc	ssCmdPos+1,7
+	bra	DM3_IdleServo
 ;
 ;Param7A:Param79 = ssCmdPos
 	movf	ssCmdPos,W
@@ -985,7 +1018,7 @@ DoModeThree	movlb	0	;bank 0
 	bra	DM3_FR	; Yes, EncoderVal > (ssCmdPos + DeadBand)
 ;
 ; EncoderVal > ssCmdPos && EncoderVal <= (ssCmdPos + DeadBand)
-	btfss	ssMode3IdleCenter
+DM3_IdleServo	btfss	ssMode3IdleCenter
 	bra	DM3_IdleInactive
 	movf	ServoStopCenter,W
 	movwf	Param7C
@@ -1363,6 +1396,9 @@ InitializeIO	MOVLB	0x01	; select bank 1
 ;
 	movf	SysMode,W
 	movwf	LED1_Blinks
+;
+;if mode 3 don't move	
+	bsf	ssCmdPos+1,7
 ;
 	CLRWDT
 ;
