@@ -43,6 +43,10 @@
 	constant UseRS232SyncBytes=0
 	endif
 ;
+	ifndef UseRS232SendSyncBytes
+	constant UseRS232SendSyncBytes=0
+	endif
+;
 	ifndef RP_LongAddr
 	constant RP_LongAddr=0
 	endif
@@ -124,7 +128,7 @@ RS232_Parse_Byte	CALL	GetSerIn
 	MOVF	RX_ParseFlags,F
 	SKPZ		;Beginning new packet?
 	BRA	RS232_Parse_Sync2	; No
-	MOVLW	0xFF
+	MOVLW	kRS232SyncByteValue
 	SUBWF	Param78,W
 	SKPNZ		;Sync byte OK?
 	BSF	SyncByte1RXd	; Yes
@@ -132,7 +136,7 @@ RS232_Parse_Byte	CALL	GetSerIn
 ;
 RS232_Parse_Sync2	btfsc	SyncByte2RXd
 	bra	RS232_Parse_SALo
-	movlw	0xFF
+	movlw	kRS232SyncByteValue
 	subwf	Param78,W
 	SKPZ
 	goto	RS232_Parse_Error
@@ -296,11 +300,11 @@ RS232_ClearTXData_L1	movwi	FSR1++
 ;
 RS232_Send	movlb	0	;bank 0
 ;
-	if UseRS232SyncBytes
-;
-	movlw	0xFF
+	if UseRS232SendSyncBytes
+; only needed when sening servo to servo
+	movlw	kRS232SyncByteValue
 	call	StoreSerOut
-	movlw	0xFF
+	movlw	kRS232SyncByteValue
 	call	StoreSerOut
 ;
 	endif

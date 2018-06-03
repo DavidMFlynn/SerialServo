@@ -2,6 +2,8 @@ TTL Serial connected to a USB to Serial.
 
 All packets are 6 bytes w/o optional sync bytes and checksum:
 Source Address, Destination Address and 4 data bytes
+or
+0xDD,0xDD,Source Address, Destination Address and 4 data bytes, Checksum (XOR of Source Addr, Dest Addr, 4 Data bytes)
 
 Default master address is 1
 Default slave address is 2
@@ -58,3 +60,4 @@ kCmd_GetCalPot(0x97)	 return Cur_AN4
 ; these commands save params and return a 0,0,0,0 packet with the new address
 kCmd_SetMasterAddr(0xA1) +1 data, return a zero packet
 kCmd_SetSlaveAddr(0xA2) +1 data, return a zero packet
+kCmd_SendIDString(0xAA) Special packet (0xDD, 0xDD, 0x01, 0x02, 0xAA, 0x00, 0x00, 0x00, checksum) returns "DMFE Serial Servo\n"

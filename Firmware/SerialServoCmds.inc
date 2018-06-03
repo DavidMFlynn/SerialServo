@@ -59,6 +59,9 @@ kCmd_GetCalPot	EQU	0x97	;return Cur_AN4
 kCmd_SetMasterAddr	EQU	0xA1	;+1 data, return a zero packet
 kCmd_SetSlaveAddr	EQU	0xA2	;+1 data, return a zero packet
 ;
+;Special packet (0xDD, 0xDD, 0x01, 0x02, 0xAA, 0x00, 0x00, 0x00, checksum)
+kCmd_SendIDString	EQU	0xAA	; returns "DMFE Serial Servo\n"
+;
 ;=========================================================================================
 ; Entry: RXDataIsNew=1, data in RX_Data
 ;

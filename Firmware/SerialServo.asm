@@ -107,6 +107,9 @@
 	constant	RP_LongAddr=0
 	constant	RP_AddressBytes=1
 	constant	RP_DataBytes=4
+	constant	UseRS232SyncBytes=1
+kRS232SyncByteValue	EQU	0xDD
+	constant	UseRS232Chksum=1
 ;
 kRS232_MasterAddr	EQU	0x01	;Master's Address
 kRS232_SlaveAddr	EQU	0x02	;This Slave's Address
