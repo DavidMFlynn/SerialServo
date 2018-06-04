@@ -1,8 +1,8 @@
 ;====================================================================================================
 ;
 ;    Filename:      SerialServo.asm
-;    Date:          6/1/2018
-;    File Version:  1.0b1
+;    Date:          6/3/2018
+;    File Version:  1.0b2
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -26,6 +26,7 @@
 ;Mode 3: Absolute encoder position control. ssCmdPos = 0..4095
 ;
 ;    History:
+; 1.0b2   6/3/2018	Servo current is averaged, DD DD Sync bytes and checksum.
 ; 1.0b1   6/1/2018	Modes 2 and 3 are working. No current limit yet.
 ; 1.0a3   5/31/2018    Added Speed, StopCenter.
 ; 1.0a2   5/25/2018	Added some more commands.
@@ -245,9 +246,12 @@ kMaxMode	EQU	.3
 	EEAddrTemp		;EEProm address to read or write
 	EEDataTemp		;Data to be writen to EEProm
 ;
+	ANFlags
 	Cur_AN0:2		;IServo
 	Cur_AN4:2		;Calibration Pot
 	Cur_AN7:2		;Battery Volts
+;
+	OldAN0Value:2
 ;
 	Timer1Lo		;1st 16 bit timer
 	Timer1Hi		; 50 mS RX timeiout
@@ -298,8 +302,13 @@ kMaxMode	EQU	.3
 	SysFlags		;saved in eprom
 ;
 	endc
-;-----------------------
+;--------------------------------------------------------------
+;---ANFlags bits---
+#Define	NewDataAN0	ANFlags,0
+#Define	NewDataAN4	ANFlags,1
+#Define	NewDataAN7	ANFlags,2
 ;
+;---SerFlags bits---
 #Define	DataReceivedFlag	SerFlags,1
 #Define	DataSentFlag	SerFlags,2
 ;
@@ -404,8 +413,8 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 	de	high kMaxPulseWidth
 	de	0x00	;nvServoSpeed
 	de	0x00	;nvSysMode
-	de	kRS232_MasterAddr
-	de	kRS232_SlaveAddr
+	de	kRS232_MasterAddr	;nvRS232_MasterAddr, 0x0F
+	de	kRS232_SlaveAddr	;nvRS232_SlaveAddr, 0x10
 	de	0x00	;nvssFlags
 	de	0x00	;nvssMaxI
 	de	kDeadBand	;nvDeadBand
@@ -729,6 +738,22 @@ MainLoop	CLRWDT
 ;
 	CALL	ReadAN
 ;
+; Average AN0
+	btfss	NewDataAN0
+	bra	No_NewDataAN0
+	bcf	NewDataAN0
+	movf	OldAN0Value,W
+	addwf	Cur_AN0,F
+	movf	OldAN0Value+1,W
+	addwfc	Cur_AN0+1,F
+	lsrf	Cur_AN0+1,W
+	movwf	Cur_AN0+1
+	movwf	OldAN0Value+1
+	rrf	Cur_AN0,W
+	movwf	Cur_AN0
+	movwf	OldAN0Value
+;
+No_NewDataAN0:
 	call	ReadEncoder
 ;
 	call	HandleButtons
@@ -1119,6 +1144,7 @@ ReadAN	MOVLB	1	;bank 1
 ;
 	clrf	FSR0H
 	movf	ADCON0,W
+	movlb	0x00	;bank 0
 	andlw	ANNumMask
 	SKPNZ
 	bra	ReadAN_AN0
@@ -1133,20 +1159,24 @@ ReadAN	MOVLB	1	;bank 1
 	movwf	Param78
 	movlw	LOW Cur_AN7
 	movwf	FSR0L
+	bsf	NewDataAN7
 	bra	ReadAN_1
 ;
 ReadAN_AN4	movlw	AN7_Val	;next to read
 	movwf	Param78
 	movlw	low Cur_AN4
 	movwf	FSR0L
+	bsf	NewDataAN4
 	bra	ReadAN_1
 ;
 ReadAN_AN0	movlw	AN4_Val	;next to read
 	movwf	Param78
 	movlw	low Cur_AN0
 	movwf	FSR0L
+	bsf	NewDataAN0
 ;
-ReadAN_1	MOVF	ADRESL,W
+ReadAN_1	movlb	0x01	;bank 1
+	MOVF	ADRESL,W
 	MOVWI	FSR0++
 	MOVF	ADRESH,W
 	MOVWI	FSR0++
