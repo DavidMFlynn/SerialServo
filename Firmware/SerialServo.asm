@@ -279,6 +279,7 @@ kMaxMode	EQU	.3
 	ssCmdPos:2		;Commanded position, 0=not used
 	ssCurPos:2
 	ssTempFlags
+	ssStatus:4		;Status and condition flags for the user.
 ;
 	EncoderAccum:3		;Accumulated distance
 	EncoderVal:2		;Value last read, raw 12 bit data

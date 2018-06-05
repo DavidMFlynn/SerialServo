@@ -54,6 +54,7 @@ kCmd_SaveParams	EQU	0x94	;Save all eeprom params, return ACK
 kCmd_RestoreParams	EQU	0x95	;Copy to ram, return ACK
 kCmd_GetBattVolts	EQU	0x96	;return Cur_AN7
 kCmd_GetCalPot	EQU	0x97	;return Cur_AN4
+kCmd_GetStatus	EQU	0x98	;return ssStatus
 ;
 ; these commands save params and return a 0,0,0,0 packet with the new address
 kCmd_SetMasterAddr	EQU	0xA1	;+1 data, return a zero packet
@@ -472,6 +473,23 @@ Cmd_GetBattVolts_end:
 	movwf	TX_Data+1
 	goto	RS232_Send
 Cmd_GetCalPot_end:
+;---kCmd_GetStatus----------------
+	movlw	kCmd_GetStatus
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_GetStatus_end
+;
+	movf	ssStatus,W
+	movwf	TX_Data
+	movf	ssStatus+1,W
+	movwf	TX_Data+1
+	movf	ssStatus+2,W
+	movwf	TX_Data+2
+	movf	ssStatus+2,W
+	movwf	TX_Data+2
+;	
+	goto	RS232_Send
+Cmd_GetStatus_end:
 ;---kCmd_SetMasterAddr------------
 	movlw	kCmd_SetMasterAddr
 	subwf	RX_Data,W
@@ -492,7 +510,44 @@ Cmd_SetMasterAddr_end:
 	call	SaveParams
 	goto	RS232_Send
 Cmd_SetSlaveAddr_end:
+;---kCmd_SendIDString------------
+	movlw	kCmd_SendIDString
+	subwf	RX_Data,W
+	SKPZ
+	bra	Cmd_SendIDString_end
+	clrf	Param79
+Cmd_SendIDString_L1	movf	Param79,W
+	call	IDString
+	iorlw	0x00
+	SKPNZ
+	return
+	call	StoreSerOut
+	incf	Param79,F
+	bra	Cmd_SendIDString_L1
 ;
+IDString	brw
+	retlw	'D'
+	retlw	'M'
+	retlw	'F'
+	retlw	'E'
+	retlw	' '
+	retlw	'S'
+	retlw	'e'
+	retlw	'r'
+	retlw	'i'
+	retlw	'a'
+	retlw	'l'
+	retlw	' '
+	retlw	'S'
+	retlw	'e'
+	retlw	'r'
+	retlw	'v'
+	retlw	'o'
+	retlw	'\n'
+	retlw	0x00
+;
+Cmd_SendIDString_end:
+;--------------------------------
 	return
 ;
 TX_ACK	movlw	0xFF

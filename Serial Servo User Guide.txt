@@ -56,6 +56,7 @@ kCmd_SaveParams(0x94)	Save all eeprom params, return ACK
 kCmd_RestoreParams(0x95)  Copy to ram, return ACK
 kCmd_GetBattVolts(0x96)  return Cur_AN7
 kCmd_GetCalPot(0x97)	 return Cur_AN4
+kCmd_GetStatus(0x98)    return ssStatus:4
 ;
 ; these commands save params and return a 0,0,0,0 packet with the new address
 kCmd_SetMasterAddr(0xA1) +1 data, return a zero packet
