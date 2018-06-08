@@ -923,6 +923,7 @@ DoModeTwo	movlb	0
 	btfsc	ssCmdPos+1,7	;Any command issued?
 	bra	DoModeTwo_1	; No, Idle the servo
 ;
+;Check for over current, kill position command if over current is detected.
 	call	CheckCurrent
 	btfss	OverCurrentFlag
 	bra	DM2_NotOverCurrent
@@ -1014,6 +1015,16 @@ DoModeThree	movlb	0	;bank 0
 	btfsc	ssCmdPos+1,7
 	bra	DM3_IdleServo
 ;
+;Check for over current, kill position command if over current is detected.
+	call	CheckCurrent
+	btfss	OverCurrentFlag
+	bra	DM3_NotOverCurrent
+	clrf	ssCmdPos
+	clrf	ssCmdPos+1
+	bsf	ssCmdPos+1,7
+	bra	DM3_IdleServo
+;
+DM3_NotOverCurrent:
 ;Param7A:Param79 = ssCmdPos
 	movf	ssCmdPos,W
 	movwf	Param79
@@ -1055,7 +1066,7 @@ DM3_IdleServo	btfss	ssMode3IdleCenter
 	movwf	Param7D
 	call	Copy7CToSig
 	goto	ModeReturn
-;	
+;
 DM3_IdleInactive	bsf	ServoIdle
 	goto	ModeReturn
 ;
@@ -1186,7 +1197,7 @@ ReadAN_1	movlb	0x01	;bank 1
 	BSF	WREG,0	;ADC ON
 	MOVWF	ADCON0
 	movlw	0x04	;Acquisition time 5uS
-	call	DelayWuS	
+	call	DelayWuS
 	BSF	ADCON0,ADGO	;Start next conversion.
 	movlb	0x00	; bank 0
 	return
@@ -1431,7 +1442,7 @@ InitializeIO	MOVLB	0x01	; select bank 1
 	movf	SysMode,W
 	movwf	LED1_Blinks
 ;
-;if mode 3 don't move	
+;if mode 3 don't move
 	bsf	ssCmdPos+1,7
 ;
 	CLRWDT
