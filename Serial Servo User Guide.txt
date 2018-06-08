@@ -62,3 +62,19 @@ kCmd_GetStatus(0x98)    return ssStatus:4
 kCmd_SetMasterAddr(0xA1) +1 data, return a zero packet
 kCmd_SetSlaveAddr(0xA2) +1 data, return a zero packet
 kCmd_SendIDString(0xAA) Special packet (0xDD, 0xDD, 0x01, 0x02, 0xAA, 0x00, 0x00, 0x00, checksum) returns "DMFE Serial Servo\n"
+
+
+Encoder Cable
+--------------------------------------------
+WM1723-ND   Connector Housing 5pos 1.25mm 
+WM12935-ND  Wires w/ pre-crimped terminals
+WM2903-ND   Connector Housing 5 pos .100
+2510-ND     Connector Terminal Tin
+24 AWG style 1007, Red, Yellow, Black, Green, Blue
+
+J2 Pin        Wire      Encoder
+1 VDD         Red       1 5V Supply Voltage
+2 CSn Output  Yellow    2 Chip Select active low Input
+3 VSS         Black     3 Supply Ground
+4 CLK Output  Green     4 Serial Clock Input
+5 DO  Input   Blue      5 DO Serial Data Output
