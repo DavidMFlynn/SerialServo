@@ -727,7 +727,6 @@ IRQ_Ser_End:
 	include <MagEncoder.inc>
 	include <SerBuff1938.inc>
 	include <RS232_Parse.inc>
-	include <SerialServoCmds.inc>
 ;
 ;=========================================================================================
 ;
@@ -746,8 +745,10 @@ MainLoop	CLRWDT
 	CALL	RS232_Parse	; yes
 ;
 	movlb	1
-	btfsc	RXDataIsNew
-	call	HandleRXData
+	btfss	RXDataIsNew
+	bra	ML_1
+	mCall0To1	HandleRXData
+ML_1:
 ;
 	CALL	ReadAN
 ;
@@ -1542,6 +1543,8 @@ InitializeIO	MOVLB	0x01	; select bank 1
 ;=========================================================================================
 ;
 ;
+	org 0x800
+	include <SerialServoCmds.inc>
 ;
 ;
 ;

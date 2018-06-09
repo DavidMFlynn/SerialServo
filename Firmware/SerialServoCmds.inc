@@ -64,6 +64,11 @@ kCmd_SetSlaveAddr	EQU	0xA2	;+1 data, return a zero packet
 kCmd_SendIDString	EQU	0xAA	; returns "DMFE Serial Servo\n"
 ;
 ;=========================================================================================
+;
+RS232_Send_S0	mCall1To0	RS232_Send
+	return
+;
+;=========================================================================================
 ; Entry: RXDataIsNew=1, data in RX_Data
 ;
 HandleRXData	movlb	1	;bank 1
@@ -110,7 +115,7 @@ Cmd_SetMode_end:
 ; Get Mode
 	movf	SysMode,W
 	movwi	FSR0++
-	goto	RS232_Send
+	goto	RS232_Send_S0
 ;
 Cmd_GetMode_end:
 ;---kCmd_SetCmdPos-------------------
@@ -136,7 +141,7 @@ Cmd_SetCmdPos_end:
 	movwi	FSR0++
 	movf	ssCmdPos+1,W
 	movwi	FSR0++
-	goto	RS232_Send
+	goto	RS232_Send_S0
 ;
 Cmd_GetCmdPos_end:
 ;---kCmd_SetMaxI-------------------
@@ -158,7 +163,7 @@ Cmd_SetMaxI_end:
 ; Get Mode
 	movf	ssMaxI,W
 	movwi	FSR0++
-	goto	RS232_Send
+	goto	RS232_Send_S0
 ;
 Cmd_GetMaxI_end:
 ;---kCmd_SetFFwd-------------------
@@ -184,7 +189,7 @@ Cmd_SetFFwd_end:
 	movwi	FSR0++
 	movf	ServoFastForward+1,W
 	movwi	FSR0++
-	goto	RS232_Send
+	goto	RS232_Send_S0
 ;
 Cmd_GetFFwd_end:
 ;---kCmd_SetFRev-------------------
@@ -210,7 +215,7 @@ Cmd_SetFRev_end:
 	movwi	FSR0++
 	movf	ServoFastReverse+1,W
 	movwi	FSR0++
-	goto	RS232_Send
+	goto	RS232_Send_S0
 ;
 Cmd_GetFRev_end:
 ;---kCmd_SetMin_uS-------------------
@@ -236,7 +241,7 @@ Cmd_SetMin_uS_end:
 	movwi	FSR0++
 	movf	ServoMin_uS+1,W
 	movwi	FSR0++
-	goto	RS232_Send
+	goto	RS232_Send_S0
 ;
 Cmd_GetMin_uS_end:
 ;---kCmd_SetMax_uS-------------------
@@ -262,7 +267,7 @@ Cmd_SetMax_uS_end:
 	movwi	FSR0++
 	movf	ServoMax_uS+1,W
 	movwi	FSR0++
-	goto	RS232_Send
+	goto	RS232_Send_S0
 ;
 Cmd_GetMax_uS_end:
 ;---kCmd_SetRevDir---------------
@@ -284,7 +289,7 @@ Cmd_SetRevDir_End:
 	bra	Cmd_GetRevDir_End
 	btfsc	ssReverseDir
 	bsf	INDF0,0
-	goto	RS232_Send
+	goto	RS232_Send_S0
 Cmd_GetRevDir_End:
 ;---kCmd_SetEnaOvrCur------------
 	movlw	kCmd_SetEnaOvrCur
@@ -305,7 +310,7 @@ Cmd_SetEnaOvrCur_End:
 	bra	Cmd_GetEnaOvrCur_End
 	btfsc	ssEnableOverCur
 	bsf	INDF0,0
-	goto	RS232_Send
+	goto	RS232_Send_S0
 Cmd_GetEnaOvrCur_End:
 ;---kCmd_Set_HighZ_TX-------------
 	movlw	kCmd_Set_HighZ_TX
@@ -326,7 +331,7 @@ Cmd_Set_HighZ_TX_End:
 	bra	Cmd_Get_HighZ_TX_End
 	btfsc	ssEnableHighZTZ
 	bsf	INDF0,0
-	goto	RS232_Send
+	goto	RS232_Send_S0
 Cmd_Get_HighZ_TX_End:
 ;---kCmd_SetStopCenter---------
 	movlw	kCmd_SetStopCenter
@@ -348,7 +353,7 @@ Cmd_SetStopCenter_End:
 	movwi	FSR0++
 	movf	ServoStopCenter+1,W
 	movwi	FSR0++
-	goto	RS232_Send
+	goto	RS232_Send_S0
 Cmd_GetStopCenter_End:
 ;---kCmd_SetSpeed--------------
 	movlw	kCmd_SetSpeed
@@ -367,7 +372,7 @@ Cmd_SetSpeed_End:
 	bra	Cmd_GetSpeed_End
 	movf	ServoSpeed,W
 	movwi	FSR0++
-	goto	RS232_Send
+	goto	RS232_Send_S0
 Cmd_GetSpeed_End:
 ;---kCmd_SetUseIdleCenter------
 	movlw	kCmd_SetUseIdleCenter
@@ -388,7 +393,7 @@ Cmd_SetUseIdleCenter_End:
 	bra	Cmd_GetUseIdleCenter_End
 	btfsc	ssMode3IdleCenter
 	bsf	INDF0,0
-	goto	RS232_Send
+	goto	RS232_Send_S0
 Cmd_GetUseIdleCenter_End:
 ;---kCmd_SetDeadBand------------
 	movlw	kCmd_SetDeadBand
@@ -406,7 +411,7 @@ Cmd_SetDeadBand_End:
 	bra	Cmd_GetDeadBand_End
 	movf	DeadBand,W
 	movwi	FSR0++
-	goto	RS232_Send
+	goto	RS232_Send_S0
 Cmd_GetDeadBand_End:
 ;---kCmd_GetI-------------------
 	movlw	kCmd_GetI
@@ -418,7 +423,7 @@ Cmd_GetDeadBand_End:
 	movwi	FSR0++
 	movf	Cur_AN0+1,W
 	movwi	FSR0++
-	goto	RS232_Send
+	goto	RS232_Send_S0
 ;
 Cmd_GetI_end:
 ;---kCmd_GetEnc-------------------
@@ -431,7 +436,7 @@ Cmd_GetI_end:
 	movwi	FSR0++
 	movf	EncoderVal+1,W
 	movwi	FSR0++
-	goto	RS232_Send
+	goto	RS232_Send_S0
 ;
 Cmd_GetEnc_end:
 ;---kCmd_GetEncAbs-------------------
@@ -446,7 +451,7 @@ Cmd_GetEnc_end:
 	movwi	FSR0++
 	movf	EncoderAccum+2,W
 	movwi	FSR0++
-	goto	RS232_Send
+	goto	RS232_Send_S0
 ;
 Cmd_GetEncAbs_end:
 ;---kCmd_SaveParams-----------------
@@ -454,7 +459,7 @@ Cmd_GetEncAbs_end:
 	subwf	Param78,W	;aka RX_Data
 	SKPZ
 	bra	Cmd_SaveParams_end
-	call	SaveParams
+	mCall1To0	SaveParams
 	goto	TX_ACK
 Cmd_SaveParams_end:
 ;---kCmd_RestoreParams--------------
@@ -462,7 +467,7 @@ Cmd_SaveParams_end:
 	subwf	Param78,W	;aka RX_Data
 	SKPZ
 	bra	Cmd_RestoreParams_end
-	call	CopyToRam
+	mCall1To0	CopyToRam
 	goto	TX_ACK
 Cmd_RestoreParams_end:
 ;---kCmd_GetBattVolts---------------
@@ -475,7 +480,7 @@ Cmd_RestoreParams_end:
 	movwi	FSR0++
 	movf	Cur_AN7+1,W
 	movwi	FSR0++
-	goto	RS232_Send
+	goto	RS232_Send_S0
 Cmd_GetBattVolts_end:
 ;---kCmd_GetCalPot------------------
 	movlw	kCmd_GetCalPot
@@ -487,7 +492,7 @@ Cmd_GetBattVolts_end:
 	movwi	FSR0++
 	movf	Cur_AN4+1,W
 	movwi	FSR0++
-	goto	RS232_Send
+	goto	RS232_Send_S0
 Cmd_GetCalPot_end:
 ;---kCmd_GetStatus----------------
 	movlw	kCmd_GetStatus
@@ -504,7 +509,7 @@ Cmd_GetCalPot_end:
 	movf	ssStatus+2,W
 	movwi	FSR0++
 ;	
-	goto	RS232_Send
+	goto	RS232_Send_S0
 Cmd_GetStatus_end:
 ;---kCmd_SetMasterAddr------------
 	movlw	kCmd_SetMasterAddr
@@ -513,8 +518,8 @@ Cmd_GetStatus_end:
 	bra	Cmd_SetMasterAddr_end
 	moviw	FSR1++
 	movwf	RS232_MasterAddr
-	call	SaveParams
-	goto	RS232_Send
+	mCall1To0	SaveParams
+	goto	RS232_Send_S0
 Cmd_SetMasterAddr_end:
 ;---kCmd_SetSlaveAddr-------------
 	movlw	kCmd_SetSlaveAddr
@@ -523,8 +528,8 @@ Cmd_SetMasterAddr_end:
 	bra	Cmd_SetSlaveAddr_end
 	moviw	FSR1++
 	movwf	RS232_SlaveAddr
-	call	SaveParams
-	goto	RS232_Send
+	mCall1To0	SaveParams
+	goto	RS232_Send_S0
 Cmd_SetSlaveAddr_end:
 ;---kCmd_SendIDString------------
 	movlw	kCmd_SendIDString
@@ -537,7 +542,7 @@ Cmd_SendIDString_L1	movf	Param79,W
 	iorlw	0x00
 	SKPNZ
 	return
-	call	StoreSerOut
+	call	StoreSerOut_S0
 	incf	Param79,F
 	bra	Cmd_SendIDString_L1
 ;
@@ -567,6 +572,7 @@ Cmd_SendIDString_end:
 	return
 ;
 TX_ACK	movlw	0xFF
-	goto	StoreSerOut
+StoreSerOut_S0	mCall1To0	StoreSerOut
+	return
 ;
 ;=========================================================================================
