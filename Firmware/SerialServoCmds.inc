@@ -499,7 +499,6 @@ Cmd_GetCalPot_end:
 	subwf	Param78,W	;aka RX_Data
 	SKPZ
 	bra	Cmd_GetStatus_end
-;
 	movf	ssStatus,W
 	movwi	FSR0++
 	movf	ssStatus+1,W
@@ -508,6 +507,8 @@ Cmd_GetCalPot_end:
 	movwi	FSR0++
 	movf	ssStatus+2,W
 	movwi	FSR0++
+;reset flags
+	bcf	ssRX_Timeout
 ;	
 	goto	RS232_Send_S0
 Cmd_GetStatus_end:

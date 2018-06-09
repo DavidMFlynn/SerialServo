@@ -314,6 +314,8 @@ kMaxMode	EQU	.3
 ;----ssStatus bits
 #Define	MD3_FFwd	ssStatus,0
 #Define	MD3_FRev	ssStatus,1
+#Define	ssio_OverCurSD	ssStatus,2
+#Define	ssRX_Timeout	ssStatus,3
 ;
 ;---------------
 #Define	FirstRAMParam	EncoderFlags
@@ -943,9 +945,11 @@ DoModeTwo	movlb	0
 	clrf	ssCmdPos
 	clrf	ssCmdPos+1
 	bsf	ssCmdPos+1,7
+	bsf	ssio_OverCurSD
 	bra	DoModeTwo_1
 ;
 DM2_NotOverCurrent:
+	bcf	ssio_OverCurSD
 	movf	ServoSpeed,F
 	SKPNZ		;Speed = 0?
 	bra	DoModeTwo_NoSpeed	; yes
@@ -1035,10 +1039,12 @@ DoModeThree	movlb	0	;bank 0
 	clrf	ssCmdPos
 	clrf	ssCmdPos+1
 	bsf	ssCmdPos+1,7
+	bsf	ssio_OverCurSD
 	bra	DM3_IdleServo
 ;
 DM3_NotOverCurrent:
 ;Param7A:Param79 = ssCmdPos
+	bcf	ssio_OverCurSD
 	movf	ssCmdPos,W
 	movwf	Param79
 	movf	ssCmdPos+1,W

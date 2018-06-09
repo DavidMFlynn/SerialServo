@@ -111,7 +111,7 @@
 ; Calls (1+0): GetSerIn
 ;
 RS232_Parse	movlb	0x01	;bank 1
-	movf	RX_ParseFlags,F	;Yes
+	movf	RX_ParseFlags,F
 	SKPNZ		;Receive in process?
 	bra	RS232_Parse_Byte	; no
 ;
@@ -120,6 +120,7 @@ RS232_Parse	movlb	0x01	;bank 1
 	SKPZ		;Timed out?
 	bra	RS232_Parse_Byte	; no
 ;timed out
+	bsf	ssRX_Timeout
 	movlb	0x01	;bank 1
 	clrf	RX_ParseFlags
 ;
