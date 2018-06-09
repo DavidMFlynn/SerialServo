@@ -66,6 +66,11 @@
 ;	cblock
 ;	RS232_MasterAddr
 ;	RS232_SlaveAddr
+;	endc
+;
+; Bank1 variable used by RS232_Parse:
+;
+;	cblock
 ;	RX_ParseFlags
 ;	RX_Flags
 ;	RX_DataCount
@@ -105,14 +110,17 @@
 ; Ram Used: Param78, FSR
 ; Calls (1+0): GetSerIn
 ;
-RS232_Parse	movf	RX_ParseFlags,F	;Yes
+RS232_Parse	movlb	0x01	;bank 1
+	movf	RX_ParseFlags,F	;Yes
 	SKPNZ		;Receive in process?
 	bra	RS232_Parse_Byte	; no
 ;
+	movlb	0	;bank 0
 	movf	Timer1Lo,F
 	SKPZ		;Timed out?
 	bra	RS232_Parse_Byte	; no
 ;timed out
+	movlb	0x01	;bank 1
 	clrf	RX_ParseFlags
 ;
 RS232_Parse_Byte	CALL	GetSerIn
@@ -125,6 +133,7 @@ RS232_Parse_Byte	CALL	GetSerIn
 ; Command inturpreter
 	if UseRS232SyncBytes
 ;
+	movlb	0x01	;bank 1
 	MOVF	RX_ParseFlags,F
 	SKPZ		;Beginning new packet?
 	BRA	RS232_Parse_Sync2	; No
@@ -132,7 +141,7 @@ RS232_Parse_Byte	CALL	GetSerIn
 	SUBWF	Param78,W
 	SKPNZ		;Sync byte OK?
 	BSF	SyncByte1RXd	; Yes
-	return
+	bra	RS232_Parse_Rtn
 ;
 RS232_Parse_Sync2	btfsc	SyncByte2RXd
 	bra	RS232_Parse_SALo
@@ -141,18 +150,21 @@ RS232_Parse_Sync2	btfsc	SyncByte2RXd
 	SKPZ
 	goto	RS232_Parse_Error
 	bsf	SyncByte2RXd
-	return
+	bra	RS232_Parse_Rtn
 ;
 	endif
 ;
 ; LSB of Source Address
-RS232_Parse_SALo	btfsc	SourceAddLoRXd
+RS232_Parse_SALo	movlb	0x01	;bank 1
+	btfsc	SourceAddLoRXd
 	bra	RS232_Parse_SALo_end
 ;
 	clrf	RX_CSUM
 	clrf	RX_DataCount
 	bsf	RXSrcIsMaster
+	movlb	0
 	movf	RS232_MasterAddr,W
+	movlb	1
 	subwf	Param78,W
 	SKPZ
 	bcf	RXSrcIsMaster
@@ -160,14 +172,17 @@ RS232_Parse_SALo	btfsc	SourceAddLoRXd
 	movf	Param78,W
 	movwf	RX_SrcAdd
 	xorwf	RX_CSUM,F
+RS232_Parse_Rtn	movlb	0x00	;bank 0
 	return
-RS232_Parse_SALo_end
+RS232_Parse_SALo_end:
 ;
 ; MSB of Source Address
 	if RP_LongAddr
 RS232_Parse_SAHi	btfsc	SourceAddHiRXd
 	bra	RS232_Parse_SAHi_end
+	movlb	0
 	movf	RS232_MasterAddr+1,W
+	movlb	1
 	subwf	Param78,W
 	SKPZ
 	bcf	RXSrcIsMaster
@@ -175,15 +190,17 @@ RS232_Parse_SAHi	btfsc	SourceAddHiRXd
 	movf	Param78,W
 	movwf	RX_SrcAdd+1
 	xorwf	RX_CSUM,F
-	return
-RS232_Parse_SAHi_end
+	bra	RS232_Parse_Rtn
+RS232_Parse_SAHi_end:
 	endif
 ;
 ; LSB of Destination Address
 RS232_Parse_DALo	btfsc	DestAddLoRXd
 	bra	RS232_Parse_DALo_End
 	bsf	RXDstIsMe
+	movlb	0
 	movf	RS232_SlaveAddr,W
+	movlb	1
 	subwf	Param78,W
 	SKPZ
 	bcf	RXDstIsMe
@@ -191,14 +208,16 @@ RS232_Parse_DALo	btfsc	DestAddLoRXd
 	movf	Param78,W
 	movwf	RX_DstAdd
 	xorwf	RX_CSUM,F
-	return
-RS232_Parse_DALo_End
+	bra	RS232_Parse_Rtn
+RS232_Parse_DALo_End:
 ;
 ; MSB of Destination Address
 	if RP_LongAddr
 RS232_Parse_DAHi	btfsc	DestAddHiRXd
 	bra	RS232_Parse_DAHi_end
+	movlb	0
 	movf	RS232_SlaveAddr+1,W
+	movlb	1
 	subwf	Param78,W
 	SKPZ
 	bcf	RXDstIsMe
@@ -206,8 +225,8 @@ RS232_Parse_DAHi	btfsc	DestAddHiRXd
 	movf	Param78,W
 	movwf	RX_DstAdd+1
 	xorwf	RX_CSUM,F
-	return
-RS232_Parse_DAHi_end
+	bra	RS232_Parse_Rtn
+RS232_Parse_DAHi_end:
 	endif
 ;
 RS232_Parse_Data	btfsc	AllDataRXd
@@ -224,11 +243,11 @@ RS232_Parse_Data	btfsc	AllDataRXd
 	movlw	RP_DataBytes
 	subwf	RX_DataCount,W
 	SKPZ
-	return
+	bra	RS232_Parse_Rtn
 	bsf	AllDataRXd
 ;
 	if UseRS232Chksum
-	return
+	bra	RS232_Parse_Rtn
 	endif
 RS232_Parse_Data_end
 ;
@@ -266,6 +285,7 @@ RS232_Parse_L1	moviw	FSR0++
 	bcf	RXDataValidFlag	; no
 ;
 	clrf	RX_ParseFlags
+	movlb	0x00
 	return
 ;
 ;
@@ -279,7 +299,7 @@ RS232_Parse_Error	CLRF	RX_ParseFlags
 ; Exit: Bank 0
 ; Ram used: Param78, FSR1
 ; Calls: none
-RS232_ClearTXData	movlw	0	;bank 0
+RS232_ClearTXData	movlw	1	;bank 1
 	movlw	RP_DataBytes
 	movwf	Param78
 	movlw	low TX_Data
@@ -290,6 +310,7 @@ RS232_ClearTXData	movlw	0	;bank 0
 RS232_ClearTXData_L1	movwi	FSR1++
 	decfsz	Param78,F
 	bra	RS232_ClearTXData_L1
+	movlb	0x00
 	return
 ;
 ;=========================================================================================
@@ -298,7 +319,7 @@ RS232_ClearTXData_L1	movwi	FSR1++
 ;Ram used: Param78,Param79,Param7A,FSR0,FSR1
 ;Calls: (1+0) StoreSerOut
 ;
-RS232_Send	movlb	0	;bank 0
+RS232_Send:
 ;
 	if UseRS232SendSyncBytes
 ; only needed when sening servo to servo
@@ -330,6 +351,7 @@ RS232_Send	movlb	0	;bank 0
 	call	StoreSerOut
 	endif
 ;
+	movlb	1	;bank 1
 	movlw	RP_DataBytes
 	movwf	Param79
 	movlw	low TX_Data

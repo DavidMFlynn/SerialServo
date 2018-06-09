@@ -266,18 +266,10 @@ kMaxMode	EQU	.3
 	RXByte		;Last byte received
 	SerFlags
 ;
-	RX_ParseFlags
-	RX_Flags
-	RX_DataCount
-	RX_CSUM
-	RX_SrcAdd:RP_AddressBytes
-	RX_DstAdd:RP_AddressBytes
-	RX_TempData:RP_DataBytes
-	RX_Data:RP_DataBytes
-	TX_Data:RP_DataBytes
 ;
 	ssCmdPos:2		;Commanded position, 0=not used
 	ssCurPos:2
+	ssMD3_Dest:2
 	ssTempFlags
 	ssStatus:4		;Status and condition flags for the user.
 ;
@@ -319,6 +311,11 @@ kMaxMode	EQU	.3
 #Define	ServoIdle	ssTempFlags,2
 #Define	OverCurrentFlag	ssTempFlags,3
 ;
+;----ssStatus bits
+#Define	MD3_FFwd	ssStatus,0
+#Define	MD3_FRev	ssStatus,1
+;
+;---------------
 #Define	FirstRAMParam	EncoderFlags
 #Define	LastRAMParam	SysFlags
 ;
@@ -332,6 +329,20 @@ kMaxMode	EQU	.3
 #Define	SW2_Flag	SysFlags,1
 #Define	SW3_Flag	SysFlags,2
 #Define	SW4_Flag	SysFlags,3
+;
+;================================================================================================
+;  Bank1 Ram 0A0h-0EFh 80 Bytes
+	cblock	0x0A0
+	RX_ParseFlags
+	RX_Flags
+	RX_DataCount
+	RX_CSUM
+	RX_SrcAdd:RP_AddressBytes
+	RX_DstAdd:RP_AddressBytes
+	RX_TempData:RP_DataBytes
+	RX_Data:RP_DataBytes
+	TX_Data:RP_DataBytes
+	endc
 ;
 ;================================================================================================
 ;  Bank2 Ram 120h-16Fh 80 Bytes
@@ -734,6 +745,7 @@ MainLoop	CLRWDT
 	SKPZ		;Any data?
 	CALL	RS232_Parse	; yes
 ;
+	movlb	1
 	btfsc	RXDataIsNew
 	call	HandleRXData
 ;
@@ -1058,36 +1070,110 @@ DM3_NotOverCurrent:
 	bra	DM3_FR	; Yes, EncoderVal > (ssCmdPos + DeadBand)
 ;
 ; EncoderVal > ssCmdPos && EncoderVal <= (ssCmdPos + DeadBand)
-DM3_IdleServo	btfss	ssMode3IdleCenter
+DM3_IdleServo	bcf	MD3_FFwd
+	bcf	MD3_FRev
+	btfss	ssMode3IdleCenter
 	bra	DM3_IdleInactive
 	movf	ServoStopCenter,W
-	movwf	Param7C
+	movwf	ssMD3_Dest
+	movwf	ssCurPos
 	movf	ServoStopCenter+1,W
-	movwf	Param7D
-	call	Copy7CToSig
-	goto	ModeReturn
+	movwf	ssMD3_Dest+1
+	movwf	ssCurPos+1
+	bra	DM3_UpdatePos
 ;
 DM3_IdleInactive	bsf	ServoIdle
 	goto	ModeReturn
 ;
 DM3_FF	btfsc	ssReverseDir
 	bra	DM3_FR_1
-DM3_FF_1	movf	ServoFastForward,W
-	movwf	Param7C
+DM3_FF_1	btfsc	MD3_FRev	;Moving Reverse dir?
+	bra	DM3_IdleServo	; Yes
+	bsf	MD3_FFwd
+	movf	ServoFastForward,W
+	movwf	ssMD3_Dest
 	movf	ServoFastForward+1,W
-	movwf	Param7D
-	call	Copy7CToSig
-	goto	ModeReturn
+	movwf	ssMD3_Dest+1
+	bra	DM3_UpdatePos
 ;
 DM3_FR	btfsc	ssReverseDir
 	bra	DM3_FF_1
-DM3_FR_1	movf	ServoFastReverse,W
-	movwf	Param7C
+DM3_FR_1	btfsc	MD3_FFwd	;Moving Forward dir?
+	bra	DM3_IdleServo	; Yes
+	bsf	MD3_FRev
+	movf	ServoFastReverse,W
+	movwf	ssMD3_Dest
 	movf	ServoFastReverse+1,W
+	movwf	ssMD3_Dest+1
+;
+DM3_UpdatePos	movf	ServoSpeed,F
+	SKPNZ		;Speed = 0?
+	bra	DM3_NoSpeed	; yes
+	btfss	PulseSent	;Time to update?
+	goto	ModeReturn	; No
+	bcf	PulseSent
+;Param7D:Param7C = Dest-Cur
+	movf	ssCurPos,W
+	subwf	ssMD3_Dest,W
+	movwf	Param7C
+	movf	ssCurPos+1,W
+	subwfb	ssMD3_Dest+1,W
 	movwf	Param7D
+; if Param7D:Param7C = 0 then we are In Position
+	iorwf	Param7C,W
+	SKPNZ
+	bra	DM3_Go	; if Cmd = Cur Go
+;
+;
+	BTFSS	Param7D,7	;Cmd<Cur? Set if Cur>Cmd
+	GOTO	DM3_MovPlus	; Yes
+;Move minus
+	INCFSZ	Param7D,W	;Dist=0xFFxx?
+	GOTO	DM3_Minus	; No
+	MOVF	ServoSpeed,W
+	ADDWF	Param7C,W
+	BTFSC	_C	;Dist<Speed?
+	bra	DM3_NoSpeed	; No
+;
+; Subtract speed from current position
+DM3_Minus	MOVF	ServoSpeed,W
+	SUBWF	ssCurPos,F	;SigOutTime
+	MOVLW	0x00
+	SUBWFB	ssCurPos+1,F	;SigOutTimeH
+	bra	DM3_Go
+;
+;=============================
+; 7D:7C = distance to go
+;
+DM3_MovPlus	MOVF	Param7D,F
+	SKPZ		;Dist>255 to go?
+	bra	DM3_Plus	; Yes
+	MOVF	ServoSpeed,W
+	SUBWF	Param7C,W	;Dist-Speed
+	SKPNB		;Speed>Dist?
+	bra	DM3_NoSpeed	; Yes
+;
+DM3_Plus	MOVF	ServoSpeed,W	;7D:7C = CurPos + Speed
+	ADDWF	ssCurPos,F
+	CLRW
+	ADDWFC	ssCurPos+1,F
+	bra	DM3_Go
+;
+;
+; set current position at destination position
+DM3_NoSpeed	movf	ssMD3_Dest,W
+	movwf	ssCurPos
+	movf	ssMD3_Dest+1,W
+	movwf	ssCurPos+1
+;
+DM3_Go	movf	ssCurPos,W
+	movwf	Param7C
+	movf	ssCurPos+1,W
+	movwf	Param7D
+	call	ClampInt
 	call	Copy7CToSig
 	goto	ModeReturn
-;
+	
 ;=========================================================================================
 ;DebounceTime,kMaxMode
 ;Timer4Lo,SysMode
