@@ -1,8 +1,8 @@
 ;====================================================================================================
 ;
 ;    Filename:      SerialServo.asm
-;    Date:          6/3/2018
-;    File Version:  1.0b2
+;    Date:          6/19/2018
+;    File Version:  1.0b3
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -26,6 +26,7 @@
 ;Mode 3: Absolute encoder position control. ssCmdPos = 0..4095
 ;
 ;    History:
+; 1.0b3   6/19/2018	Added ssEnableFastPWM
 ; 1.0b2   6/3/2018	Servo current is averaged, DD DD Sync bytes and checksum.
 ; 1.0b1   6/1/2018	Modes 2 and 3 are working. No current limit yet.
 ; 1.0a3   5/31/2018    Added Speed, StopCenter.
@@ -209,7 +210,7 @@ Baud_57600	EQU	.138	;57.55k, -0.08%
 BaudRate	EQU	Baud_38400
 ;
 kServoDwellTime	EQU	.40000	;20mS
-;kServoDwellTime	EQU	.20000	;10mS
+kServoFastDwellTime	EQU	.20000	;10mS
 kMinPulseWidth	EQU	.1800	;900uS
 kMidPulseWidth	EQU	.3000	;1500uS
 kMaxPulseWidth	EQU	.4200	;2100uS
@@ -326,6 +327,8 @@ kMaxMode	EQU	.3
 #Define	ssReverseDir	ssFlags,1	;if set ServoFastForward<=>ServoFastReverse
 #Define	ssEnableHighZTZ	ssFlags,2	;if set TX is High-Z when not active
 #Define	ssMode3IdleCenter	ssFlags,3	;0= Disable PWM, 1= output ServoStopCenter
+#Define	ssEnableFastPWM	ssFlags,4	;0= 20mS PWM, 1= 10mS PWM
+#Define	ssEnableAN4	ssFlags,5	;0= Mode 0,1 disabled; 1= Enabled;
 ;
 #Define	SW1_Flag	SysFlags,0
 #Define	SW2_Flag	SysFlags,1
@@ -653,14 +656,14 @@ IRQ_Servo1	MOVLB	0	;bank 0
 	bra	IRQ_Servo1_1	; Yes
 ;
 ;Servo is off, idle CCP1 and keep output low
-	MOVLB	0x05
+	MOVLB	0x05	;Bank 5
 	movlw	CCP1CON_Idle
 	movwf	CCP1CON
 	bra	IRQ_Servo1_Dwell
 ;
 IRQ_Servo1_1	btfsc	ServoIdle
 	bra	IRQ_Servo1_Idle
-	MOVLB	0x05
+	MOVLB	0x05	;Bank 5
 	BTFSC	CCP1CON,CCP1M1	;Idling?
 	bra	IRQ_Servo1_OL	; Yes, go high after dwell
 	BTFSC	CCP1CON,CCP1M0	;Cleared output on match?
@@ -674,11 +677,23 @@ IRQ_Servo1_OH	MOVF	SigOutTime,W	;Put the pulse into the CCP reg.
 	MOVLW	CCP1CON_Clr	;Clear output on match
 	MOVWF	CCP1CON	;CCP1 clr on match
 ;Calculate dwell time
+	movlb	0	;bank 0
+	btfss	ssEnableFastPWM
+	bra	IRQ_Servo1_20mS
+	movlb	5	;Bank 5
+	MOVLW	LOW kServoFastDwellTime
+	MOVWF	CalcdDwell
+	MOVLW	HIGH kServoFastDwellTime
+	MOVWF	CalcdDwellH
+	bra	IRQ_Servo1_CalcDwell
+;
+IRQ_Servo1_20mS	movlb	5	;Bank 5
 	MOVLW	LOW kServoDwellTime
 	MOVWF	CalcdDwell
 	MOVLW	HIGH kServoDwellTime
 	MOVWF	CalcdDwellH
-	MOVF	SigOutTime,W
+;
+IRQ_Servo1_CalcDwell	MOVF	SigOutTime,W
 	SUBWF	CalcdDwell,F
 	MOVF	SigOutTime+1,W
 	SUBWFB	CalcdDwellH,F

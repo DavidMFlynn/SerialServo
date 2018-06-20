@@ -46,6 +46,8 @@ kCmd_SetUseIdleCenter	EQU	0x8D	;+1 data (ssMode3IdleCenter), return ACK
 kCmd_GetUseIdleCenter	EQU	0x0D
 kCmd_SetDeadBand	EQU	0x8E	;+1 data (DeadBand), return ACK
 kCmd_GetDeadBand	EQU	0x0E
+kCmd_SetUseFastPWM	EQU	0x8F	;+1 data (ssEnableFastPWM), return ACK
+kCmd_GetUseFastPWM	EQU	0x0F
 ;
 kCmd_GetI	EQU	0x91	;return Cur_AN0
 kCmd_GetEnc	EQU	0x92	;return EncoderVal
@@ -413,6 +415,27 @@ Cmd_SetDeadBand_End:
 	movwi	FSR0++
 	goto	RS232_Send_S0
 Cmd_GetDeadBand_End:
+;---kCmd_SetUseFastPWM----------	;+1 data (ssEnableFastPWM), return ACK
+	movlw	kCmd_SetUseFastPWM
+	subwf	Param78,W	;aka RX_Data
+	SKPZ
+	bra	Cmd_SetUseFastPWM_End
+	bcf	ssEnableFastPWM
+	movlw	0x01
+	xorwf	INDF1,W
+	SKPNZ
+	bsf	ssEnableFastPWM
+	goto	TX_ACK
+Cmd_SetUseFastPWM_End:
+;---kCmd_GetUseFastPWM----------
+	movlw	kCmd_GetUseFastPWM
+	subwf	Param78,W	;aka RX_Data
+	SKPZ
+	bra	Cmd_GetUseFastPWM_End
+	btfsc	ssEnableFastPWM
+	bsf	INDF0,0
+	goto	RS232_Send_S0
+Cmd_GetUseFastPWM_End:
 ;---kCmd_GetI-------------------
 	movlw	kCmd_GetI
 	subwf	Param78,W	;aka RX_Data

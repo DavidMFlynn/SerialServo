@@ -48,6 +48,8 @@ kCmd_SetUseIdleCenter(0x8D) +1 data (ssMode3IdleCenter), return ACK
 kCmd_GetUseIdleCenter(0x0D)
 kCmd_SetDeadBand(0x8E) +1 data (DeadBand), return ACK
 kCmd_GetDeadBand(0x0E)
+kCmd_SetUseFastPWM(0x8F) +1 data (ssEnableFastPWM), return ACK
+kCmd_GetUseFastPWM(0x0F)
 ;
 kCmd_GetI(0x91)	return Cur_AN0
 kCmd_GetEnc(0x92)	return EncoderVal
