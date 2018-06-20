@@ -6,8 +6,8 @@ $Descr A 11000 8500
 encoding utf-8
 Sheet 1 1
 Title "Serial Servo"
-Date "2018-06-03"
-Rev "A"
+Date "2018-06-19"
+Rev "B"
 Comp "DMFE"
 Comment1 "TTL serial r/c servo controller"
 Comment2 ""
@@ -29,8 +29,8 @@ $Comp
 L Connector_Generic:Conn_01x04 J1
 U 1 1 5AEA83CA
 P 1200 1300
-F 0 "J1" H 1120 1617 50  0000 C CNN
-F 1 "Conn_01x04" H 1120 1526 50  0000 C CNN
+F 0 "J1" H 1300 1500 50  0000 C CNN
+F 1 "Conn_01x04" H 1120 1526 50  0001 C CNN
 F 2 "Connector_Molex:Molex_KK-254_AE-6410-04A_1x04_P2.54mm_Vertical" H 1200 1300 50  0001 C CNN
 F 3 "~" H 1200 1300 50  0001 C CNN
 	1    1200 1300
@@ -217,16 +217,16 @@ Wire Wire Line
 $Comp
 L power:+5V #PWR08
 U 1 1 5AECE8CF
-P 3200 3100
-F 0 "#PWR08" H 3200 2950 50  0001 C CNN
-F 1 "+5V" H 3215 3273 50  0000 C CNN
-F 2 "" H 3200 3100 50  0001 C CNN
-F 3 "" H 3200 3100 50  0001 C CNN
-	1    3200 3100
+P 3200 2850
+F 0 "#PWR08" H 3200 2700 50  0001 C CNN
+F 1 "+5V" H 3215 3023 50  0000 C CNN
+F 2 "" H 3200 2850 50  0001 C CNN
+F 3 "" H 3200 2850 50  0001 C CNN
+	1    3200 2850
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	3200 3200 3200 3100
+	3200 3200 3200 2850
 $Comp
 L power:+12V #PWR07
 U 1 1 5AECE93B
@@ -328,8 +328,8 @@ $Comp
 L Device:R R6
 U 1 1 5AECF704
 P 5300 2550
-F 0 "R6" H 5350 2400 50  0000 L CNN
-F 1 "1R0" V 5300 2500 50  0000 L CNN
+F 0 "R6" H 5400 2500 50  0000 L CNN
+F 1 "0R200 1W" H 5400 2650 50  0000 L CNN
 F 2 "Resistor_SMD:R_2512_6332Metric_Pad1.49x3.40mm_HandSolder" V 5230 2550 50  0001 C CNN
 F 3 "~" H 5300 2550 50  0001 C CNN
 	1    5300 2550
@@ -397,8 +397,8 @@ $Comp
 L Device:R R1
 U 1 1 5AED22A3
 P 1450 3800
-F 0 "R1" V 1243 3800 50  0000 C CNN
-F 1 "220R" V 1334 3800 50  0000 C CNN
+F 0 "R1" V 1350 3750 50  0000 C CNN
+F 1 "220R" V 1450 3800 50  0000 C CNN
 F 2 "Resistor_SMD:R_0805_2012Metric_Pad1.29x1.40mm_HandSolder" V 1380 3800 50  0001 C CNN
 F 3 "~" H 1450 3800 50  0001 C CNN
 	1    1450 3800
@@ -475,28 +475,28 @@ $EndComp
 Text Notes 1500 6750 2    50   ~ 0
 Prog
 Text Notes 1750 6650 2    62   ~ 0
-VDD\nVPP\nVSS\nPGC\nPGD
+VDD\nVPP\nVSS\nPGD\nPGC
 Text GLabel 2000 4200 0    50   Input ~ 0
 PGD
-Text GLabel 1100 6600 0    50   Input ~ 0
+Text GLabel 1100 6500 0    50   Input ~ 0
 PGD
 Text GLabel 2000 4100 0    50   Input ~ 0
 PGC
 Text GLabel 4400 4000 2    50   Input ~ 0
 VPP
-Text GLabel 1100 6500 0    50   Input ~ 0
+Text GLabel 1100 6600 0    50   Input ~ 0
 PGC
-Text GLabel 1100 6300 0    50   Input ~ 0
+Text GLabel 1200 6200 0    50   Input ~ 0
 VPP
 $Comp
 L power:+5V #PWR02
 U 1 1 5AEDCBB7
-P 1200 6150
-F 0 "#PWR02" H 1200 6000 50  0001 C CNN
-F 1 "+5V" H 1215 6323 50  0000 C CNN
-F 2 "" H 1200 6150 50  0001 C CNN
-F 3 "" H 1200 6150 50  0001 C CNN
-	1    1200 6150
+P 900 6250
+F 0 "#PWR02" H 900 6100 50  0001 C CNN
+F 1 "+5V" H 915 6423 50  0000 C CNN
+F 2 "" H 900 6250 50  0001 C CNN
+F 3 "" H 900 6250 50  0001 C CNN
+	1    900  6250
 	1    0    0    -1  
 $EndComp
 $Comp
@@ -518,10 +518,6 @@ Wire Wire Line
 	1250 6400 700  6400
 Wire Wire Line
 	700  6400 700  6500
-Wire Wire Line
-	1100 6300 1250 6300
-Wire Wire Line
-	1200 6150 1200 6200
 Wire Wire Line
 	1200 6200 1250 6200
 Wire Wire Line
@@ -881,7 +877,7 @@ F 3 "~" H 1200 5400 50  0001 C CNN
 	1    1200 5400
 	-1   0    0    -1  
 $EndComp
-Text Notes 1100 5750 0    50   ~ 0
+Text Notes 900  5850 0    100  ~ 0
 Encoder
 Text Notes 850  5650 0    62   ~ 0
 VDD\nCS*\nVSS\nCLK\nDO
@@ -975,8 +971,8 @@ $Comp
 L Device:R R3
 U 1 1 5AF79064
 P 3800 5000
-F 0 "R3" V 3593 5000 50  0000 C CNN
-F 1 "1K0" V 3684 5000 50  0000 C CNN
+F 0 "R3" V 3900 4950 50  0000 C CNN
+F 1 "1K0" V 3800 5000 50  0000 C CNN
 F 2 "Resistor_SMD:R_0805_2012Metric_Pad1.29x1.40mm_HandSolder" V 3730 5000 50  0001 C CNN
 F 3 "~" H 3800 5000 50  0001 C CNN
 	1    3800 5000
@@ -1091,8 +1087,8 @@ $Comp
 L Device:R R2
 U 1 1 5AFEFAFB
 P 3200 6400
-F 0 "R2" V 2993 6400 50  0000 C CNN
-F 1 "1K0" V 3084 6400 50  0000 C CNN
+F 0 "R2" V 3100 6350 50  0000 C CNN
+F 1 "1K0" V 3200 6400 50  0000 C CNN
 F 2 "Resistor_SMD:R_0805_2012Metric_Pad1.29x1.40mm_HandSolder" V 3130 6400 50  0001 C CNN
 F 3 "~" H 3200 6400 50  0001 C CNN
 	1    3200 6400
@@ -1120,8 +1116,8 @@ $Comp
 L Device:R R4
 U 1 1 5B01A70C
 P 4750 6300
-F 0 "R4" V 4543 6300 50  0000 C CNN
-F 1 "100K" V 4634 6300 50  0000 C CNN
+F 0 "R4" V 4650 6250 50  0000 C CNN
+F 1 "100K" V 4750 6300 50  0000 C CNN
 F 2 "Resistor_SMD:R_0805_2012Metric_Pad1.29x1.40mm_HandSolder" V 4680 6300 50  0001 C CNN
 F 3 "~" H 4750 6300 50  0001 C CNN
 	1    4750 6300
@@ -1148,8 +1144,8 @@ $Comp
 L Device:R R5
 U 1 1 5B02A185
 P 4750 6600
-F 0 "R5" V 4543 6600 50  0000 C CNN
-F 1 "10K" V 4634 6600 50  0000 C CNN
+F 0 "R5" V 4650 6550 50  0000 C CNN
+F 1 "10K" V 4750 6600 50  0000 C CNN
 F 2 "Resistor_SMD:R_0805_2012Metric_Pad1.29x1.40mm_HandSolder" V 4680 6600 50  0001 C CNN
 F 3 "~" H 4750 6600 50  0001 C CNN
 	1    4750 6600
@@ -1189,7 +1185,7 @@ Connection ~ 3450 6400
 Wire Wire Line
 	3450 6400 3600 6400
 Text Notes 6250 5250 0    50   ~ 0
-Note: Analog Ref+ = 2.048V
+Note: Analog Ref+ = 5.0V
 Text Notes 6250 5400 0    50   ~ 0
 Input voltage 6.5 to 16 volts.
 Wire Wire Line
@@ -1242,8 +1238,8 @@ $Comp
 L Device:R R21
 U 1 1 5B1AA0CA
 P 4950 4950
-F 0 "R21" V 4743 4950 50  0000 C CNN
-F 1 "1K0" V 4834 4950 50  0000 C CNN
+F 0 "R21" V 4850 4950 50  0000 C CNN
+F 1 "1K0" V 4950 4950 50  0000 C CNN
 F 2 "Resistor_SMD:R_0805_2012Metric_Pad1.29x1.40mm_HandSolder" V 4880 4950 50  0001 C CNN
 F 3 "~" H 4950 4950 50  0001 C CNN
 	1    4950 4950
@@ -1270,7 +1266,7 @@ L Connector_Generic:Conn_01x03 J5
 U 1 1 5B17EEDB
 P 9650 1950
 F 0 "J5" H 9730 1992 50  0000 L CNN
-F 1 "Conn_01x03" H 9730 1901 50  0000 L CNN
+F 1 "Conn_01x03" H 9730 1901 50  0001 L CNN
 F 2 "Connector_Molex:Molex_KK-254_AE-6410-03A_1x03_P2.54mm_Vertical" H 9650 1950 50  0001 C CNN
 F 3 "~" H 9650 1950 50  0001 C CNN
 	1    9650 1950
@@ -1318,7 +1314,7 @@ L Connector_Generic:Conn_01x03 J6
 U 1 1 5B1BE133
 P 9650 3100
 F 0 "J6" H 9730 3142 50  0000 L CNN
-F 1 "Conn_01x03" H 9730 3051 50  0000 L CNN
+F 1 "Conn_01x03" H 9730 3051 50  0001 L CNN
 F 2 "Connector_Molex:Molex_KK-254_AE-6410-03A_1x03_P2.54mm_Vertical" H 9650 3100 50  0001 C CNN
 F 3 "~" H 9650 3100 50  0001 C CNN
 	1    9650 3100
@@ -1330,7 +1326,7 @@ L Connector_Generic:Conn_01x03 J7
 U 1 1 5B1BE1C4
 P 9650 4250
 F 0 "J7" H 9730 4292 50  0000 L CNN
-F 1 "Conn_01x03" H 9730 4201 50  0000 L CNN
+F 1 "Conn_01x03" H 9730 4201 50  0001 L CNN
 F 2 "Connector_Molex:Molex_KK-254_AE-6410-03A_1x03_P2.54mm_Vertical" H 9650 4250 50  0001 C CNN
 F 3 "~" H 9650 4250 50  0001 C CNN
 	1    9650 4250
@@ -1622,4 +1618,67 @@ Wire Wire Line
 	5300 2250 5300 2400
 Wire Wire Line
 	5300 2700 5300 2850
+$Comp
+L Device:C_Small C14
+U 1 1 5B344024
+P 3400 3000
+F 0 "C14" H 3492 3046 50  0000 L CNN
+F 1 "0.1uF" H 3492 2955 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0805_2012Metric_Pad1.29x1.40mm_HandSolder" H 3400 3000 50  0001 C CNN
+F 3 "~" H 3400 3000 50  0001 C CNN
+	1    3400 3000
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR034
+U 1 1 5B350BFD
+P 3400 3100
+F 0 "#PWR034" H 3400 2850 50  0001 C CNN
+F 1 "GND" H 3405 2927 50  0000 C CNN
+F 2 "" H 3400 3100 50  0001 C CNN
+F 3 "" H 3400 3100 50  0001 C CNN
+	1    3400 3100
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	3400 2900 3400 2850
+Wire Wire Line
+	3400 2850 3200 2850
+Connection ~ 3200 2850
+Wire Wire Line
+	900  6300 900  6250
+Wire Wire Line
+	900  6300 1250 6300
+Text Notes 7850 5750 0    50   ~ 0
+R1                                220R\nR2,R3,R7,R12,R14,\nR16,R18,R19,R20,R21             1K0\nR4,R9                            100K\nR5,R11                            10K\nR6                               0R20\nR8                      ?K??  Adj Volts\nR10                              47K\nR13         removed\nR22                              120R
+Text Notes 7850 6050 0    50   ~ 0
+U1  PIC16F1847\nU2  LM358A\n
+Text Notes 7650 650  0    50   ~ 0
+Rev. B 6/19/2018  Fixed J3 pinout, Fixed spacing of J4 to J2 to J7.
+Text Notes 6250 5650 0    50   ~ 0
+D1 blinks Mode
+Wire Notes Line
+	10300 1150 10300 4750
+Wire Notes Line
+	10300 4750 7350 4750
+Wire Notes Line
+	7350 4750 7350 1150
+Wire Notes Line
+	7350 1150 10300 1150
+Wire Notes Line
+	4700 4250 5650 4250
+Wire Notes Line
+	5650 4250 5650 5600
+Wire Notes Line
+	5650 5600 4700 5600
+Wire Notes Line
+	4700 5600 4700 4250
+Text Notes 5050 4350 0    50   ~ 0
+Optional
+Text Notes 7400 1300 0    50   ~ 0
+Optional Options
+Text Notes 800  1800 0    100  ~ 0
+Power and TTL Serial
+Text Notes 7400 2650 0    50   ~ 0
+LED and Button\nor\nSwitch Input\nor\nAnalog Input\nor\nDigital Output
 $EndSCHEMATC

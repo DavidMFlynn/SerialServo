@@ -1,0 +1,70 @@
+Source,/Projects/SerialServo/SerialServoPCB/SerialServo.sch
+Kicad Rev,Eeschema (5.0.0-rc2-80-gf95b77b)
+Generated Date,Tuesday, June 19, 2018 at 05:32:33 PM
+
+Title,Serial Servo
+Company,DMFE
+Revision,B
+Date Issue,2018-06-19
+Comment,TTL serial r/c servo controller
+
+Reference,Value,Library,Library Ref
+U1,PIC16F1847-ISO,MCU_Microchip_PIC16,PIC16F648A-ISO
+J1,Conn_01x04,Connector_Generic,Conn_01x04
+VR1,L78L05_TO92,Regulator_Linear,L78L05_TO92
+VR2,LM7805_TO220,Regulator_Linear,LM7805_TO220
+D5,D,Device,D
+SW1,SW_Push,Switch,SW_Push
+D1,LED,Device,LED
+R13,47K,Device,R
+R12,1K0,Device,R
+C4,0.1uF,Device,C_Small
+U2,LM358A,Amplifier_Operational,LM358
+D6,D,Device,D
+R6,0R200 1W,Device,R
+C8,0.1uF,Device,C_Small
+J4,Conn_01x03,Connector_Generic,Conn_01x03
+R1,220R,Device,R
+J3,Conn_01x05,Connector_Generic,Conn_01x05
+SW2,SW_Push,Switch,SW_Push
+D2,LED,Device,LED
+R15,47K,Device,R
+R14,1K0,Device,R
+SW3,SW_Push,Switch,SW_Push
+D3,LED,Device,LED
+R17,47K,Device,R
+R16,1K0,Device,R
+C10,1uF,Device,C_Small
+R10,47K,Device,R
+R11,10K,Device,R
+R9,100K,Device,R
+R7,1K0,Device,R
+C7,0.1uF,Device,C_Small
+C9,100uF,Device,CP1_Small
+J2,Conn_01x05,Connector_Generic,Conn_01x05
+C1,0.1uF,Device,C_Small
+D4,LED,Device,LED
+R3,1K0,Device,R
+RV1,20K,Device,R_POT
+C3,0.1uF,Device,C_Small
+R2,1K0,Device,R
+R4,100K,Device,R
+R5,10K,Device,R
+C2,2.2uF,Device,CP1_Small
+C5,2.2uF,Device,CP1_Small
+C6,0.1uF,Device,C_Small
+R21,1K0,Device,R
+J5,Conn_01x03,Connector_Generic,Conn_01x03
+R18,1K0,Device,R
+J6,Conn_01x03,Connector_Generic,Conn_01x03
+J7,Conn_01x03,Connector_Generic,Conn_01x03
+R19,1K0,Device,R
+C12,0.1uF,Device,C_Small
+R20,1K0,Device,R
+C13,0.1uF,Device,C_Small
+C11,0.1uF,Device,C_Small
+VR3,LD1085,Regulator_Linear,AZ1117-ADJ
+J8,Conn_01x02,Connector_Generic,Conn_01x02
+R22,120R,Device,R
+R8,RRR,Device,R
+C14,0.1uF,Device,C_Small
