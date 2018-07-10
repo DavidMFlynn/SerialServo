@@ -9,7 +9,7 @@ Default master address is 1
 Default slave address is 2
 
 All commands return something. Some return a data packet (Slave,Master,Data0,Data1,Data2,Data3),
-others return only a single byte (0xFF) as an acknolagement
+others return only a single byte (0xFF) as an acknowledgment 
 
 Mode:
 ------------------------------------------------------------------------------------------
@@ -80,3 +80,74 @@ J2 Pin        Wire      Encoder
 3 VSS         Black     3 Supply Ground
 4 CLK Output  Green     4 Serial Clock Input
 5 DO  Input   Blue      5 DO Serial Data Output
+
+
+Serial Servo PCB Rev B Bill of Material
+-----------------------------------------------------------------------------------------------
+R1	Resistor 220Ω SMT 0805
+R2,R3,R7,R12,R14,
+R16,R18,R19,R20,R21	Resistor 1.00KΩ SMT 0805
+R4,R9	Resistor 100KΩ SMT 0805
+R5,R11	Resistor 10.0KΩ SMT 0805
+R6	Resistor 0.2Ω 1W SMT 2512
+R8	Resistor SMT 0805
+R10	Resistor 47KΩ SMT 0805
+R13	omitted from Rev B
+R22	Resistor 120Ω  SMT 0805
+RV1	Potentiometer 20KΩ
+
+C1,C3,C4,C6,C7,
+C8,C11,C12,C13,C14	Capacitor 0.1uf 50V SMT 0805
+C2,C5	Capacitor 2.2uf 25V Electrolytic
+C9	Capacitor 220uf 25V Electrolytic
+C10	Capacitor 1.0uf 25V SMT 0805
+
+U1	PIC16F1847 SMT SO-18
+U2	LM358AM SMT SO-8
+
+VR1	Linear Voltage Regulator L78L05 TO-92
+VR2	6V 1.5A In-Gnd-Out (optional)
+VR3	Adj D-Pak Adj-Out-In (optional)
+D5	Diode SMA Rectifier (logic power)
+D6	Diode SMA Rectifier (servo power optional)
+
+J1	Connector 4 Pos (power & IO)
+J2	Connector 5 Pos (encoder)
+J3	Connector 5 Pos (optional)
+J4	Connector 3 Pos (Servo)
+J5,J6,J7	Connector 3 Pos (optional)
+J8	Jumper Servo Power Regulator Bypass (optional)
+
+Options (Note: Some options are mutually exclusive)
+------------
+AN1/RA1:	LED install D1, R12
+	Push-Button Switch R13,SW1
+	Analog input R18,C11,J5
+	Digital I/O R13,R18,C11,J5
+
+AN2/RA2:	LED install D2, R14
+	Push-Button Switch R15,SW2
+	Analog input R19,C12,J6
+	Digital I/O R15,R19,C12,J6
+
+AN3/RA3:	LED install D3, R16
+	Push-Button Switch R17,SW3
+	Analog input R20,C13,J7
+	Digital I/O R17,R20,C13,J7
+	
+R13,R15,R17 Pull-Ups for digital inputs
+C11,C12,C13 Integation for analog/digital input
+
+Servo Power:	6V 1.5A VR2,D6,C5,C8,C9
+	Adj 3A, VR3,D6,C5,C8,C9,R8,R22
+	Direct C8,C9,J8
+	D6 may be Jumped
+	
+Battery Voltage:	R2,R4,R5,C3,U2B
+
+Servo Current:	R7,R9,R10,R11,C7,C10,U2A
+
+System LED:	R3,D4
+
+Encoder:	C1,J2
+
