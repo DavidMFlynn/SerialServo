@@ -1,8 +1,8 @@
 ;====================================================================================================
 ;
 ;    Filename:      SerialServo.asm
-;    Date:          6/19/2018
-;    File Version:  1.0b3
+;    Date:          7/10/2018
+;    File Version:  1.0b4
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -26,6 +26,7 @@
 ;Mode 3: Absolute encoder position control. ssCmdPos = 0..4095
 ;
 ;    History:
+; 1.0b4   7/10/2018	Better defaults. Gripper mode (4).
 ; 1.0b3   6/19/2018	Added ssEnableFastPWM
 ; 1.0b2   6/3/2018	Servo current is averaged, DD DD Sync bytes and checksum.
 ; 1.0b1   6/1/2018	Modes 2 and 3 are working. No current limit yet.
@@ -211,15 +212,21 @@ BaudRate	EQU	Baud_38400
 ;
 kServoDwellTime	EQU	.40000	;20mS
 kServoFastDwellTime	EQU	.20000	;10mS
+kSysMode	EQU	.2	;Default Mode Basic Servo
+kServoSpeed	EQU	.10	;Slow 5uS/Update
+kssFlags	EQU	b'00000001'	;ssEnableOverCur=true
+kssMaxI	EQU	.50	;Low
 kMinPulseWidth	EQU	.1800	;900uS
 kMidPulseWidth	EQU	.3000	;1500uS
 kMaxPulseWidth	EQU	.4200	;2100uS
 kServoFastForward	EQU	.3600	;1800uS
 kServoFastReverse	EQU	.2400	;1200uS
 kDeadBand	EQU	.100	;100 encoder counts
+kSysFlags	EQU	.0
+kGripI	EQU	.40
 ;
 DebounceTime	EQU	.10
-kMaxMode	EQU	.3
+kMaxMode	EQU	.4
 ;
 ;================================================================================================
 ;***** VARIABLE DEFINITIONS
@@ -294,6 +301,7 @@ kMaxMode	EQU	.3
 	ssMaxI		;Max Current 0=off
 	DeadBand		;Used by Mode 2
 	SysFlags		;saved in eprom
+	ssGripI		;Gripper tension
 ;
 	endc
 ;--------------------------------------------------------------
@@ -408,8 +416,7 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 ;=========================================================================================
 ;==============================================================================================
 ; ID Locations
-;	ORG	0x2000
-;	DE	'1','.','0','0'
+	__idlocs	0x10b4
 ;
 ;==============================================================================================
 ; EEPROM locations (NV-RAM) 0x00..0x7F (offsets)
@@ -428,14 +435,15 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 	de	high kMinPulseWidth
 	de	low kMaxPulseWidth	;nvServoMax_uS
 	de	high kMaxPulseWidth
-	de	0x00	;nvServoSpeed
-	de	0x00	;nvSysMode
+	de	kServoSpeed	;nvServoSpeed
+	de	kSysMode	;nvSysMode
 	de	kRS232_MasterAddr	;nvRS232_MasterAddr, 0x0F
 	de	kRS232_SlaveAddr	;nvRS232_SlaveAddr, 0x10
-	de	0x00	;nvssFlags
-	de	0x00	;nvssMaxI
+	de	kssFlags	;nvssFlags
+	de	kssMaxI	;nvssMaxI
 	de	kDeadBand	;nvDeadBand
-	de	0x00	;nvSysFlags
+	de	kSysFlags	;nvSysFlags
+	de	kGripI
 ;
 	cblock	0x0000
 ;
@@ -455,6 +463,7 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 	nvssMaxI
 	nvDeadBand
 	nvSysFlags
+	nvssGripI
 	endc
 ;
 #Define	nvFirstParamByte	nvEncoderFlags
@@ -840,6 +849,7 @@ ML_Ser_End:
 	goto	DoModeOne
 	goto	DoModeTwo
 	goto	DoModeThree
+	goto	DoMode4
 ;
 ModeReturn:
 ;
@@ -1195,7 +1205,99 @@ DM3_Go	movf	ssCurPos,W
 	call	ClampInt
 	call	Copy7CToSig
 	goto	ModeReturn
-	
+;
+;=========================================================================================
+;Idle routine for Gripper Serial Servo mode
+;
+DoMode4	movlb	0
+	btfsc	ssCmdPos+1,7	;Any command issued?
+	bra	DoMode4_1	; No, Idle the servo
+;
+;Check for over current, kill position command if over current is detected.
+	call	CheckCurrent
+	btfss	OverCurrentFlag
+	bra	DM2_NotOverCurrent
+	clrf	ssCmdPos
+	clrf	ssCmdPos+1
+	bsf	ssCmdPos+1,7
+	bsf	ssio_OverCurSD
+	bra	DoMode4_1
+;
+DM4_NotOverCurrent:
+	bcf	ssio_OverCurSD
+	movf	ServoSpeed,F
+	SKPNZ		;Speed = 0?
+	bra	DoMode4_NoSpeed	; yes
+	btfss	PulseSent	;Time to update?
+	goto	ModeReturn	; No
+	bcf	PulseSent
+;Param7D:Param7C = Cmd-Cur
+	movf	ssCurPos,W
+	subwf	ssCmdPos,W
+	movwf	Param7C
+	movf	ssCurPos+1,W
+	subwfb	ssCmdPos+1,W
+	movwf	Param7D
+; if Param7D:Param7C = 0 then we are In Position
+	iorwf	Param7C,W
+	SKPNZ
+	bra	DoMode4_Go	; if Cmd = Cur Go
+;
+;
+	BTFSS	Param7D,7	;Cmd<Cur? Set if Cur>Cmd
+	GOTO	DoMode4_MovPlus	; Yes
+;Move minus
+	INCFSZ	Param7D,W	;Dist=0xFFxx?
+	GOTO	DoMode4_Minus	; No
+	MOVF	ServoSpeed,W
+	ADDWF	Param7C,W
+	BTFSC	_C	;Dist<Speed?
+	bra	DoMode4_NoSpeed	; No
+;
+; Subtract speed from current position
+DoMode4_Minus	MOVF	ServoSpeed,W
+	SUBWF	ssCurPos,F	;SigOutTime
+	MOVLW	0x00
+	SUBWFB	ssCurPos+1,F	;SigOutTimeH
+	bra	DoMode4_Go
+;
+;=============================
+; 7D:7C = distance to go
+;
+DoMode4_MovPlus	MOVF	Param7D,F
+	SKPZ		;Dist>255 to go?
+	bra	DoMode4_Plus	; Yes
+	MOVF	ServoSpeed,W
+	SUBWF	Param7C,W	;Dist-Speed
+	SKPNB		;Speed>Dist?
+	bra	DoMode4_NoSpeed	; Yes
+;
+DoMode4_Plus	MOVF	ServoSpeed,W	;7D:7C = CurPos + Speed
+	ADDWF	ssCurPos,F
+	CLRW
+	ADDWFC	ssCurPos+1,F
+	bra	DoMode4_Go
+;
+;
+; set current position at command position
+DoMode4_NoSpeed	movf	ssCmdPos,W
+	movwf	ssCurPos
+	movf	ssCmdPos+1,W
+	movwf	ssCurPos+1
+; make it so
+DoMode4_Go	movf	ssCurPos,W
+	movwf	Param7C
+	movf	ssCurPos+1,W
+	movwf	Param7D
+	call	ClampInt
+	call	Copy7CToSig
+	goto	ModeReturn
+;
+DoMode4_1:
+	bsf	ServoIdle	;power down servo
+	goto	ModeReturn
+;
+;=========================================================================================	
 ;=========================================================================================
 ;DebounceTime,kMaxMode
 ;Timer4Lo,SysMode
