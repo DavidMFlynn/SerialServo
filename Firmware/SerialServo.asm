@@ -300,8 +300,8 @@ kMaxMode	EQU	.4
 	ssFlags		;Serial Servo flags
 	ssMaxI		;Max Current 0=off
 	DeadBand		;Used by Mode 2
-	SysFlags		;saved in eprom
 	ssGripI		;Gripper tension
+	SysFlags		;saved in eprom
 ;
 	endc
 ;--------------------------------------------------------------
@@ -442,8 +442,8 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 	de	kssFlags	;nvssFlags
 	de	kssMaxI	;nvssMaxI
 	de	kDeadBand	;nvDeadBand
-	de	kSysFlags	;nvSysFlags
 	de	kGripI
+	de	kSysFlags	;nvSysFlags
 ;
 	cblock	0x0000
 ;
