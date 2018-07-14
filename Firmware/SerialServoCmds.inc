@@ -48,6 +48,8 @@ kCmd_SetDeadBand	EQU	0x8E	;+1 data (DeadBand), return ACK
 kCmd_GetDeadBand	EQU	0x0E
 kCmd_SetUseFastPWM	EQU	0x8F	;+1 data (ssEnableFastPWM), return ACK
 kCmd_GetUseFastPWM	EQU	0x0F
+kCmd_SetGripI	EQU	0xB1	;+1 data (ssGripI), return ACK
+kCmd_GetGripI	EQU	0x21
 ;
 kCmd_GetI	EQU	0x91	;return Cur_AN0
 kCmd_GetEnc	EQU	0x92	;return EncoderVal
@@ -162,7 +164,7 @@ Cmd_SetMaxI_end:
 	subwf	Param78,W	;aka RX_Data
 	SKPZ
 	bra	Cmd_GetMaxI_end
-; Get Mode
+; Get Max Current
 	movf	ssMaxI,W
 	movwi	FSR0++
 	goto	RS232_Send_S0
@@ -436,6 +438,28 @@ Cmd_SetUseFastPWM_End:
 	bsf	INDF0,0
 	goto	RS232_Send_S0
 Cmd_GetUseFastPWM_End:
+;---kCmd_SetGripI-------------------
+	movlw	kCmd_SetGripI
+	subwf	Param78,W	;aka RX_Data
+	SKPZ
+	bra	Cmd_SetGripI_end
+; Set Grip Current
+	moviw	FSR1++
+	movwf	ssGripI
+	goto	TX_ACK
+;
+Cmd_SetGripI_end:
+;---kCmd_GetGripI-------------------
+	movlw	kCmd_GetGripI
+	subwf	Param78,W	;aka RX_Data
+	SKPZ
+	bra	Cmd_GetGripI_end
+; Get Grip Current
+	movf	ssGripI,W
+	movwi	FSR0++
+	goto	RS232_Send_S0
+;
+Cmd_GetGripI_end:
 ;---kCmd_GetI-------------------
 	movlw	kCmd_GetI
 	subwf	Param78,W	;aka RX_Data
@@ -532,6 +556,8 @@ Cmd_GetCalPot_end:
 	movwi	FSR0++
 ;reset flags
 	bcf	ssRX_Timeout
+	bcf	ssGripMCur
+	bcf	ssGripOCur
 ;	
 	goto	RS232_Send_S0
 Cmd_GetStatus_end:

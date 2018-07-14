@@ -319,12 +319,16 @@ kMaxMode	EQU	.4
 #Define	ServoOff	ssTempFlags,1
 #Define	ServoIdle	ssTempFlags,2
 #Define	OverCurrentFlag	ssTempFlags,3
+#Define	GripIMet	ssTempFlags,4
+#Define	GripIOver	ssTempFlags,5
 ;
 ;----ssStatus bits
 #Define	MD3_FFwd	ssStatus,0
 #Define	MD3_FRev	ssStatus,1
-#Define	ssio_OverCurSD	ssStatus,2
-#Define	ssRX_Timeout	ssStatus,3
+#Define	ssio_OverCurSD	ssStatus,2	;Servo stopped for over-current
+#Define	ssRX_Timeout	ssStatus,3	;cleared by host read
+#Define	ssGripOCur	ssStatus,4	;cleared by host read
+#Define	ssGripMCur	ssStatus,5	;cleared by host read
 ;
 ;---------------
 #Define	FirstRAMParam	EncoderFlags
@@ -462,8 +466,8 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 	nvssFlags
 	nvssMaxI
 	nvDeadBand
-	nvSysFlags
 	nvssGripI
+	nvSysFlags
 	endc
 ;
 #Define	nvFirstParamByte	nvEncoderFlags
@@ -934,9 +938,9 @@ DM1_FR	movf	ServoFastReverse,W
 	goto	ModeReturn
 ;
 ;=========================================================================================
-;
+; if ssEnableOverCur and Cur_AN0>ssMaxI*4 then
+;   OverCurrentFlag=true
 CheckCurrent	movlb	0x00	;Bank 0
-	bcf	OverCurrentFlag
 	btfss	ssEnableOverCur
 	return
 ;Param79:Param78 = ssMaxI * 4
@@ -957,6 +961,52 @@ CheckCurrent	movlb	0x00	;Bank 0
 	return
 ;
 ;=========================================================================================
+; if Cur_AN0>ssGripI*4 then
+;   GripIMet=true
+; if Cur_AN0>(ssGripI+0x10)*4 then
+;   GripIOver=true
+CheckGripCurrent	movlb	0x00	;Bank 0
+;Param79:Param78 = ssGripI * 4
+	clrf	Param79
+	lslf	ssGripI,W
+	movwf	Param78
+	rlf	Param79,F
+	lslf	Param78,F
+	rlf	Param79
+;Param79:Param78 -= Cur_AN0
+	movf	Cur_AN0,W
+	subwf	Param78,F
+	movf	Cur_AN0+1,W
+	subwfb	Param79,F
+;
+	btfsc	Param79,7	;Cur_AN0>ssGripI*4?
+	bsf	GripIMet	; Yes
+	btfsc	Param79,7	;Cur_AN0>ssGripI*4?
+	bsf	ssGripMCur
+;Param79:Param78 = (ssGripI+0x10) * 4
+	clrf	Param79
+	movlw	0x10
+	addwf	ssGripI,W
+	movwf	Param78
+	movlw	0x00
+	addwfc	Param79,F
+	lslf	Param78,F
+	rlf	Param79,F
+	lslf	Param78,F
+	rlf	Param79
+;Param79:Param78 -= Cur_AN0
+	movf	Cur_AN0,W
+	subwf	Param78,F
+	movf	Cur_AN0+1,W
+	subwfb	Param79,F
+;
+	btfsc	Param79,7	;Cur_AN0>(ssGripI+10)*4?
+	bsf	GripIOver
+	btfsc	Param79,7	;Cur_AN0>(ssGripI+10)*4?
+	bsf	ssGripOCur
+	return
+;
+;=========================================================================================
 ;Idle routine for Basic Serial Servo mode
 ;
 DoModeTwo	movlb	0
@@ -971,6 +1021,7 @@ DoModeTwo	movlb	0
 	clrf	ssCmdPos+1
 	bsf	ssCmdPos+1,7
 	bsf	ssio_OverCurSD
+	bcf	OverCurrentFlag
 	bra	DoModeTwo_1
 ;
 DM2_NotOverCurrent:
@@ -1065,6 +1116,7 @@ DoModeThree	movlb	0	;bank 0
 	clrf	ssCmdPos+1
 	bsf	ssCmdPos+1,7
 	bsf	ssio_OverCurSD
+	bcf	OverCurrentFlag
 	bra	DM3_IdleServo
 ;
 DM3_NotOverCurrent:
@@ -1208,6 +1260,7 @@ DM3_Go	movf	ssCurPos,W
 ;
 ;=========================================================================================
 ;Idle routine for Gripper Serial Servo mode
+; Servo is set to idle only is no command or over current.
 ;
 DoMode4	movlb	0
 	btfsc	ssCmdPos+1,7	;Any command issued?
@@ -1215,19 +1268,22 @@ DoMode4	movlb	0
 ;
 ;Check for over current, kill position command if over current is detected.
 	call	CheckCurrent
+	call	CheckGripCurrent
 	btfss	OverCurrentFlag
 	bra	DM2_NotOverCurrent
-	clrf	ssCmdPos
+	clrf	ssCmdPos	;kill the command
 	clrf	ssCmdPos+1
 	bsf	ssCmdPos+1,7
 	bsf	ssio_OverCurSD
-	bra	DoMode4_1
+	bcf	OverCurrentFlag
+	bra	DoMode4_1	;Idle the servo
 ;
 DM4_NotOverCurrent:
+; Speed cannot be 0, if 0 set to 1 (slow)
 	bcf	ssio_OverCurSD
 	movf	ServoSpeed,F
 	SKPNZ		;Speed = 0?
-	bra	DoMode4_NoSpeed	; yes
+	incf	ServoSpeed,F	; yes, make it 1
 	btfss	PulseSent	;Time to update?
 	goto	ModeReturn	; No
 	bcf	PulseSent
@@ -1241,60 +1297,71 @@ DM4_NotOverCurrent:
 ; if Param7D:Param7C = 0 then we are In Position
 	iorwf	Param7C,W
 	SKPNZ
-	bra	DoMode4_Go	; if Cmd = Cur Go
+	bra	DoMode4_Hold	; if Cmd = Cur Go
 ;
-;
-	BTFSS	Param7D,7	;Cmd<Cur? Set if Cur>Cmd
-	GOTO	DoMode4_MovPlus	; Yes
+;Sign bit set if Cur>Cmd
+	BTFSS	Param7D,7	;Cmd>Cur?
+	bra	DoMode4_MovPlus	; Yes
 ;Move minus
 	INCFSZ	Param7D,W	;Dist=0xFFxx?
 	GOTO	DoMode4_Minus	; No
 	MOVF	ServoSpeed,W
 	ADDWF	Param7C,W
-	BTFSC	_C	;Dist<Speed?
-	bra	DoMode4_NoSpeed	; No
+	BTFSS	_C	;Dist<Speed?
+	bra	DoMode4_Minus	; Yes
+	movlw	0x01	; No, use 1 as speed
+	bra	DoMode4_Minus_1
 ;
 ; Subtract speed from current position
 DoMode4_Minus	MOVF	ServoSpeed,W
-	SUBWF	ssCurPos,F	;SigOutTime
+DoMode4_Minus_1	SUBWF	ssCurPos,F	;SigOutTime
 	MOVLW	0x00
 	SUBWFB	ssCurPos+1,F	;SigOutTimeH
 	bra	DoMode4_Go
 ;
 ;=============================
+; if Cur_AN0>(ssGripI+0x10)*4 then move minus 1
+DoMode4_Hold	btfss	GripIOver	;Gripping too hard?
+	goto	DoMode4_Go	; No
+	movlw	0x40	; No, use 1 as speed
+	bra	DoMode4_Minus_1
+;	
+;=============================
 ; 7D:7C = distance to go
 ;
-DoMode4_MovPlus	MOVF	Param7D,F
+DoMode4_MovPlus	btfsc	GripIMet	;Servo Current > ssGripI?
+	bra	DoMode4_Hold	; Yes, don't move more closed.
+;
+	MOVF	Param7D,F
 	SKPZ		;Dist>255 to go?
 	bra	DoMode4_Plus	; Yes
 	MOVF	ServoSpeed,W
 	SUBWF	Param7C,W	;Dist-Speed
-	SKPNB		;Speed>Dist?
-	bra	DoMode4_NoSpeed	; Yes
+	SKPB		;Speed>Dist?
+	bra	DoMode4_Plus	; No
+	movlw	0x01	;Use 1 as speed
+	bra	DoMode4_Plus_1
 ;
-DoMode4_Plus	MOVF	ServoSpeed,W	;7D:7C = CurPos + Speed
-	ADDWF	ssCurPos,F
+DoMode4_Plus	MOVF	ServoSpeed,W	;CurPos += Speed
+DoMode4_Plus_1	ADDWF	ssCurPos,F
 	CLRW
 	ADDWFC	ssCurPos+1,F
-	bra	DoMode4_Go
 ;
-;
-; set current position at command position
-DoMode4_NoSpeed	movf	ssCmdPos,W
-	movwf	ssCurPos
-	movf	ssCmdPos+1,W
-	movwf	ssCurPos+1
 ; make it so
-DoMode4_Go	movf	ssCurPos,W
+DoMode4_Go	movf	ssCurPos,W	;7D:7C = CurPos
 	movwf	Param7C
 	movf	ssCurPos+1,W
 	movwf	Param7D
 	call	ClampInt
 	call	Copy7CToSig
+	bcf	GripIMet
+	bcf	GripIOver
 	goto	ModeReturn
 ;
 DoMode4_1:
 	bsf	ServoIdle	;power down servo
+	bcf	GripIMet
+	bcf	GripIOver
 	goto	ModeReturn
 ;
 ;=========================================================================================	
@@ -1507,34 +1574,34 @@ StopServo	movlb	0	;bank 0
 	return
 ;
 ;=========================================================================================
-; ClampInt(Param7D:Param7C,ServoMin_uS,kMaxPulseWidth)
+; ClampInt(Param7D:Param7C,ServoMin_uS,ServoMax_uS)
 ;
 ; Entry: Param7D:Param7C
-; Exit: Param7D:Param7C=ClampInt(Param7D:Param7C,kMinPulseWidth,kMaxPulseWidth)
+; Exit: Param7D:Param7C=ClampInt(Param7D:Param7C,ServoMin_uS,ServoMax_uS)
 ;
 ClampInt	movlb	0
 	MOVF	ServoMax_uS+1,W
-	SUBWF	Param7D,W	;7D-kMaxPulseWidth
+	SUBWF	Param7D,W	;7D-ServoMax_uS
 	SKPNB		;7D<Max?
 	GOTO	ClampInt_1	; Yes
 	SKPZ		;7D=Max?
 	GOTO	ClampInt_tooHigh	; No, its greater.
 	MOVF	ServoMax_uS,W	; Yes, MSB was equal check LSB
-	SUBWF	Param7C,W	;7C-kMaxPulseWidth
-	SKPNZ		;=kMaxPulseWidth
+	SUBWF	Param7C,W	;7C-ServoMax_uS
+	SKPNZ		;=ServoMax_uS
 	RETURN		;Yes
 	SKPB		;7C<Max?
 	GOTO	ClampInt_tooHigh	; No
 	RETURN		; Yes
 ;
 ClampInt_1	MOVF	ServoMin_uS+1,W
-	SUBWF	Param7D,W	;7D-kMinPulseWidth
+	SUBWF	Param7D,W	;7D-ServoMin_uS
 	SKPNB		;7D<Min?
 	GOTO	ClampInt_tooLow	; Yes
 	SKPZ		;=Min?
-	RETURN		; No, 7D>kMinPulseWidth
+	RETURN		; No, 7D>ServoMin_uS
 	MOVF	ServoMin_uS,F	; Yes, MSB is a match
-	SUBWF	Param7C,W	;7C-kMinPulseWidth
+	SUBWF	Param7C,W	;7C-ServoMin_uS
 	SKPB		;7C>=Min?
 	RETURN		; Yes
 ;
