@@ -1,7 +1,7 @@
 ;====================================================================================================
 ;
 ;    Filename:      SerialServo.asm
-;    Date:          7/10/2018
+;    Date:          7/14/2018
 ;    File Version:  1.0b4
 ;
 ;    Author:        David M. Flynn
@@ -26,7 +26,7 @@
 ;Mode 3: Absolute encoder position control. ssCmdPos = 0..4095
 ;
 ;    History:
-; 1.0b4   7/10/2018	Better defaults. Gripper mode (4).
+; 1.0b4   7/14/2018	Better defaults. Gripper mode (4).
 ; 1.0b3   6/19/2018	Added ssEnableFastPWM
 ; 1.0b2   6/3/2018	Servo current is averaged, DD DD Sync bytes and checksum.
 ; 1.0b1   6/1/2018	Modes 2 and 3 are working. No current limit yet.
@@ -116,6 +116,7 @@ kRS232SyncByteValue	EQU	0xDD
 ;
 kRS232_MasterAddr	EQU	0x01	;Master's Address
 kRS232_SlaveAddr	EQU	0x02	;This Slave's Address
+kGripperHC	EQU	0x04	;Gripper hysteresis
 ;
 #Define	_C	STATUS,C
 #Define	_Z	STATUS,Z
@@ -985,7 +986,7 @@ CheckGripCurrent	movlb	0x00	;Bank 0
 	bsf	ssGripMCur
 ;Param79:Param78 = (ssGripI+0x10) * 4
 	clrf	Param79
-	movlw	0x10
+	movlw	kGripperHC
 	addwf	ssGripI,W
 	movwf	Param78
 	movlw	0x00
@@ -1270,7 +1271,7 @@ DoMode4	movlb	0
 	call	CheckCurrent
 	call	CheckGripCurrent
 	btfss	OverCurrentFlag
-	bra	DM2_NotOverCurrent
+	bra	DM4_NotOverCurrent
 	clrf	ssCmdPos	;kill the command
 	clrf	ssCmdPos+1
 	bsf	ssCmdPos+1,7
@@ -1323,7 +1324,7 @@ DoMode4_Minus_1	SUBWF	ssCurPos,F	;SigOutTime
 ; if Cur_AN0>(ssGripI+0x10)*4 then move minus 1
 DoMode4_Hold	btfss	GripIOver	;Gripping too hard?
 	goto	DoMode4_Go	; No
-	movlw	0x40	; No, use 1 as speed
+	movlw	0x01	; No, use 2 as speed
 	bra	DoMode4_Minus_1
 ;	
 ;=============================
