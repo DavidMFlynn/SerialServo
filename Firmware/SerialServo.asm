@@ -257,6 +257,9 @@ kMaxMode	EQU	.4
 ;
 	ANFlags
 	Cur_AN0:2		;IServo
+	Cur_AN1:2		;SW1_LED1
+	Cur_AN2:2		;SW2_LED2
+	Cur_AN3:2		;SW3_LED3
 	Cur_AN4:2		;Calibration Pot
 	Cur_AN7:2		;Battery Volts
 ;
@@ -302,7 +305,12 @@ kMaxMode	EQU	.4
 	ssMaxI		;Max Current 0=off
 	DeadBand		;Used by Mode 2
 	ssGripI		;Gripper tension
-	SysFlags		;saved in eprom
+	ssAux0Config
+	ssAux1Config
+	ssAux2Config
+	SysFlags		;saved in eprom 0x6F must
+			; move something to another
+			; bank before adding anything new
 ;
 	endc
 ;--------------------------------------------------------------
@@ -448,6 +456,9 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 	de	kssMaxI	;nvssMaxI
 	de	kDeadBand	;nvDeadBand
 	de	kGripI
+	de	0x00	;ssAux0Config
+	de	0x00	;ssAux1Config
+	de	0x00	;ssAux2Config
 	de	kSysFlags	;nvSysFlags
 ;
 	cblock	0x0000
@@ -468,6 +479,9 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 	nvssMaxI
 	nvDeadBand
 	nvssGripI
+	nvssAux0Config
+	nvssAux1Config
+	nvssAux2Config
 	nvSysFlags
 	endc
 ;

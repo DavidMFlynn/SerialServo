@@ -50,6 +50,10 @@ kCmd_SetUseFastPWM	EQU	0x8F	;+1 data (ssEnableFastPWM), return ACK
 kCmd_GetUseFastPWM	EQU	0x0F
 kCmd_SetGripI	EQU	0xB1	;+1 data (ssGripI), return ACK
 kCmd_GetGripI	EQU	0x21
+kCmd_SetAuxConfig	EQU	0xB2	;+3 data (Aux0Config,Aux1Config,Aux2Config), return ACK
+kCmd_GetAuxConfig	EQU	0x22
+kCmd_SetAuxNValue	EQU	0xB3	;+2 data (AuxNum,Value), return ACK
+kCmd_GetAuxNValue	EQU	0x23	;(AuxN,ValueL,ValueH)
 ;
 kCmd_GetI	EQU	0x91	;return Cur_AN0
 kCmd_GetEnc	EQU	0x92	;return EncoderVal
@@ -460,6 +464,73 @@ Cmd_SetGripI_end:
 	goto	RS232_Send_S0
 ;
 Cmd_GetGripI_end:
+;---kCmd_SetAuxConfig-----------	;+3 data (Aux0Config,Aux1Config,Aux2Config), return ACK
+	movlw	kCmd_SetAuxConfig
+	subwf	Param78,W	;aka RX_Data
+	SKPZ
+	bra	Cmd_SetAuxConfig_end
+; Set Aux N Config
+	movf	INDF1,W
+	sublw	0x02	;2-AuxNum
+	SKPNB		;<=2?
+	goto	HandleRXData_Rtn	; no
+;
+	moviw	FSR1++
+	addlw	low ssAux0Config
+	movwf	FSR0L
+	movlw	high ssAux0Config
+	movwf	FSR0H
+	moviw	FSR1++	;New Config Value
+	movwi	FSR0++
+	goto	TX_ACK
+;
+Cmd_SetAuxConfig_end:
+;---kCmd_GetAuxConfig-----------
+	movlw	kCmd_GetAuxConfig
+	subwf	Param78,W	;aka RX_Data
+	SKPZ
+	bra	Cmd_GetAuxConfig_end
+; Get Aux N Config
+	movf	INDF1,W
+	sublw	0x02	;2-AuxNum
+	SKPNB		;<=2?
+	goto	HandleRXData_Rtn	; no
+;
+	movf	INDF1,W
+	addlw	low ssAux0Config
+	movwf	FSR1L
+	movlw	high ssAux0Config
+	movwf	FSR1H
+;
+	movf	INDF1,W
+	movwi	FSR0++
+	goto	RS232_Send_S0
+;
+Cmd_GetAuxConfig_end:	
+;---kCmd_SetAuxNValue-----------	;+2 data (AuxNum,Value), return ACK
+	movlw	kCmd_SetAuxNValue
+	subwf	Param78,W	;aka RX_Data
+	SKPZ
+	bra	Cmd_SetAuxNValue_end
+; Set Aux N Value
+	movf	INDF1,W
+	sublw	0x02	;2-AuxNum
+	SKPNB		;<=2?
+	goto	HandleRXData_Rtn	; no
+;
+Cmd_SetAuxNValue_end:
+;---kCmd_GetAuxNValue-----------	;(AuxN,ValueL,ValueH)
+	movlw	kCmd_GetAuxNValue
+	subwf	Param78,W	;aka RX_Data
+	SKPZ
+	bra	Cmd_GetAuxNValue_end
+; Get Aux N Value
+	movf	INDF1,W
+	sublw	0x02	;2-AuxNum
+	SKPNB		;<=2?
+	goto	HandleRXData_Rtn	; no
+;
+Cmd_GetAuxNValue_end:
 ;---kCmd_GetI-------------------
 	movlw	kCmd_GetI
 	subwf	Param78,W	;aka RX_Data

@@ -50,6 +50,12 @@ kCmd_SetDeadBand(0x8E) +1 data (DeadBand), return ACK
 kCmd_GetDeadBand(0x0E)
 kCmd_SetUseFastPWM(0x8F) +1 data (ssEnableFastPWM), return ACK
 kCmd_GetUseFastPWM(0x0F)
+kCmd_SetGripI(0xB1)	+1 data (ssGripI), return ACK
+kCmd_GetGripI(0x21)
+kCmd_SetAuxConfig(0xB2)  +3 data (Aux0Config,Aux1Config,Aux2Config), return ACK
+kCmd_GetAuxConfig(0x22)
+kCmd_SetAuxNValue(0xB3)  +2 data (AuxNum,Value), return ACK
+kCmd_GetAuxNValue(0x23)  (AuxN,ValueL,ValueH)
 ;
 kCmd_GetI(0x91)	return Cur_AN0
 kCmd_GetEnc(0x92)	return EncoderVal
@@ -65,6 +71,15 @@ kCmd_SetMasterAddr(0xA1) +1 data, return a zero packet
 kCmd_SetSlaveAddr(0xA2) +1 data, return a zero packet
 kCmd_SendIDString(0xAA) Special packet (0xDD, 0xDD, 0x01, 0x02, 0xAA, 0x00, 0x00, 0x00, checksum) returns "DMFE Serial Servo\n"
 
+Aux(0,1,2)Config byte		Data to/from
+0	Default/Unused	none
+1	LED/Btn	LED Flashes 0..9,15 (15=on)/High nibble=Flashes, Low = Btn
+2	Digital Input	none/Bit(0/1)
+3	Digital Output	Bit(0/1)/Bit(0/1)
+4	Analog Input	none/10 bit ADC value
+5	Home Switch/Digital Input none/Bit(0/1)
+6	Fwd Limit Switch/Digital Input none/Bit(0/1)
+7	Rev Limit Switch/Digital Input none/Bit(0/1)
 
 Encoder Cable
 --------------------------------------------
