@@ -1,0 +1,23 @@
+kCmd_GetMode(0x01)		2
+kCmd_GetCmdPos(0x02)
+kCmd_GetMaxI(0x03)		50
+kCmd_GetFFwd(0x04)		3600
+kCmd_GetFRev(0x05)		2400
+kCmd_GetMin_uS(0x06)		1800
+kCmd_GetMax_uS(0x07)		4200
+kCmd_GetRevDir(0x08)		F
+kCmd_GetEnaOvrCur(0x09) 	T
+kCmd_Get_HighZ_TX(0x0A) 	T
+kCmd_GetStopCenter(0x0B)	3000
+kCmd_GetSpeed(0x0C)		50
+kCmd_GetUseIdleCenter(0x0D)	F
+kCmd_GetDeadBand(0x0E) 	100
+kCmd_GetUseFastPWM(0x0F)	 T
+kCmd_GetGripI(0x21)		40
+kCmd_GetAuxConfig(0x22) 	n/a
+kCmd_GetAuxNValue(0x23) 	n/a
+
+kCmd_SetMasterAddr(0xA1) 	1
+kCmd_SetSlaveAddr(0xA2) 	2
+
+
