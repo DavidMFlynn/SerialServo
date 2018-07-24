@@ -1,8 +1,8 @@
 ;====================================================================================================
 ;
 ;    Filename:      SerialServo.asm
-;    Date:          7/14/2018
-;    File Version:  1.0b4
+;    Date:          7/23/2018
+;    File Version:  1.0b5
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -26,6 +26,7 @@
 ;Mode 3: Absolute encoder position control. ssCmdPos = 0..4095
 ;
 ;    History:
+; 1.0b5   7/23/2018	Aux IO
 ; 1.0b4   7/14/2018	Better defaults. Gripper mode (4).
 ; 1.0b3   6/19/2018	Added ssEnableFastPWM
 ; 1.0b2   6/3/2018	Servo current is averaged, DD DD Sync bytes and checksum.
@@ -46,7 +47,7 @@
 ;   Mode 1: (LED 1 = 1 flash) servo  and encoder test mode, AN4 Pot value - EncoderVal to servo dir.
 ;   Mode 2: Basic Serial Servo, output servo pulse of CmdPos * 0.5uS.
 ;   Mode 3: Absolute encoder position control.
-;
+;   Mode 4: Gripper force control.
 ;====================================================================================================
 ;
 ;   Pin 1 (RA2/AN2) SW2/LED2 (Active Low Input/Output)
@@ -144,8 +145,11 @@ LED2_Bit	EQU	2	;LED2 (Active Low Output)
 LED3_Bit	EQU	3	;LED3 (Active Low Output)
 SysLED_Bit	EQU	7	;LED4 (Active Low Output)
 #Define	LED1_Tris	TRISA,LED1_Bit	;LED1 (Active Low Output)
+#Define	LED1_Lat	LATA,LED1_Bit	;LED1 (Active Low Output)
 #Define	LED2_Tris	TRISA,LED2_Bit	;LED2 (Active Low Output)
+#Define	LED2_Lat	LATA,LED2_Bit	;LED2 (Active Low Output)
 #Define	LED3_Tris	TRISA,LED3_Bit	;LED3 (Active Low Output)
+#Define	LED3_Lat	LATA,LED3_Bit	;LED3 (Active Low Output)
 #Define	SysLED_Tris	TRISA,SysLED_Bit	;LED4 (Active Low Output)
 ;
 Servo_AddrDataMask	EQU	0xF8
@@ -228,6 +232,16 @@ kGripI	EQU	.40
 ;
 DebounceTime	EQU	.10
 kMaxMode	EQU	.4
+;
+; AuxIO modes
+kAuxIOnone	EQU	0x00
+kAuxIOLEDBtn	EQU	0x01
+kAuxIODigitalIn	EQU	0x02
+kAuxIODigitalOut	EQU	0x03
+kAuxIOAnalogIn	EQU	0x04
+kAuxIOHomeSw	EQU	0x05
+kAuxIOFwdLimit	EQU	0x06
+kAuxIORevLimit	EQU	0x07
 ;
 ;================================================================================================
 ;***** VARIABLE DEFINITIONS
@@ -561,6 +575,12 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 SystemBlink_end:
 ; Flash LEDs
 	movlb	0x00	;bank 0
+	movf	ssAux0Config,W
+	andlw	0x0F
+	sublw	kAuxIOLEDBtn
+	SKPZ
+	bra	LED1_Blink_end
+;
 	movf	LED1_Blinks,F
 	SKPZ		;LED1 active?
 	bra	LED1_Blinking	; Yes
@@ -595,7 +615,35 @@ LED1_NextBlink	movlw	LEDFastTime
 	BCF	LED1_Tris
 LED1_Blink_end:
 ;-------------
+;kAuxIODigitalOut
 	movlb	0x00	;bank 0
+	movf	ssAux0Config,W
+	andlw	0x0F
+	sublw	kAuxIODigitalOut
+	SKPZ
+	bra	Aux0DigOut_end
+;
+	btfss	LED1_Blinks,0
+	bra	Aux0DigOut_1
+	movlb	0x02	;bank 2
+	bsf	LED1_Lat
+	bra	Aux0DigOut_2
+;
+Aux0DigOut_1	movlb	0x02	;bank 2
+	bcf	LED1_Lat
+	bra	Aux0DigOut_2
+;
+Aux0DigOut_2	movlb	0x01	;bank 1
+	BCF	LED1_Tris
+Aux0DigOut_end:
+;-------------
+	movlb	0x00	;bank 0
+	movf	ssAux1Config,W
+	andlw	0x0F
+	sublw	kAuxIOLEDBtn
+	SKPZ
+	bra	LED2_Blink_end
+;
 	movf	LED2_Blinks,F
 	SKPZ		;LED2 active?
 	bra	LED2_Blinking	; Yes
@@ -630,7 +678,35 @@ LED2_NextBlink	movlw	LEDFastTime
 	BCF	LED2_Tris
 LED2_Blink_end:
 ;-------------
+;kAuxIODigitalOut
 	movlb	0x00	;bank 0
+	movf	ssAux1Config,W
+	andlw	0x0F
+	sublw	kAuxIODigitalOut
+	SKPZ
+	bra	Aux1DigOut_end
+;
+	btfss	LED2_Blinks,0
+	bra	Aux1DigOut_1
+	movlb	0x02	;bank 2
+	bsf	LED2_Lat
+	bra	Aux1DigOut_2
+;
+Aux1DigOut_1	movlb	0x02	;bank 2
+	bcf	LED2_Lat
+	bra	Aux1DigOut_2
+;
+Aux1DigOut_2	movlb	0x01	;bank 1
+	BCF	LED2_Tris
+Aux1DigOut_end:
+;-------------
+	movlb	0x00	;bank 0
+	movf	ssAux2Config,W
+	andlw	0x0F
+	sublw	kAuxIOLEDBtn
+	SKPZ
+	bra	LED3_Blink_end
+;
 	movf	LED3_Blinks,F
 	SKPZ		;LED3 active?
 	bra	LED3_Blinking	; Yes
@@ -665,6 +741,28 @@ LED3_NextBlink	movlw	LEDFastTime
 	BCF	LED3_Tris
 	movlb	0x00
 LED3_Blink_end:
+;-------------
+;kAuxIODigitalOut
+	movlb	0x00	;bank 0
+	movf	ssAux2Config,W
+	andlw	0x0F
+	sublw	kAuxIODigitalOut
+	SKPZ
+	bra	Aux2DigOut_end
+;
+	btfss	LED3_Blinks,0
+	bra	Aux2DigOut_1
+	movlb	0x02	;bank 2
+	bsf	LED3_Lat
+	bra	Aux2DigOut_2
+;
+Aux2DigOut_1	movlb	0x02	;bank 2
+	bcf	LED3_Lat
+	bra	Aux2DigOut_2
+;
+Aux2DigOut_2	movlb	0x01	;bank 1
+	BCF	LED3_Tris
+Aux2DigOut_end:
 ;-------------
 ;
 ;
@@ -1413,14 +1511,6 @@ HdlBtn_1	btfsc	SW1_Flag
 ;
 ; Mode
 HdlBtn_Btn1:
-	movf	SysMode,W
-	incf	SysMode,f
-	sublw	kMaxMode
-	SKPNZ		;SysMode==kMaxMode?
-	clrf	SysMode	; Yes, set mode=0x00
-;
-	movf	SysMode,W
-	movwf	LED1_Blinks
 	goto	HdlBtn_DB
 ;
 HdlBtn_Btn2:

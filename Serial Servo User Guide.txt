@@ -17,6 +17,7 @@ Mode 0: (LED 1 = off) servo test mode, copy AN4 Pot value to servo.
 Mode 1: (LED 1 = 1 flash) servo and encoder test mode, AN4 Pot value - EncoderVal to servo dir.
 Mode 2: Basic Serial Servo, output servo pulse of CmdPos * 0.5uS.
 Mode 3: Absolute encoder position control.
+Mode 4: Gripper force control.
 
 
 Commands:
@@ -52,8 +53,8 @@ kCmd_SetUseFastPWM(0x8F) +1 data (ssEnableFastPWM), return ACK
 kCmd_GetUseFastPWM(0x0F)
 kCmd_SetGripI(0xB1)	+1 data (ssGripI), return ACK
 kCmd_GetGripI(0x21)
-kCmd_SetAuxConfig(0xB2)  +3 data (Aux0Config,Aux1Config,Aux2Config), return ACK
-kCmd_GetAuxConfig(0x22)
+kCmd_SetAuxConfig(0xB2)  +2 data (AuxNum,Value), return ACK
+kCmd_GetAuxConfig(0x22)  +1 data (AuxNum)
 kCmd_SetAuxNValue(0xB3)  +2 data (AuxNum,Value), return ACK
 kCmd_GetAuxNValue(0x23)  (AuxN,ValueL,ValueH)
 ;

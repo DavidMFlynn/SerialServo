@@ -50,8 +50,8 @@ kCmd_SetUseFastPWM	EQU	0x8F	;+1 data (ssEnableFastPWM), return ACK
 kCmd_GetUseFastPWM	EQU	0x0F
 kCmd_SetGripI	EQU	0xB1	;+1 data (ssGripI), return ACK
 kCmd_GetGripI	EQU	0x21
-kCmd_SetAuxConfig	EQU	0xB2	;+3 data (Aux0Config,Aux1Config,Aux2Config), return ACK
-kCmd_GetAuxConfig	EQU	0x22
+kCmd_SetAuxConfig	EQU	0xB2	;+2 data (AuxNum,Value), return ACK
+kCmd_GetAuxConfig	EQU	0x22	;+1 data (AuxNum)
 kCmd_SetAuxNValue	EQU	0xB3	;+2 data (AuxNum,Value), return ACK
 kCmd_GetAuxNValue	EQU	0x23	;(AuxN,ValueL,ValueH)
 ;
@@ -513,10 +513,39 @@ Cmd_GetAuxConfig_end:
 	SKPZ
 	bra	Cmd_SetAuxNValue_end
 ; Set Aux N Value
-	movf	INDF1,W
+	moviw	FSR1++
+	movwf	Param78	;AuxNum
 	sublw	0x02	;2-AuxNum
 	SKPNB		;<=2?
 	goto	HandleRXData_Rtn	; no
+;
+	movf	Param78,W	;AuxNum
+	addlw	low ssAux0Config
+	movwf	FSR0L
+	movlw	high ssAux0Config
+	movwf	FSR0H
+;
+	movf	INDF0,W	;ssAuxXConfig
+	andlw	0x07
+	brw
+	goto	TX_ACK	;kAuxIOnone
+	bra	Cmd_SetAuxNLED	;kAuxIOLEDBtn
+	goto	TX_ACK	;kAuxIODigitalIn
+	bra	Cmd_SetAuxNDigOut	;kAuxIODigitalOut
+	goto	TX_ACK	;kAuxIOAnalogIn
+	goto	TX_ACK	;kAuxIOHomeSw
+	goto	TX_ACK	;kAuxIOFwdLimit
+	goto	TX_ACK	;kAuxIORevLimit
+;
+Cmd_SetAuxNDigOut:
+Cmd_SetAuxNLED	movf	Param78,W	;AuxNum
+	addlw	low LED1_Blinks
+	movwf	FSR0L
+	movlw	high LED1_Blinks
+	movwf	FSR0H
+	moviw	FSR1++	;AuxVal
+	movwi	FSR0++
+	goto	TX_ACK
 ;
 Cmd_SetAuxNValue_end:
 ;---kCmd_GetAuxNValue-----------	;(AuxN,ValueL,ValueH)
