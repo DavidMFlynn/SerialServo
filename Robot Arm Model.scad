@@ -42,15 +42,16 @@ translate([Obj_x,Obj_y,Obj_z]) color("Blue") sphere(d=20);
 // Size of the joint, "A" has the servo and encoder, "B" is the turning part
 	JointA_d=70;
 	JointA_h=40;
-	JointA_fn=12;
+	JointA_fn=14;
 	JointB_d=90;
 	JointB_h=38;
-	JointB_fn=6;
+	JointB_fn=10;
 
 // Length of the arm sections
 	RodAB_l=240; // length from J1 to J2
 	RodBC_l=230; // length from J2 center line to moddle of gripper
 	
+Tube_d=19;
 BaseToJ1_z=JointB_d/2;
 BaseToJ1_x=-JointA_h/2;
 J1_CL_z=JointA_h+JointB_h+BaseToJ1_z;
@@ -69,7 +70,8 @@ module DrawJoint(Rot_a=0){
 } // DrawJoint
 
 module DrawBase(Rot_a=0){
-	translate([0,0,Table_h/2]) cylinder(d=Table_xy,h=Table_h,$fn=8,center=true);
+	//translate([0,0,Table_h/2]) cylinder(d=Table_xy,h=Table_h,$fn=8,center=true);
+	translate([0,0,-70]) cylinder(d1=120,d2=80,h=70,$fn=12);
 	DrawJoint(Rot_a=Rot_a);
 } // DrawBase
 
@@ -100,22 +102,34 @@ module Draw3DoFArm(BaseRot_a=BaseRot_a,J1Rot_a=J1Rot_a,J2Rot_a=J2Rot_a){
 			
 		rotate([0,0,J1Rot_a]) translate([0,0,JointA_h+JointB_h/2]) {
 			// rod connection J1 and J2
-			rotate([-90,0,0]) color("Silver") cylinder(d=10,h=RodAB_l);
+			rotate([-90,0,0]) color("Silver") cylinder(d=Tube_d,h=RodAB_l);
 			translate([0,RodAB_l,JointA_h/2])rotate([0,180,0]){
 				// mid-arm joint
 				DrawJoint(Rot_a=J2Rot_a);
 				// rod from J2 to middle of the gripper
 				translate([0,0,JointA_h+JointB_h/2])rotate([0,0,J2Rot_a]){
-					rotate([-90,0,0]) color("Silver") cylinder(d=10,h=RodBC_l);
+					rotate([-90,0,0]) color("Silver") cylinder(d=Tube_d,h=RodBC_l);
 }}}}}
 
-Draw3DoFArm();
+//Draw3DoFArm();
 //Draw3DoFArm(0,0,0);
 
+// Lo-Rez Arm parts
+module LoRezBase(){
+	cylinder(d1=120,d2=80,h=70,$fn=12);
+	translate([0,0,70]) cylinder(d=JointA_d,h=JointA_h,$fn=JointA_fn);
+} // LoRezBase
 
+//LoRezBase(); // height is 70+JointA_h
 
+module LoRezJoint(){
+	cylinder(d=JointB_d,h=JointB_h,$fn=JointB_fn);
+		
+		// Indicator: Which way am I pointing?
+		translate([0,JointB_d/2-11,JointB_h]) rotate([0,0,-30]) color("Tan") cylinder(d=10,h=1,$fn=3);
+} // LoRezJoint
 
-
+//LoRezJoint();
 
 
 
