@@ -544,23 +544,14 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 ; All LEDs off
 	movlb	0x01	;bank 1
 	bsf	SysLED_Tris
-	BSF	LED1_Tris
+	
 	BSF	LED2_Tris
 	BSF	LED3_Tris
 ;
 ; Read Switches
 	movlb	0x00	;bank 0
-	BCF	SW1_Flag
-	BCF	SW2_Flag
-	BCF	SW3_Flag
 	BCF	SW4_Flag
 ;
-	BTFSS	SW1_In
-	BSF	SW1_Flag
-	BTFSS	SW2_In
-	BSF	SW2_Flag
-	BTFSS	SW3_In
-	BSF	SW3_Flag
 ;	BTFSS	SW4_In	;not used in rev n/c
 ;	BSF	SW4_Flag
 ;
@@ -580,6 +571,13 @@ SystemBlink_end:
 	sublw	kAuxIOLEDBtn
 	SKPZ
 	bra	LED1_Blink_end
+; Get Button Value
+	movlb	0x01	;bank 1
+	BSF	LED1_Tris
+	movlb	0x00	;bank 0
+	BCF	SW1_Flag
+	BTFSS	SW1_In
+	BSF	SW1_Flag
 ;
 	movf	LED1_Blinks,F
 	SKPZ		;LED1 active?
@@ -643,6 +641,13 @@ Aux0DigOut_end:
 	sublw	kAuxIOLEDBtn
 	SKPZ
 	bra	LED2_Blink_end
+; Get Button Value
+	movlb	0x01	;bank 1
+	BSF	LED2_Tris
+	movlb	0x00	;bank 0
+	BCF	SW2_Flag
+	BTFSS	SW2_In
+	BSF	SW2_Flag
 ;
 	movf	LED2_Blinks,F
 	SKPZ		;LED2 active?
@@ -706,6 +711,13 @@ Aux1DigOut_end:
 	sublw	kAuxIOLEDBtn
 	SKPZ
 	bra	LED3_Blink_end
+; Get Button Value
+	movlb	0x01	;bank 1
+	BSF	LED3_Tris
+	movlb	0x00	;bank 0
+	BCF	SW3_Flag
+	BTFSS	SW3_In
+	BSF	SW3_Flag
 ;
 	movf	LED3_Blinks,F
 	SKPZ		;LED3 active?
@@ -1526,6 +1538,9 @@ HdlBtn_Btn4:
 ; Setup or Read AN0 or Read AN4
 ANNumMask	EQU	0x7C
 AN0_Val	EQU	0x00
+AN1_Val	EQU	0x04
+AN2_Val	EQU	0x08
+AN3_Val	EQU	0x0C
 AN4_Val	EQU	0x10
 AN7_Val	EQU	0x1C
 ;
@@ -1543,8 +1558,39 @@ ReadAN	MOVLB	1	;bank 1
 	SKPNZ
 	bra	ReadAN_AN0
 ;
-	movwf	Param78
-	movlw	AN4_Val
+	movwf	Param78	;AN select bits
+;
+	movf	ssAux0Config,W
+	andlw	0x0F
+	sublw	kAuxIOAnalogIn
+	SKPZ
+	bra	ReadAN_TryAN2
+	movlw	AN1_Val
+	subwf	Param78,W	;AN select bits
+	SKPNZ
+	bra	ReadAN_AN1
+;
+ReadAN_TryAN2	movf	ssAux1Config,W
+	andlw	0x0F
+	sublw	kAuxIOAnalogIn
+	SKPZ
+	bra	ReadAN_TryAN3
+	movlw	AN2_Val
+	subwf	Param78,W	;AN select bits
+	SKPNZ
+	bra	ReadAN_AN2
+;
+ReadAN_TryAN3	movf	ssAux2Config,W
+	andlw	0x0F
+	sublw	kAuxIOAnalogIn
+	SKPZ
+	bra	ReadAN_TryAN4
+	movlw	AN3_Val
+	subwf	Param78,W	;AN select bits
+	SKPNZ
+	bra	ReadAN_AN3
+;
+ReadAN_TryAN4	movlw	AN4_Val
 	subwf	Param78,W
 	SKPNZ
 	bra	ReadAN_AN4
@@ -1563,11 +1609,48 @@ ReadAN_AN4	movlw	AN7_Val	;next to read
 	bsf	NewDataAN4
 	bra	ReadAN_1
 ;
-ReadAN_AN0	movlw	AN4_Val	;next to read
-	movwf	Param78
-	movlw	low Cur_AN0
+ReadAN_AN0	movlw	low Cur_AN0
 	movwf	FSR0L
 	bsf	NewDataAN0
+	movlw	AN1_Val	;next to read
+	movwf	Param78
+	movf	ssAux0Config,W
+	andlw	0x0F
+	sublw	kAuxIOAnalogIn
+	SKPNZ
+	bra	ReadAN_1
+;
+ReadAN_AN0_1	movlw	AN2_Val	;next to read
+	movwf	Param78
+	movf	ssAux1Config,W
+	andlw	0x0F
+	sublw	kAuxIOAnalogIn
+	SKPNZ
+	bra	ReadAN_1
+;
+ReadAN_AN0_2	movlw	AN3_Val	;next to read
+	movwf	Param78
+	movf	ssAux2Config,W
+	andlw	0x0F
+	sublw	kAuxIOAnalogIn
+	SKPNZ
+	bra	ReadAN_1
+;
+ReadAN_AN0_3	movlw	AN4_Val	;next to read
+	movwf	Param78
+	bra	ReadAN_1
+;
+ReadAN_AN1	movlw	low Cur_AN1
+	movwf	FSR0L
+	bra	ReadAN_AN0_1
+;
+ReadAN_AN2	movlw	low Cur_AN2
+	movwf	FSR0L
+	bra	ReadAN_AN0_2
+;
+ReadAN_AN3	movlw	low Cur_AN3
+	movwf	FSR0L
+	bra	ReadAN_AN0_3
 ;
 ReadAN_1	movlb	0x01	;bank 1
 	MOVF	ADRESL,W

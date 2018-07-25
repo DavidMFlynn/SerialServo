@@ -1,14 +1,27 @@
 TTL Serial connected to a USB to Serial.
 
+Uses TTL serial from a USB to 5 volt TTL serial converter to control several R/C servos.
+Packet serial is used to give each servo a unique address. Operation modes include basic
+ servo position (open loop) w/ current limit and monitoring.  Mode 3 uses an absolute
+ magnetic encoder (AEAT-6012) to close the position loop.
+
+Communication:
+38,400 baud, 8 data, 1 stop, no parity.
+To connect multiple Serial Servos to a single connection add a 4.7KΩ resistor to the
+ Rx line of the USB to serial converter, a.k.a. the common Tx line of the Serial Servos.
+Select High Z Tx mode.
+
+Packet Serial:
 All packets are 6 bytes w/o optional sync bytes and checksum:
 Source Address, Destination Address and 4 data bytes
 or
-0xDD,0xDD,Source Address, Destination Address and 4 data bytes, Checksum (XOR of Source Addr, Dest Addr, 4 Data bytes)
+0xDD,0xDD,Source Address, Destination Address and 4 data bytes, Checksum 
+(XOR of Source Addr, Dest Addr, 4 Data bytes)
 
 Default master address is 1
 Default slave address is 2
 
-All commands return something. Some return a data packet (Slave,Master,Data0,Data1,Data2,Data3),
+All commands return something. Some return a data packet (Slave,Master,Data0,Data1,Data2,Data3,CSum),
 others return only a single byte (0xFF) as an acknowledgment 
 
 Mode:
@@ -152,7 +165,7 @@ AN3/RA3:	LED install D3, R16
 	Digital I/O R17,R20,C13,J7
 	
 R13,R15,R17 Pull-Ups for digital inputs
-C11,C12,C13 Integation for analog/digital input
+C11,C12,C13 Integration for analog/digital input
 
 Servo Power:	6V 1.5A VR2,D6,C5,C8,C9
 	Adj 3A, VR3,D6,C5,C8,C9,R8,R22
@@ -167,3 +180,11 @@ System LED:	R3,D4
 
 Encoder:	C1,J2
 
+Other notes:
+---------------------------
+Test to do: A,B,I quadrature encoder interface. Auto zero on I?
+Add: Analog inputs to Aux 0,1,2
+Add: Multi-rotation absolute encoder support with limit and home switches.
+Add: ABI encoder flag, Multi-rotation flag.
+Add: Encoder offset for absolute encoder. (Enc + Offset) mod 4096
+      Get/Set, Default = 0x0000

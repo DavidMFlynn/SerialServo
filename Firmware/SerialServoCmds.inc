@@ -555,9 +555,85 @@ Cmd_SetAuxNValue_end:
 	bra	Cmd_GetAuxNValue_end
 ; Get Aux N Value
 	movf	INDF1,W
+	movwf	Param78	;AuxNum
 	sublw	0x02	;2-AuxNum
 	SKPNB		;<=2?
 	goto	HandleRXData_Rtn	; no
+;
+	movf	Param78,W	;AuxNum
+	addlw	low ssAux0Config
+	movwf	FSR1L
+	movlw	high ssAux0Config
+	movwf	FSR1H
+;
+	movf	INDF1,W	;ssAuxXConfig
+	andlw	0x07
+	brw
+	goto	HandleRXData_Rtn	;kAuxIOnone, not valid
+	bra	Cmd_GetAuxNValue_Btn	;kAuxIOLEDBtn
+	bra	Cmd_GetAuxNValue_Dig	;kAuxIODigitalIn
+	bra	Cmd_GetAuxNValue_Dig	;kAuxIODigitalOut
+	bra	Cmd_GetAuxNValue_Ana	;kAuxIOAnalogIn
+	bra	Cmd_GetAuxNValue_Dig	;kAuxIOHomeSw
+	bra	Cmd_GetAuxNValue_Dig	;kAuxIOFwdLimit
+	bra	Cmd_GetAuxNValue_Dig	;kAuxIORevLimit
+;
+Cmd_GetAuxNValue_Ana	lslf	Param78,W	;AuxNum X2
+	addlw	low Cur_AN1
+	movwf	FSR1L
+	movlw	high Cur_AN1
+	movwf	FSR1H
+	moviw	FSR1++
+	movwi	FSR0++
+	moviw	FSR1++
+	movwi	FSR0++
+	goto	RS232_Send_S0
+;
+; Send the value of the port bit 0x00 or 0x01
+Cmd_GetAuxNValue_Dig	movf	Param78,W	;AuxNum
+	SKPZ
+	bra	Cmd_GetAuxNValue_Dig1
+	btfsc	SW1_In
+	movlw	0x01
+	movwi	FSR0++
+	goto	RS232_Send_S0
+;
+Cmd_GetAuxNValue_Dig1	sublw	0x01
+	SKPZ
+	bra	Cmd_GetAuxNValue_Dig2
+	btfsc	SW2_In
+	movlw	0x01
+	movwi	FSR0++
+	goto	RS232_Send_S0
+;
+Cmd_GetAuxNValue_Dig2	clrw
+	btfsc	SW3_In
+	movlw	0x01
+	movwi	FSR0++
+	goto	RS232_Send_S0
+; Send the Button value
+Cmd_GetAuxNValue_Btn	movf	Param78,W	;AuxNum
+	SKPZ
+	bra	Cmd_GetAuxNValue_Btn1
+	btfsc	SW1_Flag
+	movlw	0x01
+	movwi	FSR0++
+	goto	RS232_Send_S0
+;
+Cmd_GetAuxNValue_Btn1	sublw	0x01
+	SKPZ
+	bra	Cmd_GetAuxNValue_Btn2
+	btfsc	SW2_Flag
+	movlw	0x01
+	movwi	FSR0++
+	goto	RS232_Send_S0
+;
+Cmd_GetAuxNValue_Btn2	clrw
+	btfsc	SW3_Flag
+	movlw	0x01
+	movwi	FSR0++
+	goto	RS232_Send_S0
+;
 ;
 Cmd_GetAuxNValue_end:
 ;---kCmd_GetI-------------------
