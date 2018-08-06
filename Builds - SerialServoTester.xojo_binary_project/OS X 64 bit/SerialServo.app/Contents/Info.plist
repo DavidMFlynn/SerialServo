@@ -28,5 +28,45 @@
    <string>10.9.0</string>
 <key>NSHighResolutionCapable</key><true/>
 <key>CFBundleSupportedPlatforms</key><array><string>MacOSX</string></array>
+   <key>UTImportedTypeDeclarations</key>
+   <array>
+      <dict>
+         <key>UTTypeIdentifier</key>
+         <string>public.text</string>
+         <key>UTTypeConformsTo</key>
+         <array>
+            <string>public.data</string>
+            <string>public.content</string>
+         </array>
+         <key>UTTypeTagSpecification</key>
+         <dict>
+            <key>public.filename-extension</key>
+            <array>
+            <string>asc</string>
+            <string>ascii</string>
+            <string>bas</string>
+            <string>c</string>
+            <string>class</string>
+            <string>cp</string>
+            <string>cpp</string>
+            <string>h</string>
+            <string>hp</string>
+            <string>hpp</string>
+            <string>i3</string>
+            <string>java</string>
+            <string>m2</string>
+            <string>m3</string>
+            <string>mak</string>
+            <string>text</string>
+            <string>txt</string>
+            </array>
+            <key>com.apple.ostype</key>
+            <array>
+               <string>TEXT</string>
+            </array>
+         </dict>
+      </dict>
+   </array>
+
 </dict>
 </plist>
