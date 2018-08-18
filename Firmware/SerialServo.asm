@@ -544,7 +544,7 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 ; All LEDs off
 	movlb	0x01	;bank 1
 	bsf	SysLED_Tris
-	
+;
 	BSF	LED2_Tris
 	BSF	LED3_Tris
 ;
