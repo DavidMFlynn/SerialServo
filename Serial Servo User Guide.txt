@@ -70,6 +70,8 @@ kCmd_SetAuxConfig(0xB2)  +2 data (AuxNum,Value), return ACK
 kCmd_GetAuxConfig(0x22)  +1 data (AuxNum)
 kCmd_SetAuxNValue(0xB3)  +2 data (AuxNum,Value), return ACK
 kCmd_GetAuxNValue(0x23)  (AuxN,ValueL,ValueH)
+kCmd_SetEncoderOffset(0xB4) +2 data (EncoderOffset), return ACK
+kCmd_GetEncoderOffset(0x24)
 ;
 kCmd_GetI(0x91)	return Cur_AN0
 kCmd_GetEnc(0x92)	return EncoderVal

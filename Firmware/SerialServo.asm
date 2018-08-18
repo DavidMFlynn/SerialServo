@@ -1,8 +1,8 @@
 ;====================================================================================================
 ;
 ;    Filename:      SerialServo.asm
-;    Date:          7/23/2018
-;    File Version:  1.0b5
+;    Date:          8/18/2018
+;    File Version:  1.0b6
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -26,6 +26,7 @@
 ;Mode 3: Absolute encoder position control. ssCmdPos = 0..4095
 ;
 ;    History:
+; 1.0b6   8/18/2018	Moved analog variables to bank 1. Fast blink on error. EncoderOffset for mode3
 ; 1.0b5   7/23/2018	Aux IO
 ; 1.0b4   7/14/2018	Better defaults. Gripper mode (4).
 ; 1.0b3   6/19/2018	Added ssEnableFastPWM
@@ -254,6 +255,8 @@ kAuxIORevLimit	EQU	0x07
 	cblock	0x20
 ;
 	SysLED_Time		;sys LED time
+	SysLED_Blinks		;0=1 flash,1,2,3
+	SysLED_BlinkCount
 	SysLEDCount		;sys LED Timer tick count
 ;
 	LED1_Blinks		;0=off,1,2,3
@@ -268,16 +271,6 @@ kAuxIORevLimit	EQU	0x07
 ;
 	EEAddrTemp		;EEProm address to read or write
 	EEDataTemp		;Data to be writen to EEProm
-;
-	ANFlags
-	Cur_AN0:2		;IServo
-	Cur_AN1:2		;SW1_LED1
-	Cur_AN2:2		;SW2_LED2
-	Cur_AN3:2		;SW3_LED3
-	Cur_AN4:2		;Calibration Pot
-	Cur_AN7:2		;Battery Volts
-;
-	OldAN0Value:2
 ;
 	Timer1Lo		;1st 16 bit timer
 	Timer1Hi		; 50 mS RX timeiout
@@ -305,6 +298,7 @@ kAuxIORevLimit	EQU	0x07
 ;Below here are saved in eprom
 	EncoderFlags
                        EncoderHome:2                                 ;Absolute Home
+                       EncoderOffset:2		;Used in mode 2 for single rotation
 ;
 	ServoFastForward:2
 	ServoFastReverse:2
@@ -328,11 +322,6 @@ kAuxIORevLimit	EQU	0x07
 ;
 	endc
 ;--------------------------------------------------------------
-;---ANFlags bits---
-#Define	NewDataAN0	ANFlags,0
-#Define	NewDataAN4	ANFlags,1
-#Define	NewDataAN7	ANFlags,2
-;
 ;---SerFlags bits---
 #Define	DataReceivedFlag	SerFlags,1
 #Define	DataSentFlag	SerFlags,2
@@ -382,7 +371,22 @@ kAuxIORevLimit	EQU	0x07
 	RX_TempData:RP_DataBytes
 	RX_Data:RP_DataBytes
 	TX_Data:RP_DataBytes
+;
+	ANFlags
+	Cur_AN0:2		;IServo
+	Cur_AN1:2		;SW1_LED1
+	Cur_AN2:2		;SW2_LED2
+	Cur_AN3:2		;SW3_LED3
+	Cur_AN4:2		;Calibration Pot
+	Cur_AN7:2		;Battery Volts
+;
+	OldAN0Value:2
 	endc
+;
+;---ANFlags bits---
+#Define	NewDataAN0	ANFlags,0
+#Define	NewDataAN4	ANFlags,1
+#Define	NewDataAN7	ANFlags,2
 ;
 ;================================================================================================
 ;  Bank2 Ram 120h-16Fh 80 Bytes
@@ -452,6 +456,7 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 	ORG	0xF000
 	de	0x00	;nvEncoderFlags
 	de	0x00,0x00	;nvEncoderHome
+	de	0x00,0x00	;nvEncoderOffset
 	de	low kServoFastForward
 	de	high kServoFastForward
 	de	low kServoFastReverse
@@ -479,6 +484,7 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 ;
 	nvEncoderFlags
                        nvEncoderHome:2
+                       nvEncoderOffset:2
 ;
 	nvServoFastForward:2
 	nvServoFastReverse:2
@@ -554,16 +560,24 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 ;
 ;	BTFSS	SW4_In	;not used in rev n/c
 ;	BSF	SW4_Flag
-;
+;--------------------
 ; Sys LED time
 	DECFSZ	SysLEDCount,F	;Is it time?
 	bra	SystemBlink_end	; No, not yet
 ;
+	movf	SysLED_Blinks,F
+	SKPNZ		;Standard Blinking?
+	bra	SystemBlink_Std	; Yes
+;
+; custom blinking
+;
+SystemBlink_Std	CLRF	SysLED_BlinkCount
 	MOVF	SysLED_Time,W
-	MOVWF	SysLEDCount
+SystemBlink_DoIt	MOVWF	SysLEDCount
 	movlb	0x01	;bank 1
-	bcf	SysLED_Tris
+	bcf	SysLED_Tris	;LED ON
 SystemBlink_end:
+;--------------------
 ; Flash LEDs
 	movlb	0x00	;bank 0
 	movf	ssAux0Config,W
@@ -905,9 +919,17 @@ MainLoop	CLRWDT
 	mCall0To1	HandleRXData
 ML_1:
 ;
+; Fast blink the system LED is the servo is stopped because of an error
+	MOVLB	0x00
+	MOVLW	LEDTIME
+	btfsc	ssio_OverCurSD
+	movlw	LEDErrorTime
+	MOVWF	SysLED_Time
+;
 	CALL	ReadAN
 ;
 ; Average AN0
+	BankSel	Cur_AN0
 	btfss	NewDataAN0
 	bra	No_NewDataAN0
 	bcf	NewDataAN0
@@ -989,7 +1011,9 @@ ModeReturn:
 ;Simple servo testing
 ; copy AN4 value x2 + .1976 to servo value
 ;
-DoModeZero	lslf	Cur_AN4,W
+DoModeZero:
+	BankSel	Cur_AN4
+	lslf	Cur_AN4,W
 	movwf	Param7C
 	rlf	Cur_AN4+1,W
 	movwf	Param7D
@@ -1008,7 +1032,8 @@ DoModeZero	lslf	Cur_AN4,W
 ; elseif AN4 + .1050 < EncoderVal set servo to ServoFastReverse
 ; else Set ServoIdle
 ;
-DoModeOne	movlb	0	;bank 0
+DoModeOne:
+	BankSel	Cur_AN4
 ;
 ;Param7A:Param79 = Cur_AN4 + .950
 	movlw	low .950
@@ -1019,6 +1044,7 @@ DoModeOne	movlb	0	;bank 0
 	movwf	Param7A
 ;
 ;Param7A:Param79 = Param7A:Param79 - EncoderVal
+	BankSel	EncoderVal
 	movf	EncoderVal,W
 	subwf	Param79,F
 	movf	EncoderVal+1,W
@@ -1028,6 +1054,7 @@ DoModeOne	movlb	0	;bank 0
 	bra	DM1_FF	; No, EncoderVal <= (AN4 + .950)
 ;
 ;Param7A:Param79 = Cur_AN4 + .1050
+	BankSel	Cur_AN4
 	movlw	low .1050
 	addwf	Cur_AN4,W
 	movwf	Param79
@@ -1036,6 +1063,7 @@ DoModeOne	movlb	0	;bank 0
 	movwf	Param7A
 ;
 ;Param7A:Param79 = Param7A:Param79 - EncoderVal
+	BankSel	EncoderVal
 	movf	EncoderVal,W
 	subwf	Param79,F
 	movf	EncoderVal+1,W
@@ -1076,10 +1104,12 @@ CheckCurrent	movlb	0x00	;Bank 0
 	lslf	Param78,F
 	rlf	Param79
 ;Param79:Param78 -= Cur_AN0
+	BankSel	Cur_AN0
 	movf	Cur_AN0,W
 	subwf	Param78,F
 	movf	Cur_AN0+1,W
 	subwfb	Param79,F
+	movlb	0x00	;Bank 0
 ;
 	btfsc	Param79,7	;Cur_AN0>ssMaxI*4?
 	bsf	OverCurrentFlag
@@ -1099,10 +1129,12 @@ CheckGripCurrent	movlb	0x00	;Bank 0
 	lslf	Param78,F
 	rlf	Param79
 ;Param79:Param78 -= Cur_AN0
+	BankSel	Cur_AN0
 	movf	Cur_AN0,W
 	subwf	Param78,F
 	movf	Cur_AN0+1,W
 	subwfb	Param79,F
+	movlb	0x00	;Bank 0
 ;
 	btfsc	Param79,7	;Cur_AN0>ssGripI*4?
 	bsf	GripIMet	; Yes
@@ -1120,10 +1152,12 @@ CheckGripCurrent	movlb	0x00	;Bank 0
 	lslf	Param78,F
 	rlf	Param79
 ;Param79:Param78 -= Cur_AN0
+	BankSel	Cur_AN0
 	movf	Cur_AN0,W
 	subwf	Param78,F
 	movf	Cur_AN0+1,W
 	subwfb	Param79,F
+	movlb	0x00	;Bank 0
 ;
 	btfsc	Param79,7	;Cur_AN0>(ssGripI+10)*4?
 	bsf	GripIOver
@@ -1229,6 +1263,8 @@ DoModeTwo_1:
 ; elseif ssCmdPos + DeadBand < EncoderVal set servo to ServoFastReverse
 ; else Set ServoIdle
 ;
+; Ram Used:Param79,Param7A,Param7C,Param7D
+;
 DoModeThree	movlb	0	;bank 0
 	btfsc	ssCmdPos+1,7
 	bra	DM3_IdleServo
@@ -1252,10 +1288,17 @@ DM3_NotOverCurrent:
 	movf	ssCmdPos+1,W
 	movwf	Param7A
 ;
-;Param7A:Param79 = Param7A:Param79 - EncoderVal
+;Param7A:Param79 = Param7A:Param79 - ((EncoderVal + EncoderOffset) mod 4096)
 	movf	EncoderVal,W
-	subwf	Param79,F
+	addwf	EncoderOffset,W
+	movwf	Param7C
 	movf	EncoderVal+1,W
+	addwfc	EncoderOffset+1,W
+	andlw	0x0F
+	movwf	Param7D
+	movf	Param7C,W	;(EncoderVal + EncoderOffset) mod 4096
+	subwf	Param79,F
+	movf	Param7D,W
 	subwfb	Param7A,F
 ;
 	btfss	Param7A,7	;Param7A:Param79 < 0?
@@ -1270,9 +1313,9 @@ DM3_NotOverCurrent:
 	movwf	Param7A
 ;
 ;Param7A:Param79 = Param7A:Param79 - EncoderVal
-	movf	EncoderVal,W
+	movf	Param7C,W	;(EncoderVal + EncoderOffset) mod 4096
 	subwf	Param79,F
-	movf	EncoderVal+1,W
+	movf	Param7D,W
 	subwfb	Param7A,F
 ;
 	btfsc	Param7A,7	;Param7A:Param79 < 0?
@@ -1551,7 +1594,8 @@ ReadAN	MOVLB	1	;bank 1
 	BTFSC	ADCON0,GO_NOT_DONE	;Conversion done?
 	BRA	ReadAN_Rtn	; No
 ;
-	clrf	FSR0H
+	movlw	HIGH Cur_AN0
+	movwf	FSR0H
 	movf	ADCON0,W
 	movlb	0x00	;bank 0
 	andlw	ANNumMask
@@ -1599,6 +1643,7 @@ ReadAN_TryAN4	movlw	AN4_Val
 	movwf	Param78
 	movlw	LOW Cur_AN7
 	movwf	FSR0L
+	BankSel	Cur_AN0	;where the analog stuff is
 	bsf	NewDataAN7
 	bra	ReadAN_1
 ;
@@ -1606,11 +1651,13 @@ ReadAN_AN4	movlw	AN7_Val	;next to read
 	movwf	Param78
 	movlw	low Cur_AN4
 	movwf	FSR0L
+	BankSel	Cur_AN0	;where the analog stuff is
 	bsf	NewDataAN4
 	bra	ReadAN_1
 ;
 ReadAN_AN0	movlw	low Cur_AN0
 	movwf	FSR0L
+	BankSel	Cur_AN0	;where the analog stuff is
 	bsf	NewDataAN0
 	movlw	AN1_Val	;next to read
 	movwf	Param78

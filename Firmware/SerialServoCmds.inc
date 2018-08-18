@@ -54,6 +54,8 @@ kCmd_SetAuxConfig	EQU	0xB2	;+2 data (AuxNum,Value), return ACK
 kCmd_GetAuxConfig	EQU	0x22	;+1 data (AuxNum)
 kCmd_SetAuxNValue	EQU	0xB3	;+2 data (AuxNum,Value), return ACK
 kCmd_GetAuxNValue	EQU	0x23	;(AuxN,ValueL,ValueH)
+kCmd_SetEncoderOffset	EQU	0xB4	;+2 data (EncoderOffset), return ACK
+kCmd_GetEncoderOffset	EQU	0x24
 ;
 kCmd_GetI	EQU	0x91	;return Cur_AN0
 kCmd_GetEnc	EQU	0x92	;return EncoderVal
@@ -636,12 +638,37 @@ Cmd_GetAuxNValue_Btn2	clrw
 ;
 ;
 Cmd_GetAuxNValue_end:
+;---kCmd_SetEncoderOffset-------  +2 data (EncoderOffset), return ACK
+	movlw	kCmd_SetEncoderOffset
+	subwf	Param78,W	;aka RX_Data
+	SKPZ
+	bra	Cmd_SetEncoderOffset_End
+;
+	moviw	FSR1++
+	movwf	EncoderOffset
+	moviw	FSR1++
+	movwf	EncoderOffset+1
+	goto	TX_ACK
+Cmd_SetEncoderOffset_End:
+;---kCmd_GetEncoderOffset-------
+	movlw	kCmd_GetEncoderOffset
+	subwf	Param78,W	;aka RX_Data
+	SKPZ
+	bra	Cmd_GetEncoderOffset_End
+;
+	movf	EncoderOffset,W
+	movwi	FSR0++
+	movf	EncoderOffset+1,W
+	movwi	FSR0++
+	goto	RS232_Send_S0
+Cmd_GetEncoderOffset_End:
 ;---kCmd_GetI-------------------
 	movlw	kCmd_GetI
 	subwf	Param78,W	;aka RX_Data
 	SKPZ
 	bra	Cmd_GetI_end
 ; Get servo current
+	BankSel	Cur_AN0
 	movf	Cur_AN0,W
 	movwi	FSR0++
 	movf	Cur_AN0+1,W
@@ -699,6 +726,7 @@ Cmd_RestoreParams_end:
 	SKPZ
 	bra	Cmd_GetBattVolts_end
 ; Get battery volts
+	BankSel	Cur_AN7
 	movf	Cur_AN7,W
 	movwi	FSR0++
 	movf	Cur_AN7+1,W
@@ -711,6 +739,7 @@ Cmd_GetBattVolts_end:
 	SKPZ
 	bra	Cmd_GetCalPot_end
 ; Get calibration pot
+	BankSel	Cur_AN4
 	movf	Cur_AN4,W
 	movwi	FSR0++
 	movf	Cur_AN4+1,W

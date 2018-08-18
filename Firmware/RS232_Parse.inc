@@ -317,6 +317,8 @@ RS232_ClearTXData_L1	movwi	FSR1++
 ;=========================================================================================
 ; Send a data packet
 ;
+;Entry: TX_Data = Data to send 
+;Exit: TX_Data is cleared
 ;Ram used: Param78,Param79,Param7A,FSR0,FSR1
 ;Calls: (1+0) StoreSerOut
 ;
