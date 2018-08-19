@@ -475,7 +475,7 @@ $EndComp
 Text Notes 1500 6750 2    50   ~ 0
 Prog
 Text Notes 1750 6650 2    62   ~ 0
-VDD\nVPP\nVSS\nPGD\nPGC
+VPP\nVDD\nVSS\nPGD\nPGC
 Text GLabel 2000 4200 0    50   Input ~ 0
 PGD
 Text GLabel 1100 6500 0    50   Input ~ 0

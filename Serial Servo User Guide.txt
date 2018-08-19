@@ -144,9 +144,9 @@ D6	Diode SMA Rectifier (servo power optional)
 
 J1	Connector 4 Pos (power & IO)
 J2	Connector 5 Pos (encoder)
-J3	Connector 5 Pos (optional)
+J3	Connector 5 Pos (programming optional)
 J4	Connector 3 Pos (Servo)
-J5,J6,J7	Connector 3 Pos (optional)
+J5,J6,J7	Connector 3 Pos (Digital IO/Analog In optional)
 J8	Jumper Servo Power Regulator Bypass (optional)
 
 Options (Note: Some options are mutually exclusive)
