@@ -2,10 +2,11 @@
 // Case and Mount for Serial Servo Rev B PCB
 // by Dave Flynn
 // Created:8/13/2018
-// Revision: 1.0.0 8/13/2018
+// Revision: 1.0.1 8/19/2018
 // Units: mm
 // ******************************************************
 // History:
+// 1.0.1 8/19/2018 Moved mounting locations.
 // 1.0.0 8/13/2018 First Code
 // ******************************************************
 // Notes:
@@ -28,7 +29,7 @@ PCB_Back_Parts_z=5;
 PCB_Front_Parts_z=13.5;
 
 CaseWall=2;
-RC_BoltSpace=46;
+RC_BoltSpace=42;
 Tube_OD=25.4;
 RC_Spacer_h=4;
 
@@ -45,14 +46,15 @@ module RoundRect(X=60,Y=40,Z=10,R=5){
 
 module SSCaseBack(){
 	PCB_Clip_y=14;
-	BoltBoss_y=14;
+	BoltBoss_yt=19;
+	BoltBoss_yb=10;
 	
 	Case_h=PCB_Back_Parts_z+PCB_z+PCB_Front_Parts_z+CaseWall;
 	
 	module BoltBoss(XTra=1){
 		difference(){
 			hull(){
-				translate([3.5+XTra,-3.5,0]) cube([Overlap,7,Case_h]);
+				translate([2.5+XTra,-3.5,0]) cube([Overlap,7,Case_h]);
 				translate([0,0,Case_h-8]) cylinder(d=7,h=8);
 			} // hull
 			translate([0,0,Case_h])  Bolt4Hole(depth=9);
@@ -67,10 +69,10 @@ module SSCaseBack(){
 		
 	} // diff
 	// Bolts
-	translate([-RC_BoltSpace/2,PCB_y/2-BoltBoss_y,0])  BoltBoss(XTra=1);
-	translate([RC_BoltSpace/2,PCB_y/2-BoltBoss_y,0]) rotate([0,0,180])  BoltBoss(XTra=1);
-	translate([RC_BoltSpace/2,-PCB_y/2+BoltBoss_y,0]) rotate([0,0,180]) BoltBoss(XTra=1);
-	translate([-RC_BoltSpace/2,-PCB_y/2+BoltBoss_y,0])  BoltBoss(XTra=1);
+	translate([-RC_BoltSpace/2,PCB_y/2-BoltBoss_yt,0])  BoltBoss(XTra=1);
+	translate([RC_BoltSpace/2,PCB_y/2-BoltBoss_yt,0]) rotate([0,0,180])  BoltBoss(XTra=1);
+	translate([RC_BoltSpace/2,-PCB_y/2+BoltBoss_yb,0]) rotate([0,0,180]) BoltBoss(XTra=1);
+	translate([-RC_BoltSpace/2,-PCB_y/2+BoltBoss_yb,0])  BoltBoss(XTra=1);
 	
 	// bottom stops
 	translate([-PCB_x/2,-PCB_y/2+PCB_Clip_y,Overlap]) cylinder(r=CaseWall,h=CaseWall+PCB_Back_Parts_z);
