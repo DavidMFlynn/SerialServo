@@ -333,6 +333,7 @@ RS232_Send:
 ;
 	endif
 ;
+	movlb	0x00	;bank 0
 	clrf	Param7A	;CSum
 	movf	RS232_SlaveAddr,W	;source address
 	xorwf	Param7A,F
