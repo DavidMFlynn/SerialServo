@@ -3,3 +3,5 @@
 /Firmware/SerialServo.X/dist/default/
 *.gcode
 *.bbprojectsettings
+Firmware/SerialServo.bbprojectd/davidflynn.bbprojectsettings
+SerialServoTester.xojo_binary_project
