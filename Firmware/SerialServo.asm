@@ -214,7 +214,7 @@ Baud_9600	EQU	.832	;9604, +0.04%
 Baud_19200	EQU	.416	;19.18k, -0.08%
 Baud_38400	EQU	.207	;38.46k, +0.16%
 Baud_57600	EQU	.138	;57.55k, -0.08%
-BaudRate	EQU	Baud_38400
+BaudRate	EQU	Baud_1200
 ;
 kServoDwellTime	EQU	.40000	;20mS
 kServoFastDwellTime	EQU	.20000	;10mS
