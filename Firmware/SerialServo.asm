@@ -349,7 +349,7 @@ kAuxIORevLimit	EQU	0x07
 ;---ssFlags bits---
 #Define	ssEnableOverCur	ssFlags,0	;disable if current is too high
 #Define	ssReverseDir	ssFlags,1	;if set ServoFastForward<=>ServoFastReverse
-#Define	ssEnableHighZTZ	ssFlags,2	;if set TX is High-Z when not active
+#Define	ssEnableHighZTX	ssFlags,2	;if set TX is High-Z when not active
 #Define	ssMode3IdleCenter	ssFlags,3	;0= Disable PWM, 1= output ServoStopCenter
 #Define	ssEnableFastPWM	ssFlags,4	;0= 20mS PWM, 1= 10mS PWM
 #Define	ssEnableAN4	ssFlags,5	;0= Mode 0,1 disabled; 1= Enabled;
@@ -951,11 +951,11 @@ No_NewDataAN0:
 ;
 ;---------------------
 ; Handle High-Z Serial control
-; if TXIF and GetSerOutBytes=0 and ssEnableHighZTZ
+; if TXIF and GetSerOutBytes=0 and ssEnableHighZTX
 ;  set Tris
 ; else
 ;  clr Tris
-	btfss	ssEnableHighZTZ	;High-Z Enabled?
+	btfss	ssEnableHighZTX	;High-Z Enabled?
 	bra	ML_TXActive	; No
 	btfsc	PIR1,TXIF	;TX in progress?
 	bra	ML_TXActive	; Yes
@@ -1493,7 +1493,7 @@ DoMode4_Hold	btfss	GripIOver	;Gripping too hard?
 	goto	DoMode4_Go	; No
 	movlw	0x01	; No, use 2 as speed
 	bra	DoMode4_Minus_1
-;	
+;
 ;=============================
 ; 7D:7C = distance to go
 ;
@@ -1532,7 +1532,7 @@ DoMode4_1:
 	bcf	GripIOver
 	goto	ModeReturn
 ;
-;=========================================================================================	
+;=========================================================================================
 ;=========================================================================================
 ;DebounceTime,kMaxMode
 ;Timer4Lo,SysMode
