@@ -1,8 +1,8 @@
 ;====================================================================================================
 ;
 ;    Filename:      SerialServo.asm
-;    Date:          8/18/2018
-;    File Version:  1.0b6
+;    Date:          10/3/2018
+;    File Version:  1.0b7
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -24,8 +24,10 @@
 ;Mode 1: (LED 1 = 1 flash) servo and encoder test mode, AN4 Pot value + 950 - EncoderVal to servo dir.
 ;Mode 2: Basic Serial Servo, output servo pulse of ssCmdPos x 0.5uS.
 ;Mode 3: Absolute encoder position control. ssCmdPos = 0..4095
+;Mode 4: Gripper force control.
 ;
 ;    History:
+; 1.0b7   10/3/2018	Mode 3 is working for 4-wheel rover corner pivot motors.
 ; 1.0b6   8/18/2018	Moved analog variables to bank 1. Fast blink on error. EncoderOffset for mode3
 ; 1.0b5   7/23/2018	Aux IO
 ; 1.0b4   7/14/2018	Better defaults. Gripper mode (4).
@@ -38,7 +40,11 @@
 ; 1.0d1   4/26/2018	First code.
 ;
 ;====================================================================================================
-; Options
+; ToDo:
+;
+; Mode 3:
+; 1) On power on reset set command position to current position including offset.
+; 2) Speed is used as acceleration, add speed (counts/second).
 ;
 ;====================================================================================================
 ;====================================================================================================
