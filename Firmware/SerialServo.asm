@@ -157,8 +157,8 @@ Servo_AddrDataMask	EQU	0xF8
 ;
 ;
 ;    Port B bits
-PortBDDRBits	EQU	b'11100010'	;CCP1, MagEnc_CLKBit
-PortBValue	EQU	b'00010101'
+PortBDDRBits	EQU	b'11100110'	;CCP1, MagEnc_CLKBit
+PortBValue	EQU	b'00010001'
 ANSELB_Val	EQU	b'00100000'	;RB5/AN7
 ;
 #Define	RB0_In	PORTB,0	;MagEnc_CSBit (Active Low Output)
@@ -214,7 +214,7 @@ Baud_9600	EQU	.832	;9604, +0.04%
 Baud_19200	EQU	.416	;19.18k, -0.08%
 Baud_38400	EQU	.207	;38.46k, +0.16%
 Baud_57600	EQU	.138	;57.55k, -0.08%
-BaudRate	EQU	Baud_1200
+BaudRate	EQU	Baud_38400
 ;
 kServoDwellTime	EQU	.40000	;20mS
 kServoFastDwellTime	EQU	.20000	;10mS
@@ -349,7 +349,7 @@ kAuxIORevLimit	EQU	0x07
 ;---ssFlags bits---
 #Define	ssEnableOverCur	ssFlags,0	;disable if current is too high
 #Define	ssReverseDir	ssFlags,1	;if set ServoFastForward<=>ServoFastReverse
-#Define	ssEnableHighZTX	ssFlags,2	;if set TX is High-Z when not active
+;
 #Define	ssMode3IdleCenter	ssFlags,3	;0= Disable PWM, 1= output ServoStopCenter
 #Define	ssEnableFastPWM	ssFlags,4	;0= 20mS PWM, 1= 10mS PWM
 #Define	ssEnableAN4	ssFlags,5	;0= Mode 0,1 disabled; 1= Enabled;
@@ -948,26 +948,6 @@ No_NewDataAN0:
 	call	ReadEncoder
 ;
 	call	HandleButtons
-;
-;---------------------
-; Handle High-Z Serial control
-; if TXIF and GetSerOutBytes=0 and ssEnableHighZTX
-;  set Tris
-; else
-;  clr Tris
-	btfss	ssEnableHighZTX	;High-Z Enabled?
-	bra	ML_TXActive	; No
-	btfsc	PIR1,TXIF	;TX in progress?
-	bra	ML_TXActive	; Yes
-	call	GetSerOutBytes
-	SKPZ		;Any bytes to TX?
-	bra	ML_TXActive	; Yes
-	movlb	0x01	; bank 1
-	bsf	TX_TRIS	;go High-Z
-	bra	ML_HighZTX_End
-ML_TXActive	movlb	0x01	; bank1
-	bcf	TX_TRIS	;Output Active
-ML_HighZTX_End	movlb	0x00	; bank 0
 ;
 ;---------------------
 ; Handle Serial Communications

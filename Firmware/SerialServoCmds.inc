@@ -36,8 +36,7 @@ kCmd_SetRevDir	EQU	0x88	;+1 data (ssReverseDir), return ACK
 kCmd_GetRevDir	EQU	0x08
 kCmd_SetEnaOvrCur	EQU	0x89	;+1 data (ssEnableOverCur), return ACK
 kCmd_GetEnaOvrCur	EQU	0x09
-kCmd_Set_HighZ_TX	EQU	0x8A	;+1 data (ssEnableHighZTZ), return ACK
-kCmd_Get_HighZ_TX	EQU	0x0A
+;
 kCmd_SetStopCenter	EQU	0x8B	;+2 data (ServoStopCenter), return ACK
 kCmd_GetStopCenter	EQU	0x0B
 kCmd_SetSpeed	EQU	0x8C	;+1 data (ServoSpeed), return ACK
@@ -322,27 +321,7 @@ Cmd_SetEnaOvrCur_End:
 	bsf	INDF0,0
 	goto	RS232_Send_S0
 Cmd_GetEnaOvrCur_End:
-;---kCmd_Set_HighZ_TX-------------
-	movlw	kCmd_Set_HighZ_TX
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_Set_HighZ_TX_End
-	bcf	ssEnableHighZTZ
-	movlw	0x01
-	xorwf	INDF1,W
-	SKPNZ
-	bsf	ssEnableHighZTZ
-	goto	TX_ACK
-Cmd_Set_HighZ_TX_End:
-;---kCmd_Get_HighZ_TX-------------
-	movlw	kCmd_Get_HighZ_TX
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_Get_HighZ_TX_End
-	btfsc	ssEnableHighZTZ
-	bsf	INDF0,0
-	goto	RS232_Send_S0
-Cmd_Get_HighZ_TX_End:
+;
 ;---kCmd_SetStopCenter---------
 	movlw	kCmd_SetStopCenter
 	subwf	Param78,W	;aka RX_Data
