@@ -25,8 +25,9 @@
    <key>CFBundleIconFile</key>
    <string>App</string>
    <key>LSMinimumSystemVersion</key>
-   <string>10.9.0</string>
+   <string>10.10.0</string>
 <key>NSHighResolutionCapable</key><true/>
+<key>NSRequiresAquaSystemAppearance</key><true/>
 <key>CFBundleSupportedPlatforms</key><array><string>MacOSX</string></array>
    <key>UTImportedTypeDeclarations</key>
    <array>
