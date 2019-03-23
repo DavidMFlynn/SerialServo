@@ -516,7 +516,7 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 ;==============================================================================================
 ;============================================================================================
 ;
-BootLoaderStart	EQU	0x1F00
+BootLoaderStart	EQU	0x1E00
 ;
 	ORG	0x000	; processor reset vector
 	movlp	high BootLoaderStart

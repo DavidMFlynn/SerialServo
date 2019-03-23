@@ -44,8 +44,49 @@
 	cblock 0x20
 	PROG_ADDR_LO
 	PROG_ADDR_HI
+	IH_Addr_Lo:2		;
+	IH_Addr_Hi:2		;extended linear address, alway 0x0000 for Prog mem
+	IH_Bytes
+	IH_ByteCount
+	IH_Type		;Record Type 0..5
+	IH_State
+	IH_TempVal
+	IH_Flags
+	ChkSum
 	endc
 ;
+#Define	LSN_Done	IH_Flags,0
+#Define	DataInBuffer	IH_Flags,1
+;
+;IH_Type Types
+IHT_Data	EQU	0x00
+IHT_End	EQU	0x01	;ie :00000001FF
+IHT_XSA	EQU	0x02	;extended segment address, not supported
+IHT_SSA	EQU	0x03	;start segment address, not supported
+IHT_HighAddr	EQU	0x04	;extended linear address, :02000004FFFFFC
+IHT_SLA	EQU	0x05	;start linear address, not supported, :04000005000000CD2A
+;
+;IH_State values
+IHS_WaitForColon	EQU	0x00
+IHS_Length	EQU	0x01
+IHS_AddrMSB	EQU	0x02
+IHS_AddrLSB	EQU	0x03
+IHS_DataType	EQU	0x04
+IHS_Data	EQU	0x05
+IHS_CSum	EQU	0x06	;waiting for check sum
+;
+IH_ErrorBadLen	EQU	'+'	;>64 Too big
+IH_ErrorBadCSum	EQU	'-'	;Checksum didn't match
+IH_Ack	EQU	'*'	;We got a good Intel Hex line
+;
+BlockSize	EQU	0x40
+BlockWords	EQU	BlockSize/2
+;
+	cblock 0x2100
+	SourceBuffer:BlockSize
+	DestBuffer:BlockSize
+	SerialBuffer:BlockSize
+	endc
 ;================================================
 ;
 ; Entry: DataEEProm255
@@ -56,20 +97,256 @@
 BootLoader:
 	call	InitializeBLIO
 ;
-	call	ReadData
+	call	ReadEEData
 	iorlw	0x00
 	SKPNZ
 	bra	BootLoader_End
 ;
+;Initialize
+	clrf	PROG_ADDR_LO
+	clrf	PROG_ADDR_HI
+	clrf	IH_Addr_Hi
+	clrf	IH_Addr_Hi+1
 ;
+	call	BL_Parse
+;	
+;if successful then clear EEProm(255)
+	call	WriteEEData
 ;
 BootLoader_End	movlp	0x00
 	goto	ProgStartVector
 ;
 ;==============================================
+; Parse incoming data and do stuff
+;
+BL_Parse	bcf	DataInBuffer
+BL_ParseNextLine	clrf	IH_State
+	clrf	IH_ByteCount
+	clrf	ChkSum
+	movlw	low SerialBuffer
+	movwf	FSR0L
+	movlw	high SerialBuffer
+	movwf	FSR0H
+;
+BLP_L1	bcf	LSN_Done
+;
+BLP_L2	call	GetChar
+	movwf	Param78
+	movlw	':'
+	subwf	Param78,W
+	SKPZ		;Char=":"
+	bra	BLP_TestNum	; No
+; It's a ":" so set state=1, wait for length
+	movlw	IHS_Length
+	movwf	IH_State
+	bra	BLP_L1
+;
+BLP_TestNum	movf	IH_State,F
+	SKPNZ		;Are we waiting for a number?
+	bra	BLP_L2	; No
+;
+	movlw	0x30	;'0'
+	subwf	Param78,W
+	SKPNB		;Char>="0"?
+	bra	BL_ParseNextLine	; No start over
+	movlw	0x3A	;':'
+	subwf	Param78,W
+	SKPNB
+	bra	BLP_TestNum_1
+	movlw	0x41	;'A'
+	subwf	Param78,F
+	SKPNB		;Char>="A"?
+	bra	BL_ParseNextLine	; No start over
+	movlw	0x47	;'G'
+	subwf	Param78,W
+	SKPB		;Char<"G"
+	bra	BL_ParseNextLine	; No, start over
+	movlw	0x07	; Yes, A..F
+	subwf	Param78,F
+;
+BLP_TestNum_1	movlw	0x30
+	subwf	Param78,F	;'0' >> 0x00
+	btfsc	LSN_Done
+	bra	BLP_TestNum_2	;do high nibble
+	movf	Param78,W
+	movwf	IH_TempVal
+	bsf	LSN_Done
+	bra	BLP_L2
+;
+BLP_TestNum_2	swapf	Param78,W
+	addwf	IH_TempVal,F
+;
+; We have a number in IH_TempVal
+	movlw	IHS_Length
+	subwf	IH_State,W
+	SKPZ		;Waiting for length byte?
+	bra	BLP_IHS_AddrMSB	; No
+	movlw	.65	; Yes, is it in range 0..64?
+	subwf	IH_TempVal,W
+	SKPNB		;<=64?
+	bra	BLP_SaveIH_Length
+;
+	movlw	IH_ErrorBadLen
+	call	SendChar
+	goto	BL_ParseNextLine
+;
+BLP_SaveIH_Length	movf	IH_TempVal,W
+	movwf	IH_Bytes
+	addwf	ChkSum,F
+BLP_NextState	incf	IH_State,F
+	goto	BLP_L1
+;
+BLP_IHS_AddrMSB	movlw	IHS_AddrMSB
+	subwf	IH_State,W
+	SKPZ		;Waiting for Address MSB?
+	bra	BLP_IHS_AddrLSB	; No
+	movf	IH_TempVal,W
+	movwf	IH_Addr_Lo+1
+	addwf	ChkSum,F
+	bra	BLP_NextState
+;
+BLP_IHS_AddrLSB	movlw	IHS_AddrLSB
+	subwf	IH_State,W
+	SKPZ		;Waiting for Address LSB?
+	bra	BLP_IHS_DataType	; No
+	movf	IH_TempVal,W
+	movwf	IH_Addr_Lo
+	addwf	ChkSum,F
+	bra	BLP_NextState
+;
+BLP_IHS_DataType	movlw	IHS_DataType
+	subwf	IH_State,W
+	SKPZ		;Waiting for Data Type?
+	bra	BLP_IHS_Data	; No
+	movf	IH_TempVal,W
+	movwf	IH_Type
+	addwf	ChkSum,F
+; Ship IHS_Data if length = 0
+	movf	IH_Bytes,F
+	SKPNZ		;Expecting zero length data?
+	incf	IH_State,F	; Yes
+	bra	BLP_NextState
+;
+BLP_IHS_Data	movlw	IHS_Data
+	subwf	IH_State,W
+	SKPZ		;Waiting for Data?
+	bra	BLP_IHS_CSum	; No
+	movf	IH_TempVal,W
+	movwi	FSR0++
+	addwf	ChkSum,F
+	incf	IH_ByteCount,F
+; if IH_ByteCount=IH_Bytes then next state
+	movf	IH_ByteCount,W
+	subwf	IH_Bytes,W
+	SKPZ		;Done with data?
+	goto	BLP_L1	; No
+	bra	BLP_NextState	; Yes
+;
+BLP_IHS_CSum	movlw	IHS_CSum
+	subwf	IH_State,W
+	SKPZ		;Waiting for Checksum?
+	goto	BL_ParseNextLine	; No, we should never get here
+; get 2's comp
+	clrf	Param78
+	movf	ChkSum,W
+	subwf	Param78,W
+	subwf	IH_TempVal,W
+	SKPZ		;Checksum matches?
+	bra	BLP_BadCSum
+	bra	BLP_Validate
+;
+BLP_BadCSum	movlw	IH_ErrorBadCSum
+	call	SendChar
+	goto	BL_ParseNextLine
+;
+; We have received a complete Intel Hex command
+BLP_Validate:
+	movlw	IHT_End
+	subwf	IH_Type,W
+	SKPZ		;End?
+	bra	BLPV_Data	; No
+;
+	movlw	IH_Ack
+	call	SendChar
+	btfsc	DataInBuffer
+	call	BLP_WriteBuffer
+	return
+;
+BLPV_Data	movlw	IHT_Data
+	subwf	IH_Type,W
+	SKPZ		;Data?
+	bra	BLPV_Addr	; No
+;
+	call	BufferIHData
+;
+	movlw	IH_Ack
+	call	SendChar
+	goto	BL_ParseNextLine
+;
+BLPV_Addr	movlw	IHT_HighAddr
+	subwf	IH_Type,W
+	SKPZ		;High Address?
+	goto	BL_ParseNextLine	; No
+;
+	movlw	low SerialBuffer
+	movwf	FSR0L
+	movlw	high SerialBuffer
+	movwf	FSR0H
+	moviw	FSR0++
+	movwf	IH_Addr_Hi+1
+	moviw	FSR0++
+	movwf	IH_Addr_Hi
+	movlw	IH_Ack
+	call	SendChar
+	goto	BL_ParseNextLine
+;
+; Validate address is in range and move to SourceBuffer
+BufferIHData:
+;
+; Write SourceBuffer to Prog memory
+BLP_WriteBuffer:
+	return
+;==============================================
+; Get a byte from UART, waits forever
+;
+; Entry: none
+; Exit: W=Char
+;
+GetChar	MOVLB	0x00
+	BTFSS	PIR1,RCIF	;RX has a byte?
+	BRA	GetChar
+;
+	BANKSEL	RCSTA	; bank 3
+	MOVF	RCSTA,W
+	ANDLW	0x06
+	SKPZ		;Frame or Overrun Err?
+	BRA	GetChar_Err	; yes
+	MOVF	RCREG,W
+;
+	movlb	0x00	; bank 0
+	RETURN
+;
+GetChar_Err	MOVF	RCREG,W	;bad byte so drop it
+	BCF	RCSTA,CREN
+	BCF	RCSTA,FERR
+	BCF	RCSTA,OERR
+	BSF	RCSTA,CREN
+	bra	GetChar
+;
+;==============================================
+; Send a byte to UART
+;
+; Entry: W=Char to send
+SendChar:
+	BANKSEL	TXREG
+	MOVWF	TXREG
+	MOVLB	0
+	RETURN
+;	
+;==============================================
 ; Read EEProm(255)
 ;
-ReadData:	
+ReadEEData:	
 	BANKSEL	EEADRL
 	MOVLW	0xFF
 	MOVWF	EEADRL
@@ -85,6 +362,80 @@ ReadData:
 	return
 ;
 ;==============================================
+; Clear EEProm(255)
+;
+WriteEEData:
+	BANKSEL	EEADRL
+	MOVLW	0xFF
+	MOVWF	EEADRL
+	movlw	0x00
+	movwf	EEDATL
+	BCF	EECON1,CFGS
+	BCF	EECON1,EEPGD
+	BSF	EECON1,WREN
+	movlw	0x55
+	movwf	EECON2
+	movlw	0xAA
+	movwf	EECON2
+	bsf	EECON1,WR
+WriteEEData_L1	btfsc	EECON1,WR
+	bra	WriteEEData_L1
+	bcf	EECON1,WREN
+	movlb	0
+	return
+;
+;==============================================
+; Compare Block
+;
+; Entry: FSR0 -> new data, FSR1 -> current data
+; Exit: W=1 if new = current else W=0
+;
+CompareBlock	movlw	BlockWords
+	movwf	Param79
+CompareBlock_L1	moviw	FSR0++	;LSB
+	movwf	Param77
+	moviw	FSR0++	;MSB
+	movwf	Param78
+; skip?
+	sublw	0x3F
+	SKPZ
+	bra	CB_NotBlank
+	incf	Param77,W
+	SKPZ
+	bra	CB_NotBlank
+	moviw	FSR1++
+	moviw	FSR1++
+	bra	CB_Next
+;
+CB_NotBlank	moviw	FSR1++
+	subwf	Param77,W
+	SKPZ		;Matches?
+	retlw	0x00	; No
+	moviw	FSR1++
+	subwf	Param78,W
+	SKPZ		;Matches?
+	retlw	0x00	; No
+;
+CB_Next	decfsz	Param79,F
+	bra	CompareBlock_L1
+	retlw	0x01	;It's a match!
+;
+;==============================================
+; Erase Block
+;
+; Entry: FSR1
+;
+EraseBlock	movlw	BlockSize
+	movwf	Param79
+EraseBlock_L1	movlw	0xFF
+	movwi	FSR1++
+	movlw	0x3F
+	movwi	FSR1++
+	decfsz	Param79,F
+	bra	EraseBlock_L1
+	return
+;	
+;==============================================
 ; Read Program memory block
 ;
 ; Entry: FSR1,PROG_ADDR_HI:PROG_ADDR_LO
@@ -98,7 +449,7 @@ ReadProgBlock:
 	MOVWF	EEADRL	; Store LSB of address
 	BCF	EECON1,CFGS	; Do not select Configuration Space
 	BSF	EECON1,EEPGD	; Select Program Memory
-	movlw	.32	;Block is .32 words
+	movlw	BlockWords	;Block is .32 words
 	movwf	Param79
 ReadProgBlock_L1	BSF	EECON1,RD	; Initiate read
 	NOP		; skipped
@@ -159,7 +510,7 @@ WriteProgBlock:
 	BCF	EECON1,CFGS	;Not configuration space
 	BSF	EECON1,WREN	;Enable writes
 	BSF	EECON1,LWLO	;Only Load Write Latches
-	movlw	.32
+	movlw	BlockWords
 	movwf	Param79
 WriteProgBlock_L1	moviw	FSR1++
 	movwf	EEDATL
