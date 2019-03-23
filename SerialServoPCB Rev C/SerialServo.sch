@@ -768,7 +768,7 @@ L Device:CP1_Small C9
 U 1 1 5AF2D5BF
 P 6100 2050
 F 0 "C9" H 6191 2096 50  0000 L CNN
-F 1 "100uF" H 6191 2005 50  0000 L CNN
+F 1 "220uF" H 6191 2005 50  0000 L CNN
 F 2 "Capacitor_THT:CP_Radial_D8.0mm_P5.00mm" H 6100 2050 50  0001 C CNN
 F 3 "~" H 6100 2050 50  0001 C CNN
 	1    6100 2050
@@ -1013,7 +1013,7 @@ L Device:CP1_Small C5
 U 1 1 5B187AD3
 P 4900 2100
 F 0 "C5" H 4700 2150 50  0000 L CNN
-F 1 "2.2uF" H 4600 2050 50  0000 L CNN
+F 1 "4.7uF" H 4600 2050 50  0000 L CNN
 F 2 "Capacitor_THT:CP_Radial_D5.0mm_P2.00mm" H 4900 2100 50  0001 C CNN
 F 3 "~" H 4900 2100 50  0001 C CNN
 	1    4900 2100
@@ -1337,14 +1337,10 @@ Wire Wire Line
 	900  6300 900  6250
 Wire Wire Line
 	900  6300 1250 6300
-Text Notes 7850 5750 0    50   ~ 0
-R1                                220R\nR2,R3,R7,R12,R14,\nR18,R19,R21             1K0\nR4,R9                            100K\nR5,R11                            10K\nR6                               0R20\nR8                      ?K??  Adj Volts\nR10                              47K\nR22                              120R
 Text Notes 7850 6050 0    50   ~ 0
 U1  PIC16F1847\nU2  LM358A\n
 Text Notes 7650 650  0    50   ~ 0
 Rev. B 6/19/2018  Fixed J3 pinout, Fixed spacing of J4 to J2 to J7.
-Text Notes 6250 5650 0    50   ~ 0
-D1 blinks Mode
 Text Notes 7400 1300 0    50   ~ 0
 Optional Options
 Text Notes 800  1800 0    100  ~ 0
@@ -1437,4 +1433,10 @@ Wire Notes Line
 	9950 3600 7250 3600
 Wire Notes Line
 	7250 3600 7250 1100
+Text Notes 6250 5550 0    50   ~ 0
+C6, R21 not used
+Text Notes 7850 4800 0    50   ~ 0
+C1,C3,C4,C7,C8,C11,C12         0.1uf\nC2                               2.2uf\nC5                               4.7uf\nC9                               220uf\nC10                              1.0uf
+Text Notes 7850 5750 0    50   ~ 0
+R1                                220R\nR2,R3,R7,R12,R14,\nR18,R19                          1K0\nR4,R9                            100K\nR5,R11                            10K\nR6                               0R20\nR8                      ?K??  Adj Volts\nR10,R13,R15                       47K\nR22                              120R
 $EndSCHEMATC

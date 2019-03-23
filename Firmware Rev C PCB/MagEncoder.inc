@@ -1,7 +1,7 @@
 ;*****************************************************************************************
 ;    Filename:      MagEncoder.inc
-;    Date:          5/28/2017
-;    File Version:  1.0.1
+;    Date:          3/23/2019
+;    File Version:  1.1
 ;    
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -9,9 +9,8 @@
 ;    Web Site:      http://www.oxfordvue.com/
 ;
 ;*****************************************************************************************
-; AEAT-6012 Magnetic Encoder Reader
+; Absolute Magnetic Encoder Reader
 ; Written for the 16F1847 running at 32MHz
-; Delay 60mS before calling ReadEncoder the first time, power-up time.
 ; Add ReadEncoder to your main loop, must be call often enough so roll over/under
 ;  is seen.
 ; If the last ReadEncoder saw zero then MagEnc_Index is set.
@@ -19,18 +18,13 @@
 ;  before calling ReadEncoder again.
 ; Works in any segment, requires no additional stack.
 ;
-; Requires 2 output pins (CS* and CLK) and 1 input (Data)
+; uses AS5047D_Lib.inc
 ;
-; Constants for 12 bit encoder:
-nDataBits             	EQU                    .12
-kUpper2Bits            EQU                    0x0C
-kEncHiBit	EQU	3
-; Constants for 10 bit encoder:
-;nDataBits             EQU                    .10
-;kUpper2Bits           EQU                    0x03
-;kEncHiBit	EQU	1
+; Constants for 14 bit encoder:
+kUpper2Bits            EQU                    0x30
 ; 
 ; History:
+;   1.1     3/23/2019	Changed to use AS5047D
 ;   1.0.1   5/28/2017  Added Home routines.
 ;   1.0.0   5/27/2017  First Code and it WORKS!
 ;*****************************************************************************************
@@ -55,15 +49,6 @@ kEncHiBit	EQU	3
 #Define	MagEnc_IndexLatch	EncoderFlags,3	;set if zero is crossed or Encode value = zero
 #Define                MagEnc_Homed           EncoderFlags,4
 ;
-; Change the following to use the available pins
-MagEnc_CSBit	EQU	0	;RB0
-MagEnc_CLKBit	EQU	4	;RB4
-MagEnc_DataBit	EQU	6	;RA6
-MagEnc_CSLAT	EQU	LATB
-MagEnc_DataPort	EQU	PORTA
-#Define	MagEnc_CS	MagEnc_CSLAT,MagEnc_CSBit	
-#Define	MagEnc_CLK	MagEnc_CSLAT,MagEnc_CLKBit
-#Define	MagEnc_Data	MagEnc_DataPort,MagEnc_DataBit
 ;=========================================
 ; ReadEncoder
 ; Entry: none
@@ -71,56 +56,38 @@ MagEnc_DataPort	EQU	PORTA
 ; Calls: none
 ; Uses: Param76,Param77,Param78,Param79,Param7A FSR0
 ;
-ReadEncoder	movlb	0	;bank0
-	movlw	nDataBits	;read 12 bits
-	movwf	Param78
-	movlw	low MagEnc_CSLAT
-	movwf	FSR0L
-	movlw	high MagEnc_CSLAT
-	movwf	FSR0H
-	bcf	INDF0,MagEnc_CSBit     ;assert CS*
-;			;delay 500ns
+ReadEncoder	call	AS5047_ReadPos
+; Exit: Param79:Param78 = 14 bit value, ParityErrFlag, CmdErrorFlag
+	btfsc	ParityErrFlag
+	return
+	btfsc	CmdErrorFlag
+	return
+;	
+	movlb	0	;bank0
+;
+;copy to temp
+	movf	Param78,W
+	movwf	Param76
+	movf	Param79,W
+	movwf	Param77
+;
 	movf	EncoderVal,W
 	movwf	Param79                ;retain old value
 	movf	EncoderVal+1,W
 	movwf	Param7A
-	clrf	EncoderVal
-	clrf	EncoderVal+1
 ;
-;Loop to read the data.
-ReadEncoder_L1	bcf	INDF0,MagEnc_CLKBit    ;Clock
-	nop		;delay 500ns
-	nop
-	nop
-	nop
-	nop
-	bsf	INDF0,MagEnc_CLKBit
-	nop		;delay 375ns
-	nop
-	nop
-	nop
-	bcf	_C
-	btfsc	MagEnc_Data
-	bsf	_C
-	rlf	EncoderVal,F
-	rlf	EncoderVal+1,F
-	decfsz	Param78,F
-	bra	ReadEncoder_L1
-;
-	bsf	INDF0,MagEnc_CSBit
-;copy to temp
-	movf	EncoderVal,W
-	movwf	Param76
-	movf	EncoderVal+1,W
-	movwf	Param77
+	movf	Param76,W
+	movwf	EncoderVal
+	movf	Param77,W
+	movwf	EncoderVal+1
 ;
 ; handle overflow, goes from >3072 to <1024
 	btfss	MagEnc_HighZone
 	bra	ReadEncoder_1
 	movlw	kUpper2Bits
 	andwf	Param77,W
-	SKPNZ		;Less than 1024?
-	bsf	Param77,4	; yes, set 13th bit
+	SKPNZ		;Less than 4096?
+	bsf	Param77,6	; yes, set 15th bit
 	bsf	MagEnc_IndexLatch	;crossed zero
 	bra	ReadEncoder_2
 ;

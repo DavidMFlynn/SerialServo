@@ -161,9 +161,9 @@ Servo_AddrDataMask	EQU	0xF8
 ;
 ;
 ;    Port B bits
-PortBDDRBits	EQU	b'11100110'	;MagEnc_CSBit, CCP1, MagEnc_CLKBit
+PortBDDRBits	EQU	b'11000110'	;MagEnc_CSBit, CCP1, MagEnc_CLKBit
 PortBValue	EQU	b'00010001'
-ANSELB_Val	EQU	b'00100000'	;RB5/AN7
+ANSELB_Val	EQU	b'00000000'	;RB5/AN7
 ;
 #Define	RB0_Out	LATB,0	;MagEnc_CSBit (Active Low Output)
 #Define	RB1_In	PORTB,1	;MISO MagEnc_DataBit (Digital Input)
@@ -444,6 +444,13 @@ kAuxIORevLimit	EQU	0x07
 ;=========================================================================================
 ;Conditions
 HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
+;
+AS5047D_Flags	EQU	Param70	;Check that Param70 is OK to use
+;
+#Define	ParityErrFlag	AS5047D_Flags,0
+#Define	AngleReadFlag	AS5047D_Flags,1
+#define	ContinueReadFlag	AS5047D_Flags,2
+#Define	CmdErrorFlag	AS5047D_Flags,3
 ;
 ;=========================================================================================
 ;==============================================================================================
@@ -824,6 +831,7 @@ IRQ_Ser_End:
 ;
 	include <F1847_Common.inc>
 	include <MagEncoder.inc>
+	include <AS5047D_Lib.inc>
 	include <SerBuff1938.inc>
 	include <RS232_Parse.inc>
 ;
@@ -1791,7 +1799,7 @@ InitializeIO	MOVLB	0x01	; select bank 1
 	bsf	APFCON0,RXDTSEL	;RX >> RB2
 	bsf	APFCON1,TXCKSEL	;TX >> RB5
 	bsf	APFCON0,SDO1SEL	;SPI MOSI >> SDO1 RA6
-	
+;	
 ; clear memory to zero
 	CALL	ClearRam
 	CLRWDT
@@ -1858,6 +1866,9 @@ InitializeIO	MOVLB	0x01	; select bank 1
 	bsf	ssCmdPos+1,7
 ;
 	CLRWDT
+;
+	call	Init_AS5047D	;initialize the SPI encoder I/O
+;
 ;
 	bsf	INTCON,PEIE	; enable periferal interupts
 	bsf	INTCON,GIE	; enable interupts

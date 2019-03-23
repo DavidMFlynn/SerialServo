@@ -95,6 +95,7 @@ BlockWords	EQU	BlockSize/2
 ; RAM used: ALL
 ;
 BootLoader:
+;	bra	BootLoader_End
 	call	InitializeBLIO
 ;
 	call	ReadEEData
@@ -595,9 +596,9 @@ InitializeBLIO	MOVLB	0x01	; select bank 1
 ;	bsf	APFCON0,SDO1SEL	;SPI MOSI >> SDO1 RA6
 ;	
 ; clear memory to zero
-	CALL	ClearRam
-	CLRWDT
-	CALL	CopyToRam
+;	CALL	ClearRam
+;	CLRWDT
+;	CALL	CopyToRam
 ;
 ; setup ccp1
 ;

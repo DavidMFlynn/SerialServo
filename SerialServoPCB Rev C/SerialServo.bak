@@ -768,7 +768,7 @@ L Device:CP1_Small C9
 U 1 1 5AF2D5BF
 P 6100 2050
 F 0 "C9" H 6191 2096 50  0000 L CNN
-F 1 "100uF" H 6191 2005 50  0000 L CNN
+F 1 "220uF" H 6191 2005 50  0000 L CNN
 F 2 "Capacitor_THT:CP_Radial_D8.0mm_P5.00mm" H 6100 2050 50  0001 C CNN
 F 3 "~" H 6100 2050 50  0001 C CNN
 	1    6100 2050
@@ -1013,7 +1013,7 @@ L Device:CP1_Small C5
 U 1 1 5B187AD3
 P 4900 2100
 F 0 "C5" H 4700 2150 50  0000 L CNN
-F 1 "2.2uF" H 4600 2050 50  0000 L CNN
+F 1 "4.7uF" H 4600 2050 50  0000 L CNN
 F 2 "Capacitor_THT:CP_Radial_D5.0mm_P2.00mm" H 4900 2100 50  0001 C CNN
 F 3 "~" H 4900 2100 50  0001 C CNN
 	1    4900 2100
@@ -1338,13 +1338,11 @@ Wire Wire Line
 Wire Wire Line
 	900  6300 1250 6300
 Text Notes 7850 5750 0    50   ~ 0
-R1                                220R\nR2,R3,R7,R12,R14,\nR18,R19,R21             1K0\nR4,R9                            100K\nR5,R11                            10K\nR6                               0R20\nR8                      ?K??  Adj Volts\nR10                              47K\nR22                              120R
+R1                                220R\nR2,R3,R7,R12,R14,\nR18,R19                        1K0\nR4,R9                            100K\nR5,R11                            10K\nR6                               0R20\nR8                      ?K??  Adj Volts\nR10,R13,R15                       47K\nR22                              120R
 Text Notes 7850 6050 0    50   ~ 0
 U1  PIC16F1847\nU2  LM358A\n
 Text Notes 7650 650  0    50   ~ 0
 Rev. B 6/19/2018  Fixed J3 pinout, Fixed spacing of J4 to J2 to J7.
-Text Notes 6250 5650 0    50   ~ 0
-D1 blinks Mode
 Text Notes 7400 1300 0    50   ~ 0
 Optional Options
 Text Notes 800  1800 0    100  ~ 0
@@ -1359,16 +1357,16 @@ U 1 1 5C471AF1
 P 950 5300
 F 0 "J2" H 950 5650 50  0000 C CNN
 F 1 "Conn_01x06" H 868 5626 50  0001 C CNN
-F 2 "" H 950 5300 50  0001 C CNN
+F 2 "Connector_Molex:Molex_KK-254_AE-6410-06A_1x06_P2.54mm_Vertical" H 950 5300 50  0001 C CNN
 F 3 "~" H 950 5300 50  0001 C CNN
 	1    950  5300
 	-1   0    0    -1  
 $EndComp
 $Comp
-L power:+5V #PWR?
+L power:+5V #PWR0103
 U 1 1 5C474976
 P 1850 4850
-F 0 "#PWR?" H 1850 4700 50  0001 C CNN
+F 0 "#PWR0103" H 1850 4700 50  0001 C CNN
 F 1 "+5V" H 1865 5023 50  0000 C CNN
 F 2 "" H 1850 4850 50  0001 C CNN
 F 3 "" H 1850 4850 50  0001 C CNN
@@ -1376,10 +1374,10 @@ F 3 "" H 1850 4850 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 $Comp
-L power:GND #PWR?
+L power:GND #PWR0104
 U 1 1 5C475705
 P 1850 5250
-F 0 "#PWR?" H 1850 5000 50  0001 C CNN
+F 0 "#PWR0104" H 1850 5000 50  0001 C CNN
 F 1 "GND" H 1855 5077 50  0000 C CNN
 F 2 "" H 1850 5250 50  0001 C CNN
 F 3 "" H 1850 5250 50  0001 C CNN
