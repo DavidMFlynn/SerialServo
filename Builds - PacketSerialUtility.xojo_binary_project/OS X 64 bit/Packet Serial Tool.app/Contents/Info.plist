@@ -66,6 +66,28 @@
             </array>
          </dict>
       </dict>
+      <dict>
+         <key>UTTypeIdentifier</key>
+         <string>public.hex</string>
+         <key>UTTypeConformsTo</key>
+         <array>
+            <string>public.data</string>
+            <string>public.content</string>
+         </array>
+         <key>UTTypeDescription</key>
+         <string>Intel Hex</string>
+         <key>UTTypeTagSpecification</key>
+         <dict>
+            <key>public.filename-extension</key>
+            <array>
+            <string>hex</string>
+            </array>
+            <key>com.apple.ostype</key>
+            <array>
+               <string>TEXT</string>
+            </array>
+         </dict>
+      </dict>
    </array>
 
 </dict>

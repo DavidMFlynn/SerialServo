@@ -12,6 +12,7 @@
 		<string>75E7FEDA-C304-42CC-BD18-88B95FDA4679</string>
 		<string>06038555-9593-4BCE-88E3-F5E8188D4FD0</string>
 		<string>F3DD154F-8CAF-4071-A9A4-4466984222E6</string>
+		<string>5E26525E-F77C-4365-99EE-1270E700DBE3</string>
 	</array>
 	<key>ProjectItems</key>
 	<dict>
@@ -212,6 +213,52 @@
 			</dict>
 			<key>ItemName</key>
 			<string>F1847_Common.inc</string>
+			<key>ItemType</key>
+			<string>FileReference</string>
+			<key>UserOverrideItemName</key>
+			<true/>
+		</dict>
+		<key>5E26525E-F77C-4365-99EE-1270E700DBE3</key>
+		<dict>
+			<key>ItemData</key>
+			<dict>
+				<key>BookmarkData</key>
+				<data>
+				Ym9va6QCAAAAAAQQMAAAAFclymLQy+p9Yrf2rBEqqGUf
+				WhBnQPY0uxbLyd8Fw4vBrAEAAAQAAAADAwAAAAgAKAgA
+				AAABAQAAUHJvamVjdHMLAAAAAQEAAFNlcmlhbFNlcnZv
+				AAgAAAABAQAARmlybXdhcmUOAAAAAQEAAEJvb3RMb2Fk
+				ZXIuaW5jAAAQAAAAAQYAABAAAAAgAAAANAAAAEQAAAAI
+				AAAABAMAAHgNCQAAAAAACAAAAAQDAAArSiEBAAAAAAgA
+				AAAEAwAA40ohAQAAAAAIAAAABAMAABPlPgADAAAAEAAA
+				AAEGAAB0AAAAhAAAAJQAAACkAAAACAAAAAAEAABBwSH9
+				AAAAABgAAAABAgAAAQAAAAAAAAAPAAAAAAAAAAAAAAAA
+				AAAAAAAAAAEFAAAEAAAAAwMAAAEAAAAIAAAAAQkAAGZp
+				bGU6Ly8vDAAAAAEBAABNYWNpbnRvc2ggSEQIAAAABAMA
+				AADAWtToAAAACAAAAAAEAABBvBuR0AAAACQAAAABAQAA
+				RTQxNDBDODktNjhDRi0zMDYxLUIwNTMtNjM3NUM4MEZG
+				Q0E2GAAAAAECAACBAAAAAQAAAO8TAAABAAAAAAAAAAAA
+				AAABAAAAAQEAAC8AAADAAAAA/v///wEAAAAAAAAADwAA
+				AAQQAABcAAAAAAAAAAUQAAC0AAAAAAAAABAQAADcAAAA
+				AAAAAEAQAADMAAAAAAAAAFUQAAAEAQAAAAAAAFYQAAD8
+				AAAAAAAAAAIgAACgAQAAAAAAAAUgAAAQAQAAAAAAABAg
+				AAAgAQAAAAAAABEgAABUAQAAAAAAABIgAAA0AQAAAAAA
+				ABMgAABEAQAAAAAAACAgAACAAQAAAAAAADAgAAD8AAAA
+				AAAAABDQAAAEAAAAAAAAAA==
+				</data>
+				<key>FileURL</key>
+				<string>file:///Projects/SerialServo/Firmware/BootLoader.inc</string>
+				<key>HasSecurityScope</key>
+				<true/>
+				<key>RelativePath</key>
+				<string>./BootLoader.inc</string>
+				<key>TypeID</key>
+				<string>_CFileLocator</string>
+				<key>Version</key>
+				<integer>1</integer>
+			</dict>
+			<key>ItemName</key>
+			<string>BootLoader.inc</string>
 			<key>ItemType</key>
 			<string>FileReference</string>
 			<key>UserOverrideItemName</key>

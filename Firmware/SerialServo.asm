@@ -1,8 +1,8 @@
 ;====================================================================================================
 ;
 ;    Filename:      SerialServo.asm
-;    Date:          10/3/2018
-;    File Version:  1.0b7
+;    Created:       4/26/2018
+;    File Version:  1.0b8   4/7/2019
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -27,6 +27,7 @@
 ;Mode 4: Gripper force control.
 ;
 ;    History:
+; 1.0b8   4/7/2019	Added bootloader
 ; 1.0b7   10/3/2018	Mode 3 is working for 4-wheel rover corner pivot motors.
 ; 1.0b6   8/18/2018	Moved analog variables to bank 1. Fast blink on error. EncoderOffset for mode3
 ; 1.0b5   7/23/2018	Aux IO
@@ -486,6 +487,9 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 	de	0x00	;ssAux2Config
 	de	kSysFlags	;nvSysFlags
 ;
+	ORG	0xF0FF
+	de	0x00	;Skip BootLoader
+;
 	cblock	0x0000
 ;
 	nvEncoderFlags
@@ -518,10 +522,12 @@ HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 ;==============================================================================================
 ;============================================================================================
 ;
+BootLoaderStart	EQU	0x1E00
 ;
 	ORG	0x000	; processor reset vector
-	CLRF	STATUS
-	CLRF	PCLATH
+	movlp	high BootLoaderStart
+	goto	BootLoaderStart
+ProgStartVector	CLRF	PCLATH
   	goto	start	; go to beginning of program
 ;
 ;===============================================================================================
@@ -1957,6 +1963,9 @@ InitializeIO	MOVLB	0x01	; select bank 1
 	org 0x800
 	include <SerialServoCmds.inc>
 ;
+;
+	org BootLoaderStart
+	include <BootLoader.inc>
 ;
 ;
 	END
