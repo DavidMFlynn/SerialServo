@@ -64,6 +64,8 @@ kCmd_RestoreParams	EQU	0x95	;Copy to ram, return ACK
 kCmd_GetBattVolts	EQU	0x96	;return Cur_AN7
 kCmd_GetCalPot	EQU	0x97	;return Cur_AN4
 kCmd_GetStatus	EQU	0x98	;return ssStatus
+kCmd_ReBoot	EQU	0x99	;ReBoot the controller
+kCmd_RunBootloader	EQU	0x9A	;Set EEPROM (0xFF) = 0xFF and reboot
 ;
 ; these commands save params and return a 0,0,0,0 packet with the new address
 kCmd_SetMasterAddr	EQU	0xA1	;+1 data, return a zero packet
@@ -738,6 +740,23 @@ Cmd_GetCalPot_end:
 ;	
 	goto	RS232_Send_S0
 Cmd_GetStatus_end:
+;---kCmd_ReBoot---------------------
+	movlw	kCmd_ReBoot
+	subwf	Param78,W	;aka RX_Data
+	SKPZ
+	bra	Cmd_ReBoot_end
+	reset		;Does not return anything
+Cmd_ReBoot_end:
+;---kCmd_RunBootloader--------------
+	movlw	kCmd_RunBootloader
+	subwf	Param78,W
+	SKPZ
+	bra	Cmd_RunBootloader_end
+	movlw	0xFF
+	movwf	EEDataTemp
+	mCall1To0	EEWriteW	;Write EEPROM address in W
+	reset
+Cmd_RunBootloader_end:
 ;---kCmd_SetMasterAddr------------
 	movlw	kCmd_SetMasterAddr
 	subwf	Param78,W	;aka RX_Data

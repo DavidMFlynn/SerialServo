@@ -2,8 +2,8 @@
 ; Commonly used routines PIC16F1847 version
 ;
 ;    Filename:      F1847 Common.inc
-;    Date:          11/21/2015
-;    File Version:  1.0.1
+;    Date:          4/6/2019
+;    File Version:  1.0.2
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -13,6 +13,7 @@
 ;=========================================================================================
 ;    History:
 ;
+; 1.0.2  4/6/2019	Fixes to EERead/EEwrite
 ; 1.0.1 11/21/2015	Updates DecTimer.
 ; 1.0   11/16/2013	Updated from F648A Common.inc
 ;
@@ -226,6 +227,8 @@ EEReadW	movwf	EEAddrTemp
 EERead	movf	EEAddrTemp,W
 	MOVLB	0x03	;Bank 3
 	movwf	EEADR	;Address to read
+	bcf	EECON1,CFGS	;not config mem
+	bcf	EECON1,EEPGD	;Data memory
 	bsf	EECON1,RD
 	movf	EEDAT,W	;W=EEDAT
 	MOVLB	0x00	;Bank 0
@@ -254,6 +257,8 @@ EEWrite	MOVF	EEAddrTemp,W
 	movf	EEDataTemp,W
 	movlb	0x03
 	movwf	EEDAT
+	bcf	EECON1,CFGS	;not config mem
+	bcf	EECON1,EEPGD	;Data memory
 	bsf	EECON1,WREN
 	bcf	INTCON,GIE	;Disale Ints
 	btfsc	INTCON,GIE

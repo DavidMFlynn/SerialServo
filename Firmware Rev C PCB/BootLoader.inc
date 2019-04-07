@@ -8,16 +8,18 @@
 ; 1.0d1 3/21/2019 first code
 ;************************************************
 ; Notes:
+;BootLoaderStart	EQU	0x1E00
+;
 ;  Reset vector:
-;  	movlp	high BootLoader
-;    	goto	BootLoader
+;  	movlp	high BootLoaderStart
+;    	goto	BootLoaderStart
 ;  ProgStartVector	CLRF	PCLATH
 ;	goto	Start
 ;
 ;  DataEEProm 255 = 255 = run bootloader
 ;
 ; What happens next:
-;  If Data EEProm address 255 = 0 then goto ProgStartVector
+;  If Data EEProm address 255 <> 255 then goto ProgStartVector
 ;  Setup  UART for 38.4KBaud
 ;  Parse incoming text as .hex file
 ;   if program memory address > 3 and < BootLoader then
@@ -44,6 +46,8 @@
 	cblock 0x20
 	PROG_ADDR_LO
 	PROG_ADDR_HI
+	ProgWordCount
+	
 	IH_Addr_Lo:2		;
 	IH_Addr_Hi:2		;extended linear address, alway 0x0000 for Prog mem
 	IH_Bytes
@@ -55,7 +59,7 @@
 	ChkSum
 	endc
 ;
-#Define	LSN_Done	IH_Flags,0
+#Define	MSN_Done	IH_Flags,0	;Most Significant Nibble
 #Define	DataInBuffer	IH_Flags,1
 ;
 ;IH_Type Types
@@ -80,7 +84,8 @@ IH_ErrorBadCSum	EQU	'-'	;Checksum didn't match
 IH_Ack	EQU	'*'	;We got a good Intel Hex line
 ;
 BlockSize	EQU	0x40
-BlockWords	EQU	BlockSize/2
+BlockWords	EQU	BlockSize/2	;0x20
+AddressMask	EQU	0xE0
 ;
 	cblock 0x2100
 	SourceBuffer:BlockSize
@@ -95,19 +100,35 @@ BlockWords	EQU	BlockSize/2
 ; RAM used: ALL
 ;
 BootLoader:
-;	bra	BootLoader_End
-	call	InitializeBLIO
+;tc	bra	BootLoader_End
+	call	InitializeBLIO	;returns w/ bank 0 selected
 ;
-	call	ReadEEData
-	iorlw	0x00
-	SKPNZ
+	call	ReadEEData	;Get Data from EEPROM (0xFF) 
+	xorlw	0xFF
+	SKPZ		;0xFF xor 0xFF = 0
 	bra	BootLoader_End
+;
+; Bootloader is active send "**"
+	movlw	IH_Ack
+	call	SendChar
+	movlw	IH_Ack
+	call	SendChar
+	movlw	IH_Ack
+	call	SendChar
+	movlw	IH_Ack
+	call	SendChar
+	movlw	IH_Ack
+	call	SendChar
+	nop
+	BTFSS	PIR1,TXIF	;TX done?
+	bra	$-2
 ;
 ;Initialize
 	clrf	PROG_ADDR_LO
 	clrf	PROG_ADDR_HI
 	clrf	IH_Addr_Hi
 	clrf	IH_Addr_Hi+1
+	call	EraseSourceBuffer
 ;
 	call	BL_Parse
 ;	
@@ -129,7 +150,7 @@ BL_ParseNextLine	clrf	IH_State
 	movlw	high SerialBuffer
 	movwf	FSR0H
 ;
-BLP_L1	bcf	LSN_Done
+BLP_L1	bcf	MSN_Done
 ;
 BLP_L2	call	GetChar
 	movwf	Param78
@@ -155,7 +176,7 @@ BLP_TestNum	movf	IH_State,F
 	SKPNB
 	bra	BLP_TestNum_1
 	movlw	0x41	;'A'
-	subwf	Param78,F
+	subwf	Param78,W
 	SKPNB		;Char>="A"?
 	bra	BL_ParseNextLine	; No start over
 	movlw	0x47	;'G'
@@ -167,14 +188,14 @@ BLP_TestNum	movf	IH_State,F
 ;
 BLP_TestNum_1	movlw	0x30
 	subwf	Param78,F	;'0' >> 0x00
-	btfsc	LSN_Done
-	bra	BLP_TestNum_2	;do high nibble
-	movf	Param78,W
+	btfsc	MSN_Done
+	bra	BLP_TestNum_2	;do low nibble
+	swapf	Param78,W
 	movwf	IH_TempVal
-	bsf	LSN_Done
+	bsf	MSN_Done
 	bra	BLP_L2
 ;
-BLP_TestNum_2	swapf	Param78,W
+BLP_TestNum_2	movf	Param78,W
 	addwf	IH_TempVal,F
 ;
 ; We have a number in IH_TempVal
@@ -301,11 +322,99 @@ BLPV_Addr	movlw	IHT_HighAddr
 	call	SendChar
 	goto	BL_ParseNextLine
 ;
+;===========================================
 ; Validate address is in range and move to SourceBuffer
-BufferIHData:
 ;
+; Entry: DataInBuffer, IH_ByteCount, Data in SerialBuffer, 32bit address IH_Addr_Hi:IH_Addr_Lo
+; Exit:
+; 
+BufferIHData:
+; check address range
+	movf	IH_Addr_Hi,W
+	iorwf	IH_Addr_Hi+1,W
+	SKPZ		;High address = 0x0000 ?
+	return		; No
+; convert to words
+	lsrf	IH_Addr_Lo+1,F
+	rrf	IH_Addr_Lo,F
+	movlw	high BootLoaderStart
+	subwf	IH_Addr_Lo+1,W
+	SKPB		;BootLoaderStart>IH_Addr_Lo?
+	return		; No
+;
+	btfss	DataInBuffer	;Any old data in the buffer?
+	bra	BIHD_PutInBuff	; No
+;
+; Continue filling buffer or flush and add to new buffer?
+;
+	movf	IH_Addr_Lo+1,W
+	subwf	PROG_ADDR_HI,W
+	SKPZ		;Matches?
+	bra	BIHD_FlushBuff	; No
+	movlw	AddressMask
+	andwf	PROG_ADDR_LO,W
+	movwf	Param78
+	movlw	AddressMask
+	andwf	IH_Addr_Lo+1,W
+	subwf	Param78,W
+	SKPNZ		;Matches?
+	bra	BIHD_PutInBuff_E2	; Yes
+;
+BIHD_FlushBuff	call	BLP_WriteBuffer
+;
+BIHD_PutInBuff	movf	IH_Addr_Lo,W
+	andlw	AddressMask
+	movwf	PROG_ADDR_LO
+	movf	IH_Addr_Lo+1,W
+	movwf	PROG_ADDR_HI
+	movlw	0xFF
+	xorlw	AddressMask
+	andwf	IH_Addr_Lo,W
+	lsrf	WREG,F
+	movwf	ProgWordCount
+;
+BIHD_PutInBuff_E2	movlw	low SerialBuffer
+	movwf	FSR0L
+	movlw	high SerialBuffer
+	movwf	FSR0H
+;
+	clrf	FSR1H
+	lslf	ProgWordCount,W
+	addlw	low SourceBuffer
+	movwf	FSR1L
+	movlw	high SourceBuffer
+	addwfc	FSR1H,F
+;
+	movf	IH_ByteCount,W
+	movwf	Param79
+	lslf	WREG,F	; divide by 2
+	addwf	ProgWordCount,F
+;
+BIHD_PutInBuff_L1	moviw	FSR0++
+	movwi	FSR1++
+	decfsz	Param79,F
+	bra	BIHD_PutInBuff_L1
+;
+	bsf	DataInBuffer
+	movlw	BlockWords
+	subwf	ProgWordCount,W
+	SKPNZ		;buffer full?
+	bra	BLP_WriteBuffer	; Yes
+	SKPNB		;Overflow? This should not happen.
+	return		; No
+;
+; fall thru to BLP_WriteBuffer
+;=============================================
 ; Write SourceBuffer to Prog memory
+;
+; Entry: SourceBuffer,
+;
 BLP_WriteBuffer:
+
+;
+	bcf	DataInBuffer
+	call	EraseSourceBuffer
+;
 	return
 ;==============================================
 ; Get a byte from UART, waits forever
@@ -325,6 +434,7 @@ GetChar	MOVLB	0x00
 	MOVF	RCREG,W
 ;
 	movlb	0x00	; bank 0
+;	goto	SendChar	; tc
 	RETURN
 ;
 GetChar_Err	MOVF	RCREG,W	;bad byte so drop it
@@ -339,6 +449,8 @@ GetChar_Err	MOVF	RCREG,W	;bad byte so drop it
 ;
 ; Entry: W=Char to send
 SendChar:
+	BTFSS	PIR1,TXIF	;TX done?
+	bra	SendChar
 	BANKSEL	TXREG
 	MOVWF	TXREG
 	MOVLB	0
@@ -371,8 +483,8 @@ WriteEEData:
 	MOVWF	EEADRL
 	movlw	0x00
 	movwf	EEDATL
-	BCF	EECON1,CFGS
-	BCF	EECON1,EEPGD
+	BCF	EECON1,CFGS	;not config mem
+	BCF	EECON1,EEPGD	;not prog mem
 	BSF	EECON1,WREN
 	movlw	0x55
 	movwf	EECON2
@@ -421,6 +533,13 @@ CB_Next	decfsz	Param79,F
 	bra	CompareBlock_L1
 	retlw	0x01	;It's a match!
 ;
+;==============================================
+EraseSourceBuffer	movlw	low SourceBuffer
+	movwf	FSR1L
+	movlw	high SourceBuffer
+	movwf	FSR1H
+;
+; Fall thru to EraseBlock
 ;==============================================
 ; Erase Block
 ;
@@ -559,12 +678,13 @@ InitializeBLIO	MOVLB	0x01	; select bank 1
 	bsf	OPTION_REG,PS1	;101 8mhz/4/64=31250hz=32uS/Ct=0.008192S/ISR
 	bsf	OPTION_REG,PS2
 ;
-	bsf	WPUA,WPUA5	;Put a pull up on the MCLR unused pin.
-	MOVLB	0x01	; bank 1
 	MOVLW	OSCCON_Value
 	MOVWF	OSCCON
 	movlw	b'00010111'	; WDT prescaler 1:65536 period is 2 sec (RESET value)
 	movwf	WDTCON
+;
+	movlb	4	; bank 4
+	bsf	WPUA,WPUA5	;Put a pull up on the MCLR unused pin.
 ;
 	MOVLB	0x03	; bank 3
 	movlw	ANSELA_Val
@@ -572,47 +692,15 @@ InitializeBLIO	MOVLB	0x01	; select bank 1
 	movlw	ANSELB_Val
 	movwf	ANSELB
 ;
-;Setup T2 for 100/s
-;	movlb	0	; bank 0
-;	MOVLW	T2CON_Value
-;	MOVWF	T2CON
-;	MOVLW	PR2_Value
-;	MOVWF	PR2
-;	movlb	1	; bank 1
-;	bsf	PIE1,TMR2IE	; enable Timer 2 interupt
-;
-; setup timer 1 for 0.5uS/count
-;
-;	MOVLB	0x00	; bank 0
-;	MOVLW	T1CON_Val
-;	MOVWF	T1CON
-;	bcf	T1GCON,TMR1GE	;always count
 ;
 ;SPI MISO >> SDI1 RB1, default
 ;SPI CLK >> RB4, default
-;	movlb	2	;bank 2
-;	bsf	APFCON0,RXDTSEL	;RX >> RB2
-;	bsf	APFCON1,TXCKSEL	;TX >> RB5
-;	bsf	APFCON0,SDO1SEL	;SPI MOSI >> SDO1 RA6
-;	
-; clear memory to zero
-;	CALL	ClearRam
-;	CLRWDT
-;	CALL	CopyToRam
+	movlb	2	;bank 2
+	bsf	APFCON0,RXDTSEL	;RX >> RB2
+	bsf	APFCON1,TXCKSEL	;TX >> RB5
+	bsf	APFCON0,SDO1SEL	;SPI MOSI >> SDO1 RA6
 ;
-; setup ccp1
-;
-;	BSF	ServoOff
-;	BANKSEL	APFCON
-;	BSF	APFCON,CCP1SEL	;CCP1 on RA5
-;	BANKSEL	CCP1CON
-;	CLRF	CCP1CON
-;
-;	MOVLB	0x01	;Bank 1
-;	bsf	PIE1,CCP1IE
-;
-;
-;	MOVLB	0x00	;Bank 0
+	MOVLB	0x00	;Bank 0
 ; setup data ports
 	movlw	PortBValue
 	movwf	PORTB	;init port B
@@ -640,23 +728,6 @@ InitializeBLIO	MOVLB	0x01	; select bank 1
 ;	BSF	PIE1,RCIE	; Serial Receive interupt
 	movlb	0x00	; bank 0
 ;
-;
-	CLRWDT
-;-----------------------
-;
-;	MOVLB	0x00
-;	MOVLW	LEDTIME
-;	MOVWF	SysLED_Time
-;	movlw	0x01
-;	movwf	SysLEDCount	;start blinking right away
-;	movlw	.100
-;	movwf	Timer4Lo	;ignor buttons for 1st second
-;
-;	movf	SysMode,W
-;	movwf	LED1_Blinks
-;
-;if mode 3 don't move
-;	bsf	ssCmdPos+1,7
 ;
 	CLRWDT
 ;

@@ -1764,12 +1764,13 @@ InitializeIO	MOVLB	0x01	; select bank 1
 	bsf	OPTION_REG,PS1	;101 8mhz/4/64=31250hz=32uS/Ct=0.008192S/ISR
 	bsf	OPTION_REG,PS2
 ;
-	bsf	WPUA,WPUA5	;Put a pull up on the MCLR unused pin.
-	MOVLB	0x01	; bank 1
 	MOVLW	OSCCON_Value
 	MOVWF	OSCCON
 	movlw	b'00010111'	; WDT prescaler 1:65536 period is 2 sec (RESET value)
 	movwf	WDTCON
+;
+	movlb	4	; bank 4
+	bsf	WPUA,WPUA5	;Put a pull up on the MCLR unused pin.
 ;
 	MOVLB	0x03	; bank 3
 	movlw	ANSELA_Val
