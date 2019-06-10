@@ -33,7 +33,7 @@
         <targetPluginBoard></targetPluginBoard>
         <platformTool>ICD3PlatformTool</platformTool>
         <languageToolchain>MPASMWIN</languageToolchain>
-        <languageToolchainVersion>5.83</languageToolchainVersion>
+        <languageToolchainVersion>5.84</languageToolchainVersion>
         <platform>4</platform>
       </toolsSet>
       <packs>
