@@ -9,7 +9,6 @@ Communication:
 38,400 baud, 8 data, 1 stop, no parity.
 To connect multiple Serial Servos to a single connection add a 4.7KΩ resistor to the
  Rx line of the USB to serial converter, a.k.a. the common Tx line of the Serial Servos.
-Select High Z Tx mode.
 
 Packet Serial:
 All packets are 6 bytes w/o optional sync bytes and checksum:
