@@ -116,6 +116,7 @@
 	constant	useRS232=1
 	constant	UseEEParams=1
 ;
+	constant	UseAltSerialPort=1
 	constant	RP_LongAddr=0
 	constant	RP_AddressBytes=1
 	constant	RP_DataBytes=4

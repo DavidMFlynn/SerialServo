@@ -759,12 +759,14 @@ InitializeBLIO	MOVLB	0x01	; select bank 1
 	movwf	ANSELB
 ;
 ;
+	if UseAltSerialPort
 ;SPI MISO >> SDI1 RB1, default
 ;SPI CLK >> RB4, default
 	movlb	2	;bank 2
 	bsf	APFCON0,RXDTSEL	;RX >> RB2
 	bsf	APFCON1,TXCKSEL	;TX >> RB5
 	bsf	APFCON0,SDO1SEL	;SPI MOSI >> SDO1 RA6
+	endif
 ;
 	MOVLB	0x00	;Bank 0
 ; setup data ports
