@@ -1,10 +1,8 @@
-	subtitle	"F648A Macros"
-	page
 ;===================================================================================
 ;
 ;  FileName: F1847 Macros.asm
-;  Date: 5/29/2017
-;  File Version: 1.4.0
+;  Date: 9/21/2018
+;  File Version: 1.5.0
 ;  
 ;  Author: David M. Flynn
 ;  Company: Oxford V.U.E., Inc.
@@ -17,6 +15,7 @@
 ;============================================================================================
 ; Revision History
 ;
+; 1.5.0  9/21/2018	Added CPFSEQ, TSTFSZ
 ; 1.4.0  5/29/2017     Added CPFSGT, SETF
 ; 1.3.1  11/16/13	Modified for 16F1847
 ; 1.3    4/28/04	Added mBankISel
@@ -82,7 +81,9 @@
 ;CLRDC		Clear Digit Carry
 ;CLRZ		Clear Zero flag
 ;CMP	f	Compare F to W (F-W)
+;CPFSEQ	f	Compare F to W Skip if Equal, W changed
 ;CPFSGT                f                      skip if (f) > (W), W changed
+;DCFSNZ	f,d	Decrement file skip if not zero
 ;LCALL	k	Long Call
 ;LGOTO	k	Long GOTO
 ;MOVFW	f	Move File to W
@@ -103,6 +104,7 @@
 ;SUBCF	f,d	Subtract Carry from File
 ;SUBDCF	f,d	Subtract Digit Carry from File
 ;TSTF	f	Test File
+;TSTFSZ	f	Test File Skip If Zero
 ;
 ;======================================================================================
 ; pass Timer1Lo,Timer2Lo, etc.
@@ -424,6 +426,13 @@ CMP	macro	f
 	SUBWF	f,W
 	endm
 ;
+;================================================================
+; Compare F to W Skip if Equal
+CPFSEQ	macro	FileReg
+	subwf	FileReg,W
+	btfss	_Z
+	endm
+;
 ;=========================================================================================
 ; (f) - (W)
 ;skip if (f) > (W)
@@ -433,6 +442,14 @@ CPFSGT	macro	FileReg
 	goto	$+2	; yes
 	btfss	_C	;W > F?
 			; yes, W>F or W=F
+	endm
+;
+;================================================================
+; Decrement file skip if not zero
+;
+DCFSNZ	macro	FileReg,Dest
+	decf	FileReg,Dest
+	btfsc	_Z
 	endm
 ;
 	if oldCode
@@ -625,6 +642,15 @@ SUBBF	macro	dest,W_or_F
 ;	MOVF	src,F
 ;	endm
 ;
+;==============================================================
+; Test File Skip if Zero
+;
+TSTFSZ	macro	FileReg
+	movf	FileReg,F
+	btfss	_Z
+	endm
+;
+;==============================================================
 ;
 ;
 ;

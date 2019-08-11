@@ -1,7 +1,7 @@
 ;*****************************************************************************************
 ;    Filename:      MagEncoder.inc
-;    Date:          3/23/2019
-;    File Version:  1.1
+;    Date:          8/11/2019
+;    File Version:  1.1.1
 ;    
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -21,9 +21,10 @@
 ; uses AS5047D_Lib.inc
 ;
 ; Constants for 14 bit encoder:
-kUpper2Bits            EQU                    0x30
+kUpper4Bits	EQU	0x3C	;test >= 0x3C00 or < 0x0400
 ; 
 ; History:
+;   1.1.1   8/11/2019	Updated for 14bit encoder.
 ;   1.1     3/23/2019	Changed to use AS5047D
 ;   1.0.1   5/28/2017  Added Home routines.
 ;   1.0.0   5/27/2017  First Code and it WORKS!
@@ -58,14 +59,19 @@ kUpper2Bits            EQU                    0x30
 ;
 ReadEncoder	call	AS5047_ReadPos
 ; Exit: Param79:Param78 = 14 bit value, ParityErrFlag, CmdErrorFlag
-	btfsc	ParityErrFlag
-	return
-	btfsc	CmdErrorFlag
-	return
-;	
+;
 	movlb	0	;bank0
 ;
-;copy to temp
+	btfsc	ParityErrFlag
+	bsf	ssEncParityError
+;	return
+;
+	btfsc	CmdErrorFlag
+	bsf	ssEncCmdError
+;	return
+;	
+;
+;copy to temp Param77:Param76 = Enc Value, Param7A:Param79 = Old value
 	movf	Param78,W
 	movwf	Param76
 	movf	Param79,W
@@ -81,63 +87,57 @@ ReadEncoder	call	AS5047_ReadPos
 	movf	Param77,W
 	movwf	EncoderVal+1
 ;
-; handle overflow, goes from >3072 to <1024
+; handle overflow, goes from >0x3C00 to <0x0400
 	btfss	MagEnc_HighZone
 	bra	ReadEncoder_1
-	movlw	kUpper2Bits
+	movlw	kUpper4Bits
 	andwf	Param77,W
 	SKPNZ		;Less than 4096?
-	bsf	Param77,6	; yes, set 15th bit
+	bsf	Param77,6	; yes, set 15th bit, aka add 0x4000
 	bsf	MagEnc_IndexLatch	;crossed zero
 	bra	ReadEncoder_2
 ;
-; handle underflow, goes from <1024 to <=3072
+; handle underflow, goes from <0x0400 to <=0x3C00
 ReadEncoder_1	btfss	MagEnc_LowZone
 	bra	ReadEncoder_2
-	movlw	kUpper2Bits
+	movlw	kUpper4Bits
 	andwf	Param77,W
-	xorlw	kUpper2Bits
-	SKPZ		;>=3072?
+	xorlw	kUpper4Bits
+	SKPZ		;>=0x3C00?
 	bra	ReadEncoder_2	; No
-;Val = 0 - value
-	movf	Param76,W
-	clrf                   Param76
-	subwf	Param76,F
-	movf                   Param77,W
-	clrf                   Param77	
-	subwfb	Param77,F
+;Val = value - 0x4000
+	movlw	0x40
+	subwf	Param77,F
 	bsf	MagEnc_IndexLatch	;crossed zero
 ;
 ; calculate new flag values
 ReadEncoder_2	bcf	MagEnc_Index
 	movf	EncoderVal,W
 	iorwf	EncoderVal+1,W
-	SKPNZ
-	bsf	MagEnc_Index
+	SKPNZ		;value is 0?
+	bsf	MagEnc_Index	; Yes
 ;
 	btfsc	MagEnc_Index
 	bsf	MagEnc_IndexLatch
 ;
 	bcf	MagEnc_LowZone
-	movlw	kUpper2Bits
+	movlw	kUpper4Bits
 	andwf	EncoderVal+1,W
-	SKPNZ		;Les than 1024?
+	SKPNZ		;Less than 0x0400?
 	bsf	MagEnc_LowZone	; Yes
 ;
 	bcf	MagEnc_HighZone
-	movlw	kUpper2Bits
+	movlw	kUpper4Bits
 	andwf	EncoderVal+1,W	;2 high bits
-	xorlw	kUpper2Bits
-	SKPNZ		;both bits set, >=3072
+	xorlw	kUpper4Bits
+	SKPNZ		;both bits set, >=0x3C00
 	bsf	MagEnc_HighZone	; yes
 ;
 ; calc change = new - old
-	movf	Param76,W
-	subwf	Param79,W	;old value
-	movwf	Param76
-	movf	Param77,W
-	subwfb	Param7A,W	;old value high byte
-	movwf	Param77
+	movf	Param79,W	;old value
+	subwf	Param76,F	;= new value - old value
+	movf	Param7A,W	;old value high byte
+	subwfb	Param77,F	;= new value - old value 
 	clrf	Param78	;sign extend to 24 bits
 	movlw	0xFF
 	btfsc	Param77,7	;sign bit set?
@@ -145,11 +145,11 @@ ReadEncoder_2	bcf	MagEnc_Index
 ;
 ; add the change to the accumulated value
 	movf	Param76,W
-	addwf	EncoderAccum
+	addwf	EncoderAccum,F
 	movf	Param77,W
-	addwfc	EncoderAccum+1
+	addwfc	EncoderAccum+1,F
 	movf	Param78,W
-	addwfc	EncoderAccum+2
+	addwfc	EncoderAccum+2,F
 ;
 	return
 ;

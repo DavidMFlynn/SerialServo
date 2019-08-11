@@ -1,8 +1,8 @@
 ;====================================================================================================
 ;
 ;    Filename:      SerialServo.asm
-;    Date:          3/21/2019
-;    File Version:  1.1b1
+;    Date:          8/11/2019
+;    File Version:  1.1b2
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -27,6 +27,7 @@
 ;Mode 4: Gripper force control.
 ;
 ;    History:
+; 1.1b2   8/11/2019	Continue fixes for 14bit encoder. New defaults Mode 3 (2950 ±100, fast, Idle center)
 ; 1.1b1   3/21/2019	Port for Rev C PCB
 ; 1.0b7   10/3/2018	Mode 3 is working for 4-wheel rover corner pivot motors.
 ; 1.0b6   8/18/2018	Moved analog variables to bank 1. Fast blink on error. EncoderOffset for mode3
@@ -222,15 +223,16 @@ BaudRate	EQU	Baud_38400
 ;
 kServoDwellTime	EQU	.40000	;20mS
 kServoFastDwellTime	EQU	.20000	;10mS
-kSysMode	EQU	.2	;Default Mode Basic Servo
+kSysMode	EQU	.3	;Default Mode Basic Servo
 kServoSpeed	EQU	.10	;Slow 5uS/Update
-kssFlags	EQU	b'00000001'	;ssEnableOverCur=true
+kssFlags	EQU	b'00011001'	;ssEnableFastPWM,ssMode3IdleCenter,ssEnableOverCur=true
 kssMaxI	EQU	.50	;Low
 kMinPulseWidth	EQU	.1800	;900uS
 kMidPulseWidth	EQU	.3000	;1500uS
 kMaxPulseWidth	EQU	.4200	;2100uS
-kServoFastForward	EQU	.3600	;1800uS
-kServoFastReverse	EQU	.2400	;1200uS
+kServoCenterStop	EQU	.2950
+kServoFastForward	EQU	kServoCenterStop+.100
+kServoFastReverse	EQU	kServoCenterStop-.100
 kDeadBand	EQU	.100	;100 encoder counts
 kSysFlags	EQU	.0
 kGripI	EQU	.40
@@ -317,7 +319,7 @@ kAuxIORevLimit	EQU	0x07
 	ssAux0Config
 	ssAux1Config
 	ssAux2Config
-	SysFlags		;saved in eprom 0x6F must
+	SysFlags		;saved in eprom 0x64 must
 			; move something to another
 			; bank before adding anything new
 ;
@@ -342,6 +344,10 @@ kAuxIORevLimit	EQU	0x07
 #Define	ssRX_Timeout	ssStatus,3	;cleared by host read
 #Define	ssGripOCur	ssStatus,4	;cleared by host read
 #Define	ssGripMCur	ssStatus,5	;cleared by host read
+;
+; all bits of ssStatus+1 are cleared by a host kCmd_GetStatus command.
+#Define	ssEncParityError	ssStatus+1,0	;cleared by host read
+#Define	ssEncCmdError	ssStatus+1,1	;cleared by host read	
 ;
 ;---------------
 #Define	FirstRAMParam	EncoderFlags
@@ -470,8 +476,8 @@ AS5047D_Flags	EQU	Param70	;Check that Param70 is OK to use
 	de	high kServoFastForward
 	de	low kServoFastReverse
 	de	high kServoFastReverse
-	de	low kMidPulseWidth	;nvServoStopCenter
-	de	high kMidPulseWidth
+	de	low kServoCenterStop	;nvServoStopCenter
+	de	high kServoCenterStop
 	de	low kMinPulseWidth	;nvServoMin_uS
 	de	high kMinPulseWidth
 	de	low kMaxPulseWidth	;nvServoMax_uS
@@ -1207,15 +1213,15 @@ DM3_NotOverCurrent:
 	movf	ssCmdPos+1,W
 	movwf	Param7A
 ;
-;Param7A:Param79 = Param7A:Param79 - ((EncoderVal + EncoderOffset) mod 4096)
+;Param7A:Param79 = Param7A:Param79 - ((EncoderVal + EncoderOffset) mod 16384)
 	movf	EncoderVal,W
 	addwf	EncoderOffset,W
 	movwf	Param7C
 	movf	EncoderVal+1,W
 	addwfc	EncoderOffset+1,W
-	andlw	0x0F
+	andlw	0x3F
 	movwf	Param7D
-	movf	Param7C,W	;(EncoderVal + EncoderOffset) mod 4096
+	movf	Param7C,W	;(EncoderVal + EncoderOffset) mod 16384
 	subwf	Param79,F
 	movf	Param7D,W
 	subwfb	Param7A,F

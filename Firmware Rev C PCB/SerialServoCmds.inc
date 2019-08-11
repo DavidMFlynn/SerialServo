@@ -675,6 +675,10 @@ Cmd_GetEnc_end:
 	movwi	FSR0++
 	movf	EncoderAccum+2,W
 	movwi	FSR0++
+	movlw	0x00
+	btfsc	EncoderAccum+2,7
+	movlw	0xFF
+	movwi	FSR0++	;sign extrnded Int24
 	goto	RS232_Send_S0
 ;
 Cmd_GetEncAbs_end:
@@ -737,6 +741,8 @@ Cmd_GetCalPot_end:
 	bcf	ssRX_Timeout
 	bcf	ssGripMCur
 	bcf	ssGripOCur
+;
+	clrf	ssStatus+1
 ;	
 	goto	RS232_Send_S0
 Cmd_GetStatus_end:
