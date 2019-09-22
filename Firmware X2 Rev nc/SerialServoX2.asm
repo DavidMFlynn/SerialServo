@@ -136,26 +136,21 @@ kGripperHC	EQU	0x04	;Gripper hysteresis
 	list
 ;
 ;    Port A bits
-PortADDRBits	EQU	b'10111111'
+PortADDRBits	EQU	b'00111111'
 PortAValue	EQU	b'00000000'
-ANSELA_Val	EQU	b'00000011'	;RA0/AN0, RA4/AN4
+ANSELA_Val	EQU	b'00000111'	;RA0/AN0, RA4/AN4
 ;
-#Define	RA0_In	PORTA,0	;Current, Analog Input
+#Define	RA0_In	PORTA,0	;Current Servo1, Analog Input
 #Define	RA1_In	PORTA,1	;Battery Volts, Analog Input
-#Define	SW1_In	PORTA,2	;SW1/LED1
-#Define	SW2_In	PORTA,3	;SW2/LED2
-#Define	RA4_In	PORTA,4	;n/c
+#Define	RA2_In	PORTA,2	;Current Servo2, Analog Input
+#Define	RA3_Out	LATA,3	;MagEnc2_CSBit (Active Low Output)
+#Define	RA4_In	PORTA,4	;LED (Active Low Output)(System LED)
 #Define	RA5_In	PORTA,5	;VPP/MCLR*
 #Define	RA6_Out	PORTA,6	;MagEnc_DataBit Encoder MOSI (SPI, Digital Output)
-#Define	RA7_In	PORTA,7	;LED3 (Active Low Output)(System LED)
-LED1_Bit	EQU	2	;LED1 (Active Low Output)
-LED2_Bit	EQU	3	;LED2 (Active Low Output)
-SysLED_Bit	EQU	7	;LED3 (Active Low Output)
-#Define	LED1_Tris	TRISA,LED1_Bit	;LED1 (Active Low Output)
-#Define	LED1_Lat	LATA,LED1_Bit	;LED1 (Active Low Output)
-#Define	LED2_Tris	TRISA,LED2_Bit	;LED2 (Active Low Output)
-#Define	LED2_Lat	LATA,LED2_Bit	;LED2 (Active Low Output)
-#Define	SysLED_Tris	TRISA,SysLED_Bit	;LED3 (Active Low Output)
+#Define	RA7_In	PORTA,7	;CCP2 Out, Pulse output for Servo2
+SysLED_Bit	EQU	4	;LED (Active Low Output)
+#Define	SysLED_Lat	LATA,SysLED_Bit	;LED (Active Low Output)
+#Define	SysLED_Tris	TRISA,SysLED_Bit	;LED (Active Low Output)
 ;
 Servo_AddrDataMask	EQU	0xF8
 ;
@@ -165,10 +160,10 @@ PortBDDRBits	EQU	b'11000110'	;MagEnc_CSBit, CCP1, MagEnc_CLKBit
 PortBValue	EQU	b'00010001'
 ANSELB_Val	EQU	b'00000000'	;RB5/AN7
 ;
-#Define	RB0_Out	LATB,0	;MagEnc_CSBit (Active Low Output)
+#Define	RB0_Out	LATB,0	;MagEnc1_CSBit (Active Low Output)
 #Define	RB1_In	PORTB,1	;MISO MagEnc_DataBit (Digital Input)
 #Define	RB2_In	PORTB,2	;RX Serial Data
-#Define	RB3_Out	PORTB,3	;CCP1 Output
+#Define	RB3_Out	PORTB,3	;CCP1 Out, Pulse output for Servo1
 #Define	RB4_In	PORTB,4	;SCL1 MagEnc_CLKBit
 #Define	RB5_In	PORTB,5	;TX Serial Data
 #Define	RB6_In	PORTB,6	;ICSPCLK
