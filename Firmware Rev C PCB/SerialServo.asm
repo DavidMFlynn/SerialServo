@@ -1027,9 +1027,9 @@ CheckCurrent	movlb	0x00	;Bank 0
 	movwf	Param78
 	rlf	Param79,F
 	lslf	Param78,F
-	rlf	Param79
+	rlf	Param79,F
 ;Param79:Param78 -= Cur_AN0
-	BankSel	ServoCurrent
+	movlb	ServoCurrent
 	movf	ServoCurrent,W
 	subwf	Param78,F
 	movf	ServoCurrent+1,W
@@ -1052,7 +1052,7 @@ CheckGripCurrent	movlb	0x00	;Bank 0
 	movwf	Param78
 	rlf	Param79,F
 	lslf	Param78,F
-	rlf	Param79
+	rlf	Param79,F
 ;Param79:Param78 -= Cur_AN0
 	BankSel	ServoCurrent
 	movf	ServoCurrent,W
@@ -1075,7 +1075,7 @@ CheckGripCurrent	movlb	0x00	;Bank 0
 	lslf	Param78,F
 	rlf	Param79,F
 	lslf	Param78,F
-	rlf	Param79
+	rlf	Param79,F
 ;Param79:Param78 -= Cur_AN0
 	BankSel	ServoCurrent
 	movf	ServoCurrent,W
@@ -1462,7 +1462,7 @@ DoMode4_1:
 ;DebounceTime,kMaxMode
 ;Timer4Lo,SysMode
 HandleButtons	movlb	0x00	;bank 0
-	movf	Timer4Lo,f
+	movf	Timer4Lo,F
 	SKPNZ		;Debounced?
 	bra	HdlBtn_1	; Yes
 ;

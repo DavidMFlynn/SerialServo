@@ -1,9 +1,9 @@
 ;===================================================================================
 ;
 ;  FileName: F1847 Macros.asm
-;  Date: 9/21/2018
-;  File Version: 1.5.0
-;  
+;  Date: 2/26/2020
+;  File Version: 1.6.0
+;
 ;  Author: David M. Flynn
 ;  Company: Oxford V.U.E., Inc.
 ;
@@ -12,9 +12,13 @@
 ;
 ;  These are generic macros for the 16F1847
 ;
+                       ifndef UseMacroAsm
+	constant	UseMacroAsm=1
+	endif
 ;============================================================================================
 ; Revision History
 ;
+; 1.6.0  2/26/2020     Added UseMacroAsm default to 1 for MacroPIC by DMFE
 ; 1.5.0  9/21/2018	Added CPFSEQ, TSTFSZ
 ; 1.4.0  5/29/2017     Added CPFSGT, SETF
 ; 1.3.1  11/16/13	Modified for 16F1847
@@ -114,7 +118,7 @@ TestTimerIsZero	macro	T_Number
 	CLRF	BSR	;Bank0
 	MOVF	T_Number,W
 	IORWF	T_Number+1,W
-	endm	
+	endm
 ;
 ;=================================================================================
 ;=================================================================================
@@ -232,7 +236,7 @@ mCall3To2	macro	Destination
 ;
 ;=================================================================================
 ; Set PCLATH:0..2 then add W to PCL
-; CAUTION:The first BSF/BCF instruction and the location of the 
+; CAUTION:The first BSF/BCF instruction and the location of the
 ;  last branched to instruction must be in the same page
 ;
 ; Entry: W= and 8 bit offset for PCL
@@ -240,7 +244,7 @@ mCall3To2	macro	Destination
 ; RAM used:none
 ; Calls:(0) none
 ;
-mPCLGoto	macro	
+mPCLGoto	macro
 	if $ & 0x0100
 	BSF	PCLATH,0
 	else
@@ -264,74 +268,76 @@ mPCLGoto	macro
 ; The macro LOADFSR1 loads FSR1 and makes code easier to read.
 ;------------------------------------- LOADFSR macro -------------------------------------------
 ;
-LOADFSR0	macro 	ADDRESS,INDEX 				
-	movlw 	low ADDRESS 	; load address 						
+LOADFSR0	macro 	ADDRESS,INDEX
+	movlw 	low ADDRESS 	; load address
 	addwf	INDEX,W	; add the index value to determine location in array
 	movwf 	FSR0L	; load FSR1L with pointer info
 	clrf	FSR0H
 	movlw	high ADDRESS
 	addwfc	FSR0H,F
-	endm		
+	endm
 ;
-LOADFSR1	macro 	ADDRESS,INDEX 				
-	movlw 	low ADDRESS 	; load address 						
+LOADFSR1	macro 	ADDRESS,INDEX
+	movlw 	low ADDRESS 	; load address
 	addwf	INDEX,W	; add the index value to determine location in array
 	movwf 	FSR1L	; load FSR1L with pointer info
 	clrf	FSR1H
 	movlw	high ADDRESS
 	addwfc	FSR1H,F
-	endm		
+	endm
 ;
-LOADFSR0W	macro 	ADDRESS				
-	addlw 	low ADDRESS						
+LOADFSR0W	macro 	ADDRESS
+	addlw 	low ADDRESS
 	movwf 	FSR0L
 	clrf	FSR0H
 	movlw	high ADDRESS
 	addwfc	FSR0H,F	;<< needed to work w/ contig ram
-	endm		
+	endm
 ;
-LOADFSR1W	macro 	ADDRESS				
-	addlw 	low ADDRESS						
+LOADFSR1W	macro 	ADDRESS
+	addlw 	low ADDRESS
 	movwf 	FSR1L
 	clrf	FSR1H
 	movlw	high ADDRESS
 	addwfc	FSR1H,F	;<< needed to work w/ contig ram
-	endm		
+	endm
 ;
 ;=======================================================================================
 ; Instruction set extentions for 14 bit core (16F###)
 ;=======================================================================================
 ; Add Carry to File
 ;
-;ADDCF	macro	dest,W_or_F
-;	BTFSC	STATUS,C
-;	INCF	dest,W_or_F
-;	endm
+	if UseMacroAsm
+ADDCF	macro	dest,W_or_F
+	BTFSC	STATUS,C
+	INCF	dest,W_or_F
+	endm
 ;
 ;==============================================================
 ; Add Digit Carry to File
 ;
-;ADDDCF	macro	dest,W_or_F
-;	BTFSC	STATUS,DC
-;	INCF	dest,W_or_F
-;	endm
+ADDDCF	macro	dest,W_or_F
+	BTFSC	STATUS,DC
+	INCF	dest,W_or_F
+	endm
 ;
 ;==============================================================
 ; Branch on Carry
 ;
-;BC	macro	dest
-;	BTFSC	STATUS,C
-;	GOTO	dest
-;	endm
+BC	macro	dest
+	BTFSC	STATUS,C
+	GOTO	dest
+	endm
 ;
 ;==============================================================
 ; Branch on Digit Carry
 ;
-;BDC	macro	dest
-;	BTFSC	STATUS,DC
-;	GOTO	dest
-;	endm
+BDC	macro	dest
+	BTFSC	STATUS,DC
+	GOTO	dest
+	endm
 ;
+	endif
 ;==============================================================
 ; Branch on Equal to Zero aka BZ
 ;
@@ -349,22 +355,24 @@ BMI	macro	dest
 	GOTO	dest
 	endm
 ;
+	if UseMacroAsm
 ;==============================================================
 ; Branch on No Carry
 ;
-;BNC	macro	dest
-;	BTFSS	STATUS,C
-;	GOTO	dest
-;	endm
+BNC	macro	dest
+	BTFSS	STATUS,C
+	GOTO	dest
+	endm
 ;
 ;==============================================================
 ; Branch on No Digit Carry
 ;
-;BNDC	macro	dest
-;	BTFSS	STATUS,DC
-;	GOTO	dest
-;	endm
+BNDC	macro	dest
+	BTFSS	STATUS,DC
+	GOTO	dest
+	endm
 ;
+	endif
 ;==============================================================
 ; Branch on Not Equal to Zero aka BNZ
 ;
@@ -373,14 +381,16 @@ BNE	macro	dest
 	GOTO	dest
 	endm
 ;
+	if UseMacroAsm
 ;==============================================================
 ; Branch on No Zero
 ;
-;BNZ	macro	dest
-;	BTFSS	STATUS,Z
-;	GOTO	dest
-;	endm
+BNZ	macro	dest
+	BTFSS	STATUS,Z
+	GOTO	dest
+	endm
 ;
+	endif
 ;==============================================================
 ; Branch on W plus (bit 7 clr) (W bits 0..6 are zerroed)
 ;
@@ -390,35 +400,37 @@ BPL	macro	dest
 	GOTO	dest
 	endm
 ;
+	if UseMacroAsm
 ;==============================================================
 ; Branch on Zero
 ;
-;BZ	macro	dest
-;	BTFSC	STATUS,Z
-;	GOTO	dest
-;	endm
+BZ	macro	dest
+	BTFSC	STATUS,Z
+	GOTO	dest
+	endm
 ;
 ;==============================================================
 ; Clear Carry
 ;
-;CLRC	macro
-;	BCF	STATUS,C
-;	endm
+CLRC	macro
+	BCF	STATUS,C
+	endm
 ;
 ;==============================================================
 ; Clear Digit Carry
 ;
-;CLRDC	macro
-;	BCF	STATUS,DC
-;	endm
+CLRDC	macro
+	BCF	STATUS,DC
+	endm
 ;
 ;==============================================================
 ; Clear Zero flag
 ;
-;CLRZ	macro
-;	BCF	STATUS,Z
-;	endm
+CLRZ	macro
+	BCF	STATUS,Z
+	endm
 ;
+	endif
 ;==============================================================
 ; Compare F to W (F-W)
 ;
@@ -464,14 +476,14 @@ LCALL	macro	dest
 	BCF	PCLATH,3
 	endif
 	endif
-		
+
 	if ($ & 0x1000) <> (dest & 0x1000)
 	if dest & 0x1000
 	BSF	PCLATH,4
 	else
 	BCF	PCLATH,4
 	endif
-	endif	
+	endif
 
 	CALL	dest
 	if (($ & 0x0800) <> (dest & 0x0800)) | (($ & 0x1000) <> (dest & 0x1000))
@@ -480,7 +492,7 @@ LCALL	macro	dest
 	else
 	BCF	PCLATH,3
 	endif
-	
+
 	if $ & 0x1000
 	BSF	PCLATH,4
 	else
@@ -500,61 +512,65 @@ LGOTO	macro	dest
 	BCF	PCLATH,3
 	endif
 	endif
-		
+
 	if ($ & 0x1000) <> (dest & 0x1000)
 	if dest & 0x1000
 	BSF	PCLATH,4
 	else
 	BCF	PCLATH,4
 	endif
-	endif	
+	endif
 
 	GOTO	dest
 	endm
 ;
 	endif
+	if UseMacroAsm
 ;==============================================================
 ; Move File to W
 ;
-;MOVFW	macro	src
-;	MOVF	src,W
-;	endm
+MOVFW	macro	src
+	MOVF	src,W
+	endm
 ;
 ;==============================================================
 ; Negate File
 ;
-;NEGF	macro	dest,W_or_F
-;	COMF	dest,F
-;	INCF	dest,W_or_F
-;	endm
+NEGF	macro	dest,W_or_F
+	COMF	dest,F
+	INCF	dest,W_or_F
+	endm
 ;
 ;==============================================================
 ; Set Carry
 ;
-;SETC	macro
-;	BSF	STATUS,C
-;	endm
+SETC	macro
+	BSF	STATUS,C
+	endm
 ;
 ;==============================================================
 ; Set Digit Carry
 ;
-;SETDC	macro
-;	BSF	STATUS,DC
-;	endm
+SETDC	macro
+	BSF	STATUS,DC
+	endm
 ;
+	endif
 ;==============================================================
 SETF	macro	FileReg
 	movlw	0xFF
 	movwf	FileReg
 	endm
 ;
+	if UseMacroAsm
 ;==============================================================
 ; Set Zero
 ;
-;SETZ	macro
-;	BSF	STATUS,Z
-;	endm
+SETZ	macro
+	BSF	STATUS,Z
+	endm
 ;
+	endif
 ;==============================================================
 ; Skip on Borrow
 ;
@@ -562,20 +578,22 @@ SKPB	macro
 	BTFSC	STATUS,C
 	endm
 ;
+	if UseMacroAsm
 ;==============================================================
 ; Skip on Carry
 ;
-;SKPC	macro
-;	BTFSS	STATUS,C
-;	endm
+SKPC	macro
+	BTFSS	STATUS,C
+	endm
 ;
 ;==============================================================
 ; Skip on Digit Carry
 ;
-;SKPDC	macro
-;	BTFSS	STATUS,DC
-;	endm
+SKPDC	macro
+	BTFSS	STATUS,DC
+	endm
 ;
+	endif
 ;==============================================================
 ; Skip on Not Borrow
 ;
@@ -583,34 +601,36 @@ SKPNB	macro
 	BTFSS	STATUS,C
 	endm
 ;
+	if UseMacroAsm
 ;==============================================================
 ; Skip on No Carry
 ;
-;SKPNC	macro
-;	BTFSC	STATUS,C
-;	endm
+SKPNC	macro
+	BTFSC	STATUS,C
+	endm
 ;
 ;==============================================================
 ; Skip on No Digit Carry
 ;
-;SKPNDC	macro
-;	BTFSC	STATUS,DC
-;	endm
+SKPNDC	macro
+	BTFSC	STATUS,DC
+	endm
 ;
 ;==============================================================
 ; Skip on Not Zero
 ;
-;SKPNZ	macro
-;	BTFSC	STATUS,Z
-;	endm
+SKPNZ	macro
+	BTFSC	STATUS,Z
+	endm
 ;
 ;==============================================================
 ; Skip on Zero
 ;
-;SKPZ	macro
-;	BTFSS	STATUS,Z
-;	endm
+SKPZ	macro
+	BTFSS	STATUS,Z
+	endm
 ;
+	endif
 ;==============================================================
 ; Subtract Borrow from File
 ;
@@ -619,29 +639,31 @@ SUBBF	macro	dest,W_or_F
 	DECF	dest,W_or_F
 	endm
 ;
+	if UseMacroAsm
 ;==============================================================
 ; Subtract Carry from File
 ;
-;SUBCF	macro	dest,W_or_F
-;	BTFSC	STATUS,C
-;	DECF	dest,W_or_F
-;	endm
+SUBCF	macro	dest,W_or_F
+	BTFSC	STATUS,C
+	DECF	dest,W_or_F
+	endm
 ;
 ;==============================================================
 ; Subtract Digit Carry from File
 ;
-;SUBDCF	macro	dest,W_or_F
-;	BTFSC	STATUS,DC
-;	DECF	dest,W_or_F
-;	endm
+SUBDCF	macro	dest,W_or_F
+	BTFSC	STATUS,DC
+	DECF	dest,W_or_F
+	endm
 ;
 ;==============================================================
 ; Test File
 ;
-;TSTF	macro	src
-;	MOVF	src,F
-;	endm
+TSTF	macro	src
+	MOVF	src,F
+	endm
 ;
+	endif
 ;==============================================================
 ; Test File Skip if Zero
 ;
