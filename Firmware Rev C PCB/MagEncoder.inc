@@ -304,7 +304,7 @@ SaveHomePos            bsf                    MagEnc_Homed
                        movwf                  EncoderHome
                        movf                   EncoderVal+1,W
                        movwf                  EncoderHome+1
-                       mCall1To0              SaveParams
+                       mLongCall              SaveParams
                        return
 ;======================
 ;EncoderAccum = EncoderVal + 4096 - HM

@@ -47,6 +47,7 @@ kCmd_SetDeadBand	EQU	0x8E	;+1 data (DeadBand), return ACK
 kCmd_GetDeadBand	EQU	0x0E
 kCmd_SetUseFastPWM	EQU	0x8F	;+1 data (ssEnableFastPWM), return ACK
 kCmd_GetUseFastPWM	EQU	0x0F
+;
 kCmd_SetGripI	EQU	0xB1	;+1 data (ssGripI), return ACK
 kCmd_GetGripI	EQU	0x21
 kCmd_SetAuxConfig	EQU	0xB2	;+2 data (AuxNum,Value), return ACK
@@ -55,6 +56,12 @@ kCmd_SetAuxNValue	EQU	0xB3	;+2 data (AuxNum,Value), return ACK
 kCmd_GetAuxNValue	EQU	0x23	;(AuxN,ValueL,ValueH)
 kCmd_SetEncoderOffset	EQU	0xB4	;+2 data (EncoderOffset), return ACK
 kCmd_GetEncoderOffset	EQU	0x24
+kCmd_SetKp	EQU	0xB5	;+1 data (Kp), return ACK
+kCmd_GetKp	EQU	0x25
+kCmd_SetKi	EQU	0xB6	;+1 data (Ki), return ACK
+kCmd_GetKi	EQU	0x26
+kCmd_SetKd	EQU	0xB7	;+1 data (Kd), return ACK
+kCmd_GetKd	EQU	0x27
 ;
 kCmd_GetI	EQU	0x91	;return Cur_AN0
 kCmd_GetEnc	EQU	0x92	;return EncoderVal
@@ -76,7 +83,7 @@ kCmd_SendIDString	EQU	0xAA	; returns "DMFE Serial Servo\n"
 ;
 ;=========================================================================================
 ;
-RS232_Send_S0	mCall1To0	RS232_Send
+RS232_Send_S0	mLongCall	RS232_Send
 	return
 ;
 ;=========================================================================================
@@ -90,18 +97,14 @@ HandleRXData_Rtn	movlb	0	;bank 0
 	return		; no, ignore this packet
 ;---kCmd_SetMode-------------------
 HandleRXData_1	movlb	0	;bank 0
-	movlw	low RX_Data
-	movwf	FSR1L
-	movlw	high RX_Data
-	movwf	FSR1H
-;
-	movlw	low TX_Data
-	movwf	FSR0L
-	movlw	high TX_Data
-	movwf	FSR0H
+                       mMOVLF	RX_Data,FSR1
+	mMOVLF	TX_Data,FSR0
+;Dispatcher
 ;
 	moviw	FSR1++
 	movwf	Param78	;aka RX_Data
+	
+;
 	movlw	kCmd_SetMode
 	subwf	Param78,W	;aka RX_Data
 	SKPZ
@@ -687,7 +690,7 @@ Cmd_GetEncAbs_end:
 	subwf	Param78,W	;aka RX_Data
 	SKPZ
 	bra	Cmd_SaveParams_end
-	mCall1To0	SaveParams
+	mLongCall	SaveParams
 	goto	TX_ACK
 Cmd_SaveParams_end:
 ;---kCmd_RestoreParams--------------
@@ -695,7 +698,7 @@ Cmd_SaveParams_end:
 	subwf	Param78,W	;aka RX_Data
 	SKPZ
 	bra	Cmd_RestoreParams_end
-	mCall1To0	CopyToRam
+	mLongCall	CopyToRam
 	goto	TX_ACK
 Cmd_RestoreParams_end:
 ;---kCmd_GetBattVolts---------------
@@ -760,7 +763,7 @@ Cmd_ReBoot_end:
 	bra	Cmd_RunBootloader_end
 	movlw	0xFF
 	movwf	EEDataTemp
-	mCall1To0	EEWriteW	;Write EEPROM address in W
+	mLongCall	EEWriteW	;Write EEPROM address in W
 	reset
 Cmd_RunBootloader_end:
 ;---kCmd_SetMasterAddr------------
@@ -770,7 +773,7 @@ Cmd_RunBootloader_end:
 	bra	Cmd_SetMasterAddr_end
 	moviw	FSR1++
 	movwf	RS232_MasterAddr
-	mCall1To0	SaveParams
+	mLongCall	SaveParams
 	goto	RS232_Send_S0
 Cmd_SetMasterAddr_end:
 ;---kCmd_SetSlaveAddr-------------
@@ -780,7 +783,7 @@ Cmd_SetMasterAddr_end:
 	bra	Cmd_SetSlaveAddr_end
 	moviw	FSR1++
 	movwf	RS232_SlaveAddr
-	mCall1To0	SaveParams
+	mLongCall	SaveParams
 	goto	RS232_Send_S0
 Cmd_SetSlaveAddr_end:
 ;---kCmd_SendIDString------------
@@ -824,7 +827,7 @@ Cmd_SendIDString_end:
 	return
 ;
 TX_ACK	movlw	0xFF
-StoreSerOut_S0	mCall1To0	StoreSerOut
+StoreSerOut_S0	mLongCall	StoreSerOut
 	return
 ;
 ;=========================================================================================

@@ -1,8 +1,8 @@
 ;===================================================================================
 ;
 ;  FileName: F1847 Macros.asm
-;  Date: 2/26/2020
-;  File Version: 1.6.0
+;  Date: 3/30/2020
+;  File Version: 1.6.2
 ;
 ;  Author: David M. Flynn
 ;  Company: Oxford V.U.E., Inc.
@@ -12,13 +12,11 @@
 ;
 ;  These are generic macros for the 16F1847
 ;
-                       ifndef UseMacroAsm
-	constant	UseMacroAsm=1
-	endif
 ;============================================================================================
 ; Revision History
 ;
-; 1.6.0  2/26/2020     Added UseMacroAsm default to 1 for MacroPIC by DMFE
+; 1.6.2  3/30/2020     Added mMOVLF. Removed dead code. Converted B* commands from goto to bra
+; 1.6.0  2/26/2020     Added MacroPIC default to 1 for MacroPIC by DMFE
 ; 1.5.0  9/21/2018	Added CPFSEQ, TSTFSZ
 ; 1.4.0  5/29/2017     Added CPFSGT, SETF
 ; 1.3.1  11/16/13	Modified for 16F1847
@@ -36,30 +34,19 @@
 ;
 ;============================================================================================
 ; Conditionals
+                       ifndef MacroPIC
+                       constant MacroPIC=1
+                       endif
 ;
 ;============================================================================================
 ; Name	(additional stack words required), (Return Bank) Description
 ;============================================================================================
 ;TestTimerIsZero	(0),(0) pass Timer1Lo,Timer2Lo, etc. returns STATUS,Z set if zero
 ;
-;mCall0To1	(1+n),(n/a) used to set/clr PCLATH bits
-;mCall0To2	(1+n),(n/a) used to set/clr PCLATH bits
-;mCall0To3	(1+n),(n/a) used to set/clr PCLATH bits
+;mLongCall	(1+n),(n/a) call to another segment
 ;
-;mCall1To0	(1+n),(n/a) used to set/clr PCLATH bits
-;mCall1To2	(1+n),(n/a) used to set/clr PCLATH bits
-;mCall1To3	(1+n),(n/a) used to set/clr PCLATH bits
+;mMOVLF                (0),(n/a) Move Literal (16 bits) to File
 ;
-;mCall2To0	(1+n),(n/a) used to set/clr PCLATH bits
-;mCall2To1	(1+n),(n/a) used to set/clr PCLATH bits
-;mCall2To3	(1+n),(n/a) used to set/clr PCLATH bits
-;
-;mCall3To0	(1+n),(n/a) used to set/clr PCLATH bits
-;mCall3To1	(1+n),(n/a) used to set/clr PCLATH bits
-;mCall3To2	(1+n),(n/a) used to set/clr PCLATH bits
-;
-;mPCLGoto	(0),(n/a) Set PCLATH:0..2 then add W to PCL
-;mBankISel	(0),(n/a) Set Status,IRP bit corect for the operand passed.
 ;LOADFSR0 	(0),(n/a) Add (16 bits) ADDRESS+INDEX >> FSR0
 ;LOADFSR1 	(0),(n/a) Add (16 bits) ADDRESS+INDEX >> FSR1
 ;LOADFSR0W 	(0),(n/a) Add (16 bits) ADDRESS+WReg >> FSR0
@@ -122,151 +109,25 @@ TestTimerIsZero	macro	T_Number
 ;
 ;=================================================================================
 ;=================================================================================
-; Call macros, use only when stack space is short 16F877 version
+;Call to another segment
 ;
-;Call from segment 0 to segment 1
-;
-;
-mCall0To1	macro	Destination
-	BSF	PCLATH,3
-	CALL	Destination
-	CLRF	PCLATH
-	endm
-;
-;Call from segment 0 to segment 2
-;
-mCall0To2	macro	Destination
-	BSF	PCLATH,4
-	CALL	Destination
-	CLRF	PCLATH
-	endm
-;
-;Call from segment 0 to segment 3
-;
-mCall0To3	macro	Destination
-	BSF	PCLATH,3
-	BSF	PCLATH,4
-	CALL	Destination
-	CLRF	PCLATH
-	endm
-;
-;Call from segment 1 to segment 0
-;
-mCall1To0	macro	Destination
-	BCF	PCLATH,3
-	CALL	Destination
-	BSF	PCLATH,3
-	BCF	PCLATH,4
-	endm
-;
-;Call from segment 1 to segment 2
-;
-mCall1To2	macro	Destination
-	BSF	PCLATH,4
-	BCF	PCLATH,3
-	CALL	Destination
-	BCF	PCLATH,4
-	BSF	PCLATH,3
-	endm
-;
-;Call from segment 1 to segment 3
-;
-mCall1To3	macro	Destination
-	BSF	PCLATH,4
-	CALL	Destination
-	BSF	PCLATH,3
-	BCF	PCLATH,4
-	endm
-;
-;Call from segment 2 to segment 0
-;
-mCall2To0	macro	Destination
-	BCF	PCLATH,4
-	CALL	Destination
-	BCF	PCLATH,3
-	BSF	PCLATH,4
-	endm
-;
-;Call from segment 2 to segment 1
-;
-mCall2To1	macro	Destination
-	BSF	PCLATH,3
-	BCF	PCLATH,4
-	CALL	Destination
-	BCF	PCLATH,3
-	BSF	PCLATH,4
-	endm
-;
-;Call from segment 2 to segment 3
-;
-mCall2To3	macro	Destination
-	BSF	PCLATH,3
-	CALL	Destination
-	BCF	PCLATH,3
-	BSF	PCLATH,4
-	endm
-;
-;Call from segment 3 to segment 0
-;
-mCall3To0	macro	Destination
-	BCF	PCLATH,3
-	BCF	PCLATH,4
-	CALL	Destination
-	BSF	PCLATH,3
-	BSF	PCLATH,4
-	endm
-;
-;Call from segment 3 to segment 1
-;
-mCall3To1	macro	Destination
-	BCF	PCLATH,4
-	CALL	Destination
-	BSF	PCLATH,3
-	BSF	PCLATH,4
-	endm
-;
-;Call from segment 3 to segment 2
-;
-mCall3To2	macro	Destination
-	BCF	PCLATH,3
-	CALL	Destination
-	BSF	PCLATH,3
-	BSF	PCLATH,4
-	endm
+mLongCall              macro	Destination
+                       movlp                  Destination
+                       call                   Destination
+                       movlp                  $
+                       endm
 ;
 ;=================================================================================
-; Set PCLATH:0..2 then add W to PCL
-; CAUTION:The first BSF/BCF instruction and the location of the
-;  last branched to instruction must be in the same page
-;
-; Entry: W= and 8 bit offset for PCL
-; Exit: branches forward W locations
-; RAM used:none
-; Calls:(0) none
-;
-mPCLGoto	macro
-	if $ & 0x0100
-	BSF	PCLATH,0
-	else
-	BCF	PCLATH,0
-	endif
-	if $ & 0x0200
-	BSF	PCLATH,1
-	else
-	BCF	PCLATH,1
-	endif
-	if $ & 0x0400
-	BSF	PCLATH,2
-	else
-	BCF	PCLATH,2
-	endif
-;
-	ADDWF	PCL,F
-	endm
-;
-;-----------------------------------------------------------------------------------------------
 ; The macro LOADFSR1 loads FSR1 and makes code easier to read.
 ;------------------------------------- LOADFSR macro -------------------------------------------
+;
+;Move Literal to FSR
+mMOVLF                 macro                  ADDRESS,DEST
+                       movlw                  low ADDRESS
+                       movwf                  DEST
+                       movlw                  high ADDRESS
+                       movwf                  DEST+1
+                       endm
 ;
 LOADFSR0	macro 	ADDRESS,INDEX
 	movlw 	low ADDRESS 	; load address
@@ -307,7 +168,7 @@ LOADFSR1W	macro 	ADDRESS
 ;=======================================================================================
 ; Add Carry to File
 ;
-	if UseMacroAsm
+	if MacroPIC
 ADDCF	macro	dest,W_or_F
 	BTFSC	STATUS,C
 	INCF	dest,W_or_F
@@ -326,7 +187,7 @@ ADDDCF	macro	dest,W_or_F
 ;
 BC	macro	dest
 	BTFSC	STATUS,C
-	GOTO	dest
+	bra	dest
 	endm
 ;
 ;==============================================================
@@ -334,7 +195,7 @@ BC	macro	dest
 ;
 BDC	macro	dest
 	BTFSC	STATUS,DC
-	GOTO	dest
+	bra	dest
 	endm
 ;
 	endif
@@ -343,7 +204,7 @@ BDC	macro	dest
 ;
 BEQ	macro	dest
 	BTFSC	STATUS,Z
-	GOTO	dest
+	bra	dest
 	endm
 ;
 ;==============================================================
@@ -352,16 +213,16 @@ BEQ	macro	dest
 BMI	macro	dest
 	ANDLW	0x80
 	BTFSC	STATUS,Z	;skip if Z
-	GOTO	dest
+	bra	dest
 	endm
 ;
-	if UseMacroAsm
+	if MacroPIC
 ;==============================================================
 ; Branch on No Carry
 ;
 BNC	macro	dest
 	BTFSS	STATUS,C
-	GOTO	dest
+	bra	dest
 	endm
 ;
 ;==============================================================
@@ -369,7 +230,7 @@ BNC	macro	dest
 ;
 BNDC	macro	dest
 	BTFSS	STATUS,DC
-	GOTO	dest
+	bra	dest
 	endm
 ;
 	endif
@@ -378,16 +239,16 @@ BNDC	macro	dest
 ;
 BNE	macro	dest
 	BTFSS	STATUS,Z
-	GOTO	dest
+	bra	dest
 	endm
 ;
-	if UseMacroAsm
+	if MacroPIC
 ;==============================================================
 ; Branch on No Zero
 ;
 BNZ	macro	dest
 	BTFSS	STATUS,Z
-	GOTO	dest
+	bra	dest
 	endm
 ;
 	endif
@@ -397,16 +258,16 @@ BNZ	macro	dest
 BPL	macro	dest
 	ANDLW	0x80
 	BTFSS	STATUS,Z	;skip if not Z
-	GOTO	dest
+	bra	dest
 	endm
 ;
-	if UseMacroAsm
+	if MacroPIC
 ;==============================================================
 ; Branch on Zero
 ;
 BZ	macro	dest
 	BTFSC	STATUS,Z
-	GOTO	dest
+	bra	dest
 	endm
 ;
 ;==============================================================
@@ -464,68 +325,8 @@ DCFSNZ	macro	FileReg,Dest
 	btfsc	_Z
 	endm
 ;
-	if oldCode
-;==============================================================
-; Long Call
-;
-LCALL	macro	dest
-	if ($ & 0x0800) <> (dest & 0x0800)
-	if dest & 0x0800
-	BSF	PCLATH,3
-	else
-	BCF	PCLATH,3
-	endif
-	endif
 
-	if ($ & 0x1000) <> (dest & 0x1000)
-	if dest & 0x1000
-	BSF	PCLATH,4
-	else
-	BCF	PCLATH,4
-	endif
-	endif
-
-	CALL	dest
-	if (($ & 0x0800) <> (dest & 0x0800)) | (($ & 0x1000) <> (dest & 0x1000))
-	if $ & 0x0800
-	BSF	PCLATH,3
-	else
-	BCF	PCLATH,3
-	endif
-
-	if $ & 0x1000
-	BSF	PCLATH,4
-	else
-	BCF	PCLATH,4
-	endif
-	endif
-	endm
-;
-;==============================================================
-; Long GOTO
-;
-LGOTO	macro	dest
-	if ($ & 0x0800) <> (dest & 0x0800)
-	if dest & 0x0800
-	BSF	PCLATH,3
-	else
-	BCF	PCLATH,3
-	endif
-	endif
-
-	if ($ & 0x1000) <> (dest & 0x1000)
-	if dest & 0x1000
-	BSF	PCLATH,4
-	else
-	BCF	PCLATH,4
-	endif
-	endif
-
-	GOTO	dest
-	endm
-;
-	endif
-	if UseMacroAsm
+	if MacroPIC
 ;==============================================================
 ; Move File to W
 ;
@@ -562,7 +363,7 @@ SETF	macro	FileReg
 	movwf	FileReg
 	endm
 ;
-	if UseMacroAsm
+	if MacroPIC
 ;==============================================================
 ; Set Zero
 ;
@@ -578,7 +379,7 @@ SKPB	macro
 	BTFSC	STATUS,C
 	endm
 ;
-	if UseMacroAsm
+	if MacroPIC
 ;==============================================================
 ; Skip on Carry
 ;
@@ -601,7 +402,7 @@ SKPNB	macro
 	BTFSS	STATUS,C
 	endm
 ;
-	if UseMacroAsm
+	if MacroPIC
 ;==============================================================
 ; Skip on No Carry
 ;
@@ -639,7 +440,7 @@ SUBBF	macro	dest,W_or_F
 	DECF	dest,W_or_F
 	endm
 ;
-	if UseMacroAsm
+	if MacroPIC
 ;==============================================================
 ; Subtract Carry from File
 ;

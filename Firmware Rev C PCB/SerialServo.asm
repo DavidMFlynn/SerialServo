@@ -124,9 +124,16 @@
 	constant	UseRS232SyncBytes=1
 kRS232SyncByteValue	EQU	0xDD
 	constant	UseRS232Chksum=1
+	constant               UsePID=1
 ;
 kRS232_MasterAddr	EQU	0x01	;Master's Address
 kRS232_SlaveAddr	EQU	0x02	;This Slave's Address
+kInitialPosCmd         EQU                    .8192                  ;Init mode 3 here middle for AS5047
+//kInitialPosCmd         EQU                    .2048                  ;Init mode 3 here middle for 12 bit encoder
+kSysMode	EQU	.3	;Default Mode
+Default_Kp	EQU	.32	;Fxd4.4 10*16
+Default_Ki	EQU	0	; max gain is 255 = 15 15/16
+Default_Kd	EQU	0
 kGripperHC	EQU	0x04	;Gripper hysteresis
 ;
 #Define	_C	STATUS,C
@@ -223,7 +230,6 @@ BaudRate	EQU	Baud_38400
 ;
 kServoDwellTime	EQU	.40000	;20mS
 kServoFastDwellTime	EQU	.20000	;10mS
-kSysMode	EQU	.3	;Default Mode Basic Servo
 kServoSpeed	EQU	.10	;Slow 5uS/Update
 kssFlags	EQU	b'00011001'	;ssEnableFastPWM,ssMode3IdleCenter,ssEnableOverCur=true
 kssMaxI	EQU	.50	;Low
@@ -309,6 +315,11 @@ kAuxIORevLimit	EQU	0x07
 	ServoMin_uS:2
 	ServoMax_uS:2
 	ServoSpeed		;0 = off, 1..63 position change per cycle
+;
+	Kp		;8-bit proportional Gain
+	Ki		;8-bit integral Gain
+	Kd		;8-bit derivative Gain
+;
 	SysMode
 	RS232_MasterAddr
 	RS232_SlaveAddr
@@ -414,6 +425,84 @@ kAuxIORevLimit	EQU	0x07
 ;
 ;================================================================================================
 ;  Bank3 Ram 1A0h-1EFh 80 Bytes
+; PID vars
+	cblock	0x1A0
+	derivCount		;This value determins how many times the Derivative term is
+			;calculated based on each Integral term.
+	pidOut0		;24-bit Final Result of PID for the "Plant"
+	pidOut1
+	pidOut2
+	error0		;16-bit error, passed to the PID
+	error1
+	a_Error0		;24-bit accumulated error, used for Integral term
+	a_Error1
+	a_Error2
+	p_Error0		;16-bit previous error, used for Derivative term
+	p_Error1
+	d_Error0		;16-bit delta error (error - previous error)
+	d_Error1
+;
+	prop0		;24-bit proportional value
+	prop1
+	prop2
+	integ0		;24-bit Integral value
+	integ1
+	integ2
+	deriv0		;24-bit Derivative value
+	deriv1
+	deriv2
+;
+	pidStat1		;PID bit-status register
+	pidStat2		;PID bit-status register2
+;
+; PIDMath
+	PRODL
+	PRODH
+	AccB0		;LSB
+	AccB1
+	AccB2
+	AccB3		;MSB
+	AArgB0
+	AArgB1
+	AArgB2
+	AArgB3
+	BArgB0
+	BArgB1
+	BArgB2
+	BArgB3
+	RemB0
+	RemB1
+	RemB2
+	RemB3
+	endc
+;
+;___________________________ pidStat1 register ________________________________________________
+;|  bit 7   |   bit 6    |  bit 5 |    bit 4   |   bit 3    |  bit 2   |   bit 1    |  bit 0   |
+;| pid_sign | d_err_sign |        | p_err_sign | a_err_sign | err_sign |  a_err_z   |  err_z   |
+;|__________|____________|________|____________|____________|__________|____________|__________|
+;
+#Define	err_z	pidStat1,0	;error zero flag, Zero = set
+#Define	a_err_z	pidStat1,1	;a_error zero flag, Zero = set
+#Define	err_sign	pidStat1,2	;error sign flag, Pos = set/ Neg = clear
+#Define	a_err_sign	pidStat1,3	;a_error sign flag, Pos = set/ Neg = clear
+#Define	p_err_sign	pidStat1,4	;p_error sign flag, Pos = set/ Neg = clear
+;
+#Define	d_err_sign	pidStat1,6	;d_error sign flag, Pos = set/ Neg = clear
+#Define	pid_sign	pidStat1,7	;PID result sign flag, Pos = set/ Neg = clear
+;
+;________________________________ pidStat2 register______________________________________
+;| bit 7 |  bit 6  |  bit 5   |    bit 4   |   bit 3    |  bit 2    |   bit 1    |  bit 0   |
+;|       |         |          | error_limit| deriv_sign | BArg_sign | AArg_Sign  | d_err_z  |
+;|_______|_________|__________|____________|____________|___________|____________|__________|
+;
+#Define	d_err_z	pidStat2,0	;d_error zero flag, Zero = set
+#Define	AArg_sign	pidStat2,1	;AArg sign flag, Pos = set/ Neg = clear
+#Define	BArg_sign	pidStat2,2	;BArg sign flag, Pos = set/ Neg = clear
+#Define	deriv_sign	pidStat2,3	;deriv sign flag, Pos = set/ Neg = clear
+#Define	error_limit	pidStat2,4	;Error limit exceeded flag, error = set/ no error = clear
+;
+;=========================================================================================
+;  Bank4 Ram 220h-26Fh 80 Bytes
 ;=========================================================================================
 ;  Bank5 Ram 2A0h-2EFh 80 Bytes
 ;
@@ -483,6 +572,9 @@ AS5047D_Flags	EQU	Param70	;Check that Param70 is OK to use
 	de	low kMaxPulseWidth	;nvServoMax_uS
 	de	high kMaxPulseWidth
 	de	kServoSpeed	;nvServoSpeed
+	de	Default_Kp	;8-bit proportional Gain
+	de	Default_Ki	;8-bit integral Gain
+	de	Default_Kd	;8-bit derivative Gain
 	de	kSysMode	;nvSysMode
 	de	kRS232_MasterAddr	;nvRS232_MasterAddr, 0x0F
 	de	kRS232_SlaveAddr	;nvRS232_SlaveAddr, 0x10
@@ -510,6 +602,9 @@ AS5047D_Flags	EQU	Param70	;Check that Param70 is OK to use
 	nvServoMin_uS:2
 	nvServoMax_uS:2
 	nvServoSpeed
+                       nvKp
+                       nvKi
+                       nvKd
 	nvSysMode
 	nvRS232_MasterAddr
 	nvRS232_SlaveAddr
@@ -533,7 +628,7 @@ AS5047D_Flags	EQU	Param70	;Check that Param70 is OK to use
 BootLoaderStart	EQU	0x1E00
 ;
 	ORG	0x000	; processor reset vector
-	movlp	high BootLoaderStart
+	movlp	BootLoaderStart
 	goto	BootLoaderStart
 ProgStartVector	CLRF	PCLATH
   	goto	start	; go to beginning of program
@@ -837,14 +932,12 @@ IRQ_Ser_End:
 ;=========================================================================================
 ;
 	include <F1847_Common.inc>
-	include <MagEncoder.inc>
-	include <AS5047D_Lib.inc>
 	include <SerBuff1938.inc>
 	include <RS232_Parse.inc>
 ;
 ;=========================================================================================
 ;
-start	call	InitializeIO
+start	mLongCall	InitializeIO
 ;
 	CALL	StartServo
 	CALL	ReadAN0_ColdStart
@@ -861,7 +954,7 @@ MainLoop	CLRWDT
 	movlb	1
 	btfss	RXDataIsNew
 	bra	ML_1
-	mCall0To1	HandleRXData
+	mLongCall	HandleRXData
 ML_1:
 ;
 ; Fast blink the system LED is the servo is stopped because of an error
@@ -890,7 +983,7 @@ ML_1:
 	movwf	OldAN0Value
 ;
 No_NewDataAN0:
-	call	ReadEncoder
+	mLongCall	ReadEncoder
 ;
 	call	HandleButtons
 ;
@@ -1760,138 +1853,23 @@ ClampInt_tooHigh	MOVF	ServoMax_uS,W
 	RETURN
 ;
 ;=========================================================================================
-; call once
 ;=========================================================================================
 ;
-InitializeIO	MOVLB	0x01	; select bank 1
-	bsf	OPTION_REG,NOT_WPUEN	; disable pullups on port B
-	bcf	OPTION_REG,TMR0CS	; TMR0 clock Fosc/4
-	bcf	OPTION_REG,PSA	; prescaler assigned to TMR0
-	bsf	OPTION_REG,PS0	;111 8mhz/4/256=7812.5hz=128uS/Ct=0.032768S/ISR
-	bsf	OPTION_REG,PS1	;101 8mhz/4/64=31250hz=32uS/Ct=0.008192S/ISR
-	bsf	OPTION_REG,PS2
-;
-	MOVLW	OSCCON_Value
-	MOVWF	OSCCON
-	movlw	b'00010111'	; WDT prescaler 1:65536 period is 2 sec (RESET value)
-	movwf	WDTCON
-;
-	movlb	4	; bank 4
-	bsf	WPUA,WPUA5	;Put a pull up on the MCLR unused pin.
-;
-	MOVLB	0x03	; bank 3
-	movlw	ANSELA_Val
-	movwf	ANSELA
-	movlw	ANSELB_Val
-	movwf	ANSELB
-;
-;Setup T2 for 100/s
-	movlb	0	; bank 0
-	MOVLW	T2CON_Value
-	MOVWF	T2CON
-	MOVLW	PR2_Value
-	MOVWF	PR2
-	movlb	1	; bank 1
-	bsf	PIE1,TMR2IE	; enable Timer 2 interupt
-;
-; setup timer 1 for 0.5uS/count
-;
-	MOVLB	0x00	; bank 0
-	MOVLW	T1CON_Val
-	MOVWF	T1CON
-	bcf	T1GCON,TMR1GE	;always count
-;
-;SPI MISO >> SDI1 RB1, default
-;SPI CLK >> RB4, default
-	movlb	2	;bank 2
-	bsf	APFCON0,RXDTSEL	;RX >> RB2
-	bsf	APFCON1,TXCKSEL	;TX >> RB5
-	bsf	APFCON0,SDO1SEL	;SPI MOSI >> SDO1 RA6
-;	
-; clear memory to zero
-	CALL	ClearRam
-	CLRWDT
-	CALL	CopyToRam
-;
-; setup ccp1
-;
-	BSF	ServoOff
-;	BANKSEL	APFCON
-;	BSF	APFCON,CCP1SEL	;CCP1 on RA5
-	BANKSEL	CCP1CON
-	CLRF	CCP1CON
-;
-	MOVLB	0x01	;Bank 1
-	bsf	PIE1,CCP1IE
-;
-;
-	MOVLB	0x00	;Bank 0
-; setup data ports
-	movlw	PortBValue
-	movwf	PORTB	;init port B
-	movlw	PortAValue
-	movwf	PORTA
-	MOVLB	0x01	; bank 1
-	movlw	PortADDRBits
-	movwf	TRISA
-	movlw	PortBDDRBits	;setup for programer
-	movwf	TRISB
-;
-	if useRS232
-; setup serial I/O
-	BANKSEL	BAUDCON	; bank 3
-	movlw	BAUDCON_Value
-	movwf	BAUDCON
-	MOVLW	low BaudRate
-	MOVWF	SPBRGL
-	MOVLW	high BaudRate
-	MOVWF	SPBRGH
-	MOVLW	TXSTA_Value
-	MOVWF	TXSTA
-	MOVLW	RCSTA_Value
-	MOVWF	RCSTA
-	movlb	0x01	; bank 1
-	BSF	PIE1,RCIE	; Serial Receive interupt
-	movlb	0x00	; bank 0
-;
+                       if UsePID
+	include <DMFMath.inc>
+	include <PIDInt.inc>
 	endif
 ;
-	CLRWDT
-;-----------------------
-;
-	MOVLB	0x00
-	MOVLW	LEDTIME
-	MOVWF	SysLED_Time
-	movlw	0x01
-	movwf	SysLEDCount	;start blinking right away
-	movlw	.100
-	movwf	Timer4Lo	;ignor buttons for 1st second
-;
-	movf	SysMode,W
-	movwf	LED1_Blinks
-;
-;if mode 3 don't move
-	bsf	ssCmdPos+1,7
-;
-	CLRWDT
-;
-	call	Init_AS5047D	;initialize the SPI encoder I/O
-;
-;
-	bsf	INTCON,PEIE	; enable periferal interupts
-	bsf	INTCON,GIE	; enable interupts
-;
-	return
-;
-;=========================================================================================
-;=========================================================================================
 ;
 ;
 	org 0x800
 	include <SerialServoCmds.inc>
+	include <MagEncoder.inc>
+	include <AS5047D_Lib.inc>
+	include <ssInit.inc>
 ;
 	org BootLoaderStart
-	include <BootLoader.inc>
+	include <BootLoader1847.inc>
 ;
 ;
 	END
