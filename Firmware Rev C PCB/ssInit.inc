@@ -116,15 +116,6 @@ InitializeIO	MOVLB	0x01	; select bank 1
 ;
 	call	Init_AS5047D	;initialize the SPI encoder I/O
 ;
-                       movlw                  .3
-                       subwf                  SysMode,W
-                       SKPZ
-                       bra                    Not_Mode3
-                       movlw                  low kInitialPosCmd
-                       movwf                  ssCmdPos
-                       movlw                  high kInitialPosCmd
-                       movwf                  ssCmdPos+1
-Not_Mode3:
 ;
 	bsf	INTCON,PEIE	; enable periferal interupts
 	bsf	INTCON,GIE	; enable interupts

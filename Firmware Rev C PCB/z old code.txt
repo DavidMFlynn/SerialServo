@@ -1,0 +1,178 @@
+                       if oldCode
+                       
+;=========================================================================================
+;Idle routine for Absolute encoder position control.
+; if ssCmdPos > EncoderVal set servo to ServoFastForward
+; elseif ssCmdPos + DeadBand < EncoderVal set servo to ServoFastReverse
+; else Set ServoIdle
+;
+; Ram Used:Param79,Param7A,Param7C,Param7D
+;
+DoModeThree	movlb	0	;bank 0
+	btfsc	ssCmdPos+1,7
+	bra	DM3_IdleServo
+;
+;Check for over current, kill position command if over current is detected.
+	call	CheckCurrent
+	btfss	OverCurrentFlag
+	bra	DM3_NotOverCurrent
+	clrf	ssCmdPos
+	clrf	ssCmdPos+1
+	bsf	ssCmdPos+1,7
+	bsf	ssio_OverCurSD
+	bcf	OverCurrentFlag
+	bra	DM3_IdleServo
+;
+DM3_NotOverCurrent:
+;Param7A:Param79 = ssCmdPos
+	bcf	ssio_OverCurSD
+	movf	ssCmdPos,W
+	movwf	Param79
+	movf	ssCmdPos+1,W
+	movwf	Param7A
+;
+;Param7A:Param79 = Param7A:Param79 - ((EncoderVal + EncoderOffset) mod 16384)
+	movf	EncoderVal,W
+	addwf	EncoderOffset,W
+	movwf	Param7C
+	movf	EncoderVal+1,W
+	addwfc	EncoderOffset+1,W
+	andlw	0x3F
+	movwf	Param7D
+	movf	Param7C,W	;(EncoderVal + EncoderOffset) mod 16384
+	subwf	Param79,F
+	movf	Param7D,W
+	subwfb	Param7A,F
+;
+	btfss	Param7A,7	;Param7A:Param79 < 0?
+	bra	DM3_FF	; No, EncoderVal <= ssCmdPos
+;
+;Param7A:Param79 = ssCmdPos + DeadBand
+	movf	DeadBand,W
+	addwf	ssCmdPos,W
+	movwf	Param79
+	movlw	0x00
+	addwfc	ssCmdPos+1,W
+	movwf	Param7A
+;
+;Param7A:Param79 = Param7A:Param79 - EncoderVal
+	movf	Param7C,W	;(EncoderVal + EncoderOffset) mod 4096
+	subwf	Param79,F
+	movf	Param7D,W
+	subwfb	Param7A,F
+;
+	btfsc	Param7A,7	;Param7A:Param79 < 0?
+	bra	DM3_FR	; Yes, EncoderVal > (ssCmdPos + DeadBand)
+;
+; EncoderVal > ssCmdPos && EncoderVal <= (ssCmdPos + DeadBand)
+; if ssMode3IdleCenter then
+;   ssMD3_Dest=ServoStopCenter 
+;   ssCurPos=ServoStopCenter
+; else
+;   ServoIdle=true
+;
+DM3_IdleServo	bcf	MD3_FFwd
+	bcf	MD3_FRev
+	btfss	ssMode3IdleCenter
+	bra	DM3_IdleInactive
+	movf	ServoStopCenter,W
+	movwf	ssMD3_Dest
+	movwf	ssCurPos
+	movf	ServoStopCenter+1,W
+	movwf	ssMD3_Dest+1
+	movwf	ssCurPos+1
+	bra	DM3_UpdatePos
+;
+DM3_IdleInactive	bsf	ServoIdle
+	goto	ModeReturn
+;
+DM3_FF	btfsc	ssReverseDir
+	bra	DM3_FR_1
+DM3_FF_1	btfsc	MD3_FRev	;Moving Reverse dir?
+	bra	DM3_IdleServo	; Yes
+	bsf	MD3_FFwd
+	movf	ServoFastForward,W
+	movwf	ssMD3_Dest
+	movf	ServoFastForward+1,W
+	movwf	ssMD3_Dest+1
+	bra	DM3_UpdatePos
+;
+DM3_FR	btfsc	ssReverseDir
+	bra	DM3_FF_1
+DM3_FR_1	btfsc	MD3_FFwd	;Moving Forward dir?
+	bra	DM3_IdleServo	; Yes
+	bsf	MD3_FRev
+	movf	ServoFastReverse,W
+	movwf	ssMD3_Dest
+	movf	ServoFastReverse+1,W
+	movwf	ssMD3_Dest+1
+;
+DM3_UpdatePos	movf	ServoSpeed,F
+	SKPNZ		;Speed = 0?
+	bra	DM3_NoSpeed	; yes
+	btfss	PulseSent	;Time to update?
+	goto	ModeReturn	; No
+	bcf	PulseSent
+;Param7D:Param7C = Dest-Cur
+	movf	ssCurPos,W
+	subwf	ssMD3_Dest,W
+	movwf	Param7C
+	movf	ssCurPos+1,W
+	subwfb	ssMD3_Dest+1,W
+	movwf	Param7D
+; if Param7D:Param7C = 0 then we are In Position
+	iorwf	Param7C,W
+	SKPNZ
+	bra	DM3_Go	; if Cmd = Cur Go
+;
+;
+	BTFSS	Param7D,7	;Cmd<Cur? Set if Cur>Cmd
+	GOTO	DM3_MovPlus	; Yes
+;Move minus
+	INCFSZ	Param7D,W	;Dist=0xFFxx?
+	GOTO	DM3_Minus	; No
+	MOVF	ServoSpeed,W
+	ADDWF	Param7C,W
+	BTFSC	_C	;Dist<Speed?
+	bra	DM3_NoSpeed	; No
+;
+; Subtract speed from current position
+DM3_Minus	MOVF	ServoSpeed,W
+	SUBWF	ssCurPos,F	;SigOutTime
+	MOVLW	0x00
+	SUBWFB	ssCurPos+1,F	;SigOutTimeH
+	bra	DM3_Go
+;
+;=============================
+; 7D:7C = distance to go
+;
+DM3_MovPlus	MOVF	Param7D,F
+	SKPZ		;Dist>255 to go?
+	bra	DM3_Plus	; Yes
+	MOVF	ServoSpeed,W
+	SUBWF	Param7C,W	;Dist-Speed
+	SKPNB		;Speed>Dist?
+	bra	DM3_NoSpeed	; Yes
+;
+DM3_Plus	MOVF	ServoSpeed,W	;7D:7C = CurPos + Speed
+	ADDWF	ssCurPos,F
+	CLRW
+	ADDWFC	ssCurPos+1,F
+	bra	DM3_Go
+;
+;
+; set current position at destination position
+DM3_NoSpeed	movf	ssMD3_Dest,W
+	movwf	ssCurPos
+	movf	ssMD3_Dest+1,W
+	movwf	ssCurPos+1
+;
+DM3_Go	movf	ssCurPos,W
+	movwf	Param7C
+	movf	ssCurPos+1,W
+	movwf	Param7D
+	call	ClampInt
+	call	Copy7CToSig
+	goto	ModeReturn
+;
+                       endif

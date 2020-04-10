@@ -1,8 +1,8 @@
 ;====================================================================================================
 ;
 ;    Filename:      SerialServo.asm
-;    Date:          8/11/2019
-;    File Version:  1.1b2
+;    Created:       4/26/2018
+;    File Version:  1.1b3   4/10/2020
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -27,6 +27,7 @@
 ;Mode 4: Gripper force control.
 ;
 ;    History:
+; 1.1b3   4/10/2020    Improved Mode 3
 ; 1.1b2   8/11/2019	Continue fixes for 14bit encoder. New defaults Mode 3 (2950 ±100, fast, Idle center)
 ; 1.1b1   3/21/2019	Port for Rev C PCB
 ; 1.0b7   10/3/2018	Mode 3 is working for 4-wheel rover corner pivot motors.
@@ -44,9 +45,6 @@
 ;====================================================================================================
 ; ToDo:
 ;
-; Mode 3:
-; 1) On power on reset set command position to current position including offset.
-; 2) Speed is used as acceleration, add speed (counts/second).
 ;
 ;====================================================================================================
 ;====================================================================================================
@@ -55,7 +53,7 @@
 ;   Mode 0: (LED 1 = off) servo test mode, copy AN4 Pot value to servo.
 ;   Mode 1: (LED 1 = 1 flash) servo  and encoder test mode, AN4 Pot value - EncoderVal to servo dir.
 ;   Mode 2: Basic Serial Servo, output servo pulse of CmdPos * 0.5uS.
-;   Mode 3: Absolute encoder position control.
+;   Mode 3: Absolute encoder position control, Single rotation of encoder, Continuous rotation servo.
 ;   Mode 4: Gripper force control.
 ;====================================================================================================
 ;
@@ -124,12 +122,10 @@
 	constant	UseRS232SyncBytes=1
 kRS232SyncByteValue	EQU	0xDD
 	constant	UseRS232Chksum=1
-	constant               UsePID=1
+	constant               UsePID=0
 ;
 kRS232_MasterAddr	EQU	0x01	;Master's Address
 kRS232_SlaveAddr	EQU	0x02	;This Slave's Address
-kInitialPosCmd         EQU                    .8192                  ;Init mode 3 here middle for AS5047
-//kInitialPosCmd         EQU                    .2048                  ;Init mode 3 here middle for 12 bit encoder
 kSysMode	EQU	.3	;Default Mode
 Default_Kp	EQU	.32	;Fxd4.4 10*16
 Default_Ki	EQU	0	; max gain is 255 = 15 15/16
@@ -296,8 +292,8 @@ kAuxIORevLimit	EQU	0x07
 ;
 ;
 	ssCmdPos:2		;Commanded position, 0=not used
-	ssCurPos:2
-	ssMD3_Dest:2
+	ssCurPos:2                                    ;Servo signal in 1/2 microseconds
+	                                              ;Mode 3: Target Position
 	ssTempFlags
 	ssStatus:4		;Status and condition flags for the user.
 ;
@@ -316,9 +312,11 @@ kAuxIORevLimit	EQU	0x07
 	ServoMax_uS:2
 	ServoSpeed		;0 = off, 1..63 position change per cycle
 ;
+                       if UsePID
 	Kp		;8-bit proportional Gain
 	Ki		;8-bit integral Gain
 	Kd		;8-bit derivative Gain
+	endif
 ;
 	SysMode
 	RS232_MasterAddr
@@ -572,9 +570,11 @@ AS5047D_Flags	EQU	Param70	;Check that Param70 is OK to use
 	de	low kMaxPulseWidth	;nvServoMax_uS
 	de	high kMaxPulseWidth
 	de	kServoSpeed	;nvServoSpeed
+	if UsePID
 	de	Default_Kp	;8-bit proportional Gain
 	de	Default_Ki	;8-bit integral Gain
 	de	Default_Kd	;8-bit derivative Gain
+	endif
 	de	kSysMode	;nvSysMode
 	de	kRS232_MasterAddr	;nvRS232_MasterAddr, 0x0F
 	de	kRS232_SlaveAddr	;nvRS232_SlaveAddr, 0x10
@@ -602,9 +602,13 @@ AS5047D_Flags	EQU	Param70	;Check that Param70 is OK to use
 	nvServoMin_uS:2
 	nvServoMax_uS:2
 	nvServoSpeed
+;
+	if UsePID
                        nvKp
                        nvKi
                        nvKd
+                       endif
+;
 	nvSysMode
 	nvRS232_MasterAddr
 	nvRS232_SlaveAddr
@@ -1016,7 +1020,7 @@ ML_Ser_End:
 	brw
 	goto	DoModeZero
 	goto	DoModeOne
-	goto	DoModeTwo
+	goto	DoModeTwo	
 	goto	DoModeThree
 	goto	DoMode4
 ;
@@ -1275,175 +1279,239 @@ DoModeTwo_1:
 	bsf	ServoIdle	;power down servo
 	goto	ModeReturn
 ;
+
 ;=========================================================================================
-;Idle routine for Absolute encoder position control.
-; if ssCmdPos > EncoderVal set servo to ServoFastForward
-; elseif ssCmdPos + DeadBand < EncoderVal set servo to ServoFastReverse
-; else Set ServoIdle
+;Idle routine for Absolute encoder position control w/ continuous rotation servo.
+;
+;Entry: ssCmdPos = user's command, ssCurPos
+;
+;error = ((EncoderVal + EncoderOffset) mod 16384)-ssCmdPos
+;if DeadBand>0 then
+;  if abs(error)<DeadBand then error=0
+;
+;if error=0 then
+;  IdleServo
+;else
+;  if error<-128 then error= -128
+;  if error>127 then error = 127
+;  servo=ServoStopCenter-error
 ;
 ; Ram Used:Param79,Param7A,Param7C,Param7D
 ;
 DoModeThree	movlb	0	;bank 0
 	btfsc	ssCmdPos+1,7
-	bra	DM3_IdleServo
+	bra	DM3_ServoHere
 ;
 ;Check for over current, kill position command if over current is detected.
 	call	CheckCurrent
 	btfss	OverCurrentFlag
 	bra	DM3_NotOverCurrent
+;
+	bsf	ssio_OverCurSD
+	bcf	OverCurrentFlag
+;
 	clrf	ssCmdPos
 	clrf	ssCmdPos+1
 	bsf	ssCmdPos+1,7
-	bsf	ssio_OverCurSD
-	bcf	OverCurrentFlag
+; Servo Here
+DM3_ServoHere	movf	EncoderVal,W
+	addwf	EncoderOffset,W
+                       movwf                  ssCurPos
+	movf	EncoderVal+1,W
+	addwfc	EncoderOffset+1,W
+                       movwf                  ssCurPos+1
+;
 	bra	DM3_IdleServo
 ;
-DM3_NotOverCurrent:
-;Param7A:Param79 = ssCmdPos
-	bcf	ssio_OverCurSD
-	movf	ssCmdPos,W
-	movwf	Param79
-	movf	ssCmdPos+1,W
-	movwf	Param7A
+DM3_NotOverCurrent	bcf	ssio_OverCurSD
 ;
-;Param7A:Param79 = Param7A:Param79 - ((EncoderVal + EncoderOffset) mod 16384)
-	movf	EncoderVal,W
+; if speed = 0 then just be there
+                       movf                   ServoSpeed,F
+                       SKPZ
+                       bra                    DM3_CalcCurPos
+DM3_ServoThere         movf                   ssCmdPos,W
+                       movwf                  ssCurPos
+                       movf                   ssCmdPos+1,W
+                       movwf                  ssCurPos+1
+                       bra                    DM3_SetServoPWM
+;
+DM3_CalcCurPos         btfss	PulseSent	;Time to update?
+	bra	DM3_SetServoPWM	; No
+	bcf	PulseSent
+;
+;if ssCmdPos<>ssCurPos then
+;  if ssCmdPos>ssCurPos then
+;    if ssCmdPos>ssCurPos+ServoSpeed then
+;      ssCurPos += ServoSpeed
+;    else
+;      ssCurPos = ssCmdPos
+;  else
+;    if ssCmdPos<ssCurPos-ServoSpeed then
+;      ssCurPos -= ServoSpeed
+;    else
+;      ssCurPos = ssCmdPos
+;
+                       movf                   ssCmdPos,W             ;ssCurPos-ssCmdPos
+                       subwf                  ssCurPos,W
+                       movwf                  Param78
+                       movf                   ssCmdPos+1,W
+                       subwfb                 ssCurPos+1,W
+                       iorwf                  Param78,W
+                       SKPNZ                                         ;ssCmdPos=ssCurPos/
+                       bra                    DM3_SetServoPWM        ; Yes
+;
+                       SKPB                                          ;ssCmdPos>ssCurPos?
+                       bra                    DM3_GoRev              ; No
+; ssCmdPos>ssCurPos forward
+                       bsf                    MD3_FFwd
+                       bcf                    MD3_FRev
+;ssCurPos += ServoSpeed
+                       movf                   ServoSpeed,W
+                       addwf                  ssCurPos,F
+                       movlw                  0x00
+                       addwfc                 ssCurPos+1,F
+;
+                       movf                   ssCmdPos,W             ;(ssCurPos+Speed)-ssCmdPos
+                       subwf                  ssCurPos,W
+                       movf                   ssCmdPos+1,W
+                       subwfb                 ssCurPos+1,W
+                       SKPB
+                       bra                    DM3_ServoThere
+                       bra                    DM3_SetServoPWM
+;                       
+; ssCmdPos<ssCurPos reverse
+DM3_GoRev              bcf                    MD3_FFwd
+                       bsf                    MD3_FRev
+;
+                       movf                   ServoSpeed,W
+                       subwf                  ssCurPos,F
+                       movlw                  0x00
+                       subwfb                 ssCurPos+1,F
+;
+                       movf                   ssCmdPos,W             ;(ssCurPos-Speed)-ssCmdPos
+                       subwf                  ssCurPos,W
+                       movf                   ssCmdPos+1,W
+                       subwfb                 ssCurPos+1,W
+                       SKPNB
+                       bra                    DM3_ServoThere
+;
+;Param7A:Param79 = ((EncoderVal + EncoderOffset) mod 16384)
+DM3_SetServoPWM	movf	EncoderVal,W
 	addwf	EncoderOffset,W
-	movwf	Param7C
+	movwf	Param79
 	movf	EncoderVal+1,W
 	addwfc	EncoderOffset+1,W
 	andlw	0x3F
-	movwf	Param7D
-	movf	Param7C,W	;(EncoderVal + EncoderOffset) mod 16384
-	subwf	Param79,F
-	movf	Param7D,W
-	subwfb	Param7A,F
-;
-	btfss	Param7A,7	;Param7A:Param79 < 0?
-	bra	DM3_FF	; No, EncoderVal <= ssCmdPos
-;
-;Param7A:Param79 = ssCmdPos + DeadBand
-	movf	DeadBand,W
-	addwf	ssCmdPos,W
-	movwf	Param79
-	movlw	0x00
-	addwfc	ssCmdPos+1,W
 	movwf	Param7A
-;
-;Param7A:Param79 = Param7A:Param79 - EncoderVal
-	movf	Param7C,W	;(EncoderVal + EncoderOffset) mod 4096
+; Calculate Error
+;Param7A:Param79 = ((EncoderVal + EncoderOffset) mod 16384) - ssCurPos
+	movf	ssCurPos,W	;(EncoderVal + EncoderOffset) mod 16384
 	subwf	Param79,F
-	movf	Param7D,W
+	movf	ssCurPos+1,W
 	subwfb	Param7A,F
+; if error = 0 then idle
+                       movf                   Param79,W
+                       iorwf                  Param7A,W
+                       SKPNZ
+                       bra                    DM3_IdleServo
+; if DeadBand = 0 then skip DB check
+                       movf                   DeadBand,F
+                       SKPNZ
+                       bra                    DM3_NoDB
+; if error<0 then error=abs(error)
+                       movf                   Param79,W
+                       movwf                  Param7C
+                       movf                   Param7A,W
+                       movwf                  Param7D
+                       btfss                  Param7A,7
+                       bra                    DM3_ErrIsPos
+                       clrf                   Param7C
+                       clrf                   Param7D
+                       movf                   Param79,W
+                       subwf                  Param7C,F
+                       movf                   Param7A,W
+                       subwfb                 Param7D,F
 ;
-	btfsc	Param7A,7	;Param7A:Param79 < 0?
-	bra	DM3_FR	; Yes, EncoderVal > (ssCmdPos + DeadBand)
+;if Error>255 then ignor DB
+DM3_ErrIsPos           movf                   Param7D,F
+                       SKPZ                                          ;Error>255?
+                       bra                    DM3_NoDB               ; Yes
+                       movf                   DeadBand,W
+                       subwf                  Param7C,F              ;Param7C = Error - DB
+                       SKPNB                                         ;DB>Error?
+                       bra                    DM3_IdleServo          ; Yes
 ;
-; EncoderVal > ssCmdPos && EncoderVal <= (ssCmdPos + DeadBand)
-DM3_IdleServo	bcf	MD3_FFwd
-	bcf	MD3_FRev
-	btfss	ssMode3IdleCenter
+; if error<-128 then error = -128
+DM3_NoDB               btfss                  Param7A,7              ;Error is negative
+                       bra                    DM3_PosLimit
+                       movlw                  0x7F
+                       iorwf                  Param79,W              ;high bit only
+                       andwf                  Param7A,W
+                       xorlw                  0xFF
+                       SKPNZ                                         ;< -128?
+                       bra                    DM3_CalcSCmd           ; No
+                       movlw                  0x80
+                       movwf                  Param79
+                       bra                    DM3_CalcSCmd
+;
+; if error >= 128 then error = 127
+DM3_PosLimit           movlw                  0x80
+                       andwf                  Param79,W
+                       iorwf                  Param7A,W
+                       SKPNZ                                         ;>= 128?
+                       bra                    DM3_CalcSCmd           ; No
+                       movlw                  0x7F
+                       movwf                  Param79
+;
+DM3_CalcSCmd           movf                   Param79,W
+                       btfsc                  ssReverseDir           ;Moves reversed?
+                       sublw                  0x00                   ; Yes, 2's comp
+                       movwf                  Param79
+;
+;0.5 x gain
+;                       asrf                   Param79,W
+;
+;
+                       subwf                  ServoStopCenter,W
+                       movwf                  Param7C
+                       movlw                  0x00
+                       btfsc                  Param79,7              ;is neg?
+                       movlw                  0xFF                   ; yes, sign extend it
+                       subwfb                 ServoStopCenter+1,W
+                       movwf                  Param7D
+                       bra	DM3_UpdatePos
+;
+;
+; abs(Error) <= DeadBand
+; if ssMode3IdleCenter then
+;   servo=ServoStopCenter
+; else
+;   ServoIdle=true
+;
+DM3_IdleServo	btfss	ssMode3IdleCenter
 	bra	DM3_IdleInactive
 	movf	ServoStopCenter,W
-	movwf	ssMD3_Dest
-	movwf	ssCurPos
-	movf	ServoStopCenter+1,W
-	movwf	ssMD3_Dest+1
-	movwf	ssCurPos+1
-	bra	DM3_UpdatePos
-;
-DM3_IdleInactive	bsf	ServoIdle
-	goto	ModeReturn
-;
-DM3_FF	btfsc	ssReverseDir
-	bra	DM3_FR_1
-DM3_FF_1	btfsc	MD3_FRev	;Moving Reverse dir?
-	bra	DM3_IdleServo	; Yes
-	bsf	MD3_FFwd
-	movf	ServoFastForward,W
-	movwf	ssMD3_Dest
-	movf	ServoFastForward+1,W
-	movwf	ssMD3_Dest+1
-	bra	DM3_UpdatePos
-;
-DM3_FR	btfsc	ssReverseDir
-	bra	DM3_FF_1
-DM3_FR_1	btfsc	MD3_FFwd	;Moving Forward dir?
-	bra	DM3_IdleServo	; Yes
-	bsf	MD3_FRev
-	movf	ServoFastReverse,W
-	movwf	ssMD3_Dest
-	movf	ServoFastReverse+1,W
-	movwf	ssMD3_Dest+1
-;
-DM3_UpdatePos	movf	ServoSpeed,F
-	SKPNZ		;Speed = 0?
-	bra	DM3_NoSpeed	; yes
-	btfss	PulseSent	;Time to update?
-	goto	ModeReturn	; No
-	bcf	PulseSent
-;Param7D:Param7C = Dest-Cur
-	movf	ssCurPos,W
-	subwf	ssMD3_Dest,W
 	movwf	Param7C
-	movf	ssCurPos+1,W
-	subwfb	ssMD3_Dest+1,W
+	movf	ServoStopCenter+1,W
 	movwf	Param7D
-; if Param7D:Param7C = 0 then we are In Position
-	iorwf	Param7C,W
-	SKPNZ
-	bra	DM3_Go	; if Cmd = Cur Go
-;
-;
-	BTFSS	Param7D,7	;Cmd<Cur? Set if Cur>Cmd
-	GOTO	DM3_MovPlus	; Yes
-;Move minus
-	INCFSZ	Param7D,W	;Dist=0xFFxx?
-	GOTO	DM3_Minus	; No
-	MOVF	ServoSpeed,W
-	ADDWF	Param7C,W
-	BTFSC	_C	;Dist<Speed?
-	bra	DM3_NoSpeed	; No
-;
-; Subtract speed from current position
-DM3_Minus	MOVF	ServoSpeed,W
-	SUBWF	ssCurPos,F	;SigOutTime
-	MOVLW	0x00
-	SUBWFB	ssCurPos+1,F	;SigOutTimeH
-	bra	DM3_Go
-;
-;=============================
-; 7D:7C = distance to go
-;
-DM3_MovPlus	MOVF	Param7D,F
-	SKPZ		;Dist>255 to go?
-	bra	DM3_Plus	; Yes
-	MOVF	ServoSpeed,W
-	SUBWF	Param7C,W	;Dist-Speed
-	SKPNB		;Speed>Dist?
-	bra	DM3_NoSpeed	; Yes
-;
-DM3_Plus	MOVF	ServoSpeed,W	;7D:7C = CurPos + Speed
-	ADDWF	ssCurPos,F
-	CLRW
-	ADDWFC	ssCurPos+1,F
-	bra	DM3_Go
-;
+                       bcf                    MD3_FFwd
+                       bcf                    MD3_FRev
+	bcf	ServoIdle
 ;
 ; set current position at destination position
-DM3_NoSpeed	movf	ssMD3_Dest,W
-	movwf	ssCurPos
-	movf	ssMD3_Dest+1,W
-	movwf	ssCurPos+1
+; Entry: Param7D:Param7C servo signal in 1/2 microseconds
 ;
-DM3_Go	movf	ssCurPos,W
-	movwf	Param7C
-	movf	ssCurPos+1,W
-	movwf	Param7D
-	call	ClampInt
+DM3_UpdatePos	call	ClampInt
 	call	Copy7CToSig
 	goto	ModeReturn
 ;
+;
+DM3_IdleInactive	bsf	ServoIdle
+                       bcf                    MD3_FFwd
+                       bcf                    MD3_FRev
+	goto	ModeReturn
+;
+;=============================
 ;=========================================================================================
 ;Idle routine for Gripper Serial Servo mode
 ; Servo is set to idle only is no command or over current.
