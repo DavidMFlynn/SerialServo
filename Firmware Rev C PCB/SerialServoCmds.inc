@@ -155,6 +155,7 @@ Cmd_SetCmdPos_end:
 	movwi	FSR0++
 	movf	ssCmdPos+1,W
 	movwi	FSR0++
+	bcf                    ssCmdPosVerified
 	goto	RS232_Send_S0
 ;
 Cmd_GetCmdPos_end:

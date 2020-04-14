@@ -229,10 +229,17 @@ kServoFastDwellTime	EQU	.20000	;10mS
 kServoSpeed	EQU	.10	;Slow 5uS/Update
 kssFlags	EQU	b'00011001'	;ssEnableFastPWM,ssMode3IdleCenter,ssEnableOverCur=true
 kssMaxI	EQU	.50	;Low
-kMinPulseWidth	EQU	.1800	;900uS
 kMidPulseWidth	EQU	.3000	;1500uS
+;
+                       if kSysMode==3
+kMinPulseWidth	EQU	.100	;100 encoder counts
+kMaxPulseWidth	EQU	.16280	;Max encoder value for ssCmdPos
+                       else
+kMinPulseWidth	EQU	.1800	;900uS
 kMaxPulseWidth	EQU	.4200	;2100uS
-kServoCenterStop	EQU	.2950
+                       endif
+;
+kServoCenterStop	EQU	.2945                  ;test value
 kServoFastForward	EQU	kServoCenterStop+.100
 kServoFastReverse	EQU	kServoCenterStop-.100
 kDeadBand	EQU	.100	;100 encoder counts
@@ -305,8 +312,8 @@ kAuxIORevLimit	EQU	0x07
                        EncoderHome:2                                 ;Absolute Home
                        EncoderOffset:2		;Used in mode 2 for single rotation
 ;
-	ServoFastForward:2
 	ServoFastReverse:2
+	ServoFastForward:2
 	ServoStopCenter:2		;Mode 3 Idle position
 	ServoMin_uS:2
 	ServoMax_uS:2
@@ -334,6 +341,10 @@ kAuxIORevLimit	EQU	0x07
 ;
 	endc
 ;--------------------------------------------------------------
+;
+MD3_MinCmd             equ                    ServoMin_uS
+MD3_MaxCmd             equ                    ServoMax_uS
+;
 ;---SerFlags bits---
 #Define	DataReceivedFlag	SerFlags,1
 #Define	DataSentFlag	SerFlags,2
@@ -357,6 +368,7 @@ kAuxIORevLimit	EQU	0x07
 ; all bits of ssStatus+1 are cleared by a host kCmd_GetStatus command.
 #Define	ssEncParityError	ssStatus+1,0	;cleared by host read
 #Define	ssEncCmdError	ssStatus+1,1	;cleared by host read	
+#Define                ssCmdPosVerified       ssStatus+1,2
 ;
 ;---------------
 #Define	FirstRAMParam	EncoderFlags
@@ -559,10 +571,10 @@ AS5047D_Flags	EQU	Param70	;Check that Param70 is OK to use
 	de	0x00	;nvEncoderFlags
 	de	0x00,0x00	;nvEncoderHome
 	de	0x00,0x00	;nvEncoderOffset
-	de	low kServoFastForward
-	de	high kServoFastForward
 	de	low kServoFastReverse
 	de	high kServoFastReverse
+	de	low kServoFastForward
+	de	high kServoFastForward
 	de	low kServoCenterStop	;nvServoStopCenter
 	de	high kServoCenterStop
 	de	low kMinPulseWidth	;nvServoMin_uS
@@ -596,8 +608,8 @@ AS5047D_Flags	EQU	Param70	;Check that Param70 is OK to use
                        nvEncoderHome:2
                        nvEncoderOffset:2
 ;
-	nvServoFastForward:2
 	nvServoFastReverse:2
+	nvServoFastForward:2
 	nvServoStopCenter:2
 	nvServoMin_uS:2
 	nvServoMax_uS:2
@@ -1309,7 +1321,7 @@ DoModeThree	movlb	0	;bank 0
 ;
 	bsf	ssio_OverCurSD
 	bcf	OverCurrentFlag
-;
+;Flag as no cmd pos.
 	clrf	ssCmdPos
 	clrf	ssCmdPos+1
 	bsf	ssCmdPos+1,7
@@ -1324,6 +1336,19 @@ DM3_ServoHere	movf	EncoderVal,W
 	bra	DM3_IdleServo
 ;
 DM3_NotOverCurrent	bcf	ssio_OverCurSD
+                       btfsc                  ssCmdPosVerified       ;Has been verified?
+                       bra                    DM3_CPV_End            ; Yes
+                       movf                   ssCmdPos,W             ; No, Clamp and mark as verified.
+                       movwf                  Param7C
+                       movf                   ssCmdPos+1,W
+                       movwf                  Param7D
+                       call                   ClampInt               ;MD3_MinCmd<=ssCurPos<=MD3_MaxCmd
+                       movf                   Param7C,W
+                       movwf                  ssCmdPos
+                       movf                   Param7D,W
+                       movwf                  ssCmdPos+1
+                       bsf                    ssCmdPosVerified
+DM3_CPV_End:
 ;
 ; if speed = 0 then just be there
                        movf                   ServoSpeed,F
@@ -1501,7 +1526,7 @@ DM3_IdleServo	btfss	ssMode3IdleCenter
 ; set current position at destination position
 ; Entry: Param7D:Param7C servo signal in 1/2 microseconds
 ;
-DM3_UpdatePos	call	ClampInt
+DM3_UpdatePos	call	ClampIntMD3
 	call	Copy7CToSig
 	goto	ModeReturn
 ;
@@ -1877,19 +1902,26 @@ StopServo	movlb	0	;bank 0
 	return
 ;
 ;=========================================================================================
+; ClampInt(Param7D:Param7C,ServoFastReverse,ServoFastForward)
+;
+ClampIntMD3            mMOVLF                 ServoFastReverse,FSR0
+                       bra                    ClampInt_E2
+;
 ; ClampInt(Param7D:Param7C,ServoMin_uS,ServoMax_uS)
 ;
 ; Entry: Param7D:Param7C
 ; Exit: Param7D:Param7C=ClampInt(Param7D:Param7C,ServoMin_uS,ServoMax_uS)
+; Ram Used: FSR0
 ;
-ClampInt	movlb	0
-	MOVF	ServoMax_uS+1,W
+ClampInt	mMOVLF                 ServoMin_uS,FSR0
+ClampInt_E2            movlb	0
+                       moviw                  3[FRS0]                ;ServoMax_uS+1,W
 	SUBWF	Param7D,W	;7D-ServoMax_uS
 	SKPNB		;7D<Max?
 	GOTO	ClampInt_1	; Yes
 	SKPZ		;7D=Max?
 	GOTO	ClampInt_tooHigh	; No, its greater.
-	MOVF	ServoMax_uS,W	; Yes, MSB was equal check LSB
+	moviw                  2[FRS0]	; Yes, MSB was equal check LSB
 	SUBWF	Param7C,W	;7C-ServoMax_uS
 	SKPNZ		;=ServoMax_uS
 	RETURN		;Yes
@@ -1897,26 +1929,26 @@ ClampInt	movlb	0
 	GOTO	ClampInt_tooHigh	; No
 	RETURN		; Yes
 ;
-ClampInt_1	MOVF	ServoMin_uS+1,W
+ClampInt_1	moviw                  1[FRS0]	;ServoMin_uS+1,W
 	SUBWF	Param7D,W	;7D-ServoMin_uS
 	SKPNB		;7D<Min?
 	GOTO	ClampInt_tooLow	; Yes
 	SKPZ		;=Min?
 	RETURN		; No, 7D>ServoMin_uS
-	MOVF	ServoMin_uS,F	; Yes, MSB is a match
+	moviw                  0[FRS0]	; Yes, MSB is a match
 	SUBWF	Param7C,W	;7C-ServoMin_uS
 	SKPB		;7C>=Min?
 	RETURN		; Yes
 ;
-ClampInt_tooLow	MOVF	ServoMin_uS,W
+ClampInt_tooLow	moviw                  0[FRS0]
 	MOVWF	Param7C
-	MOVF	ServoMin_uS+1,W
+	moviw                  1[FRS0]
 	MOVWF	Param7D
 	RETURN
 ;
-ClampInt_tooHigh	MOVF	ServoMax_uS,W
+ClampInt_tooHigh	moviw                  2[FRS0]
 	MOVWF	Param7C
-	MOVF	ServoMax_uS+1,W
+	moviw                  3[FRS0]
 	MOVWF	Param7D
 	RETURN
 ;
