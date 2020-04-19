@@ -94,14 +94,14 @@
 	constant	UseAltSerialPort=1
 	constant	RP_LongAddr=0
 	constant	RP_AddressBytes=1
-	constant	RP_DataBytes=6
+	constant	RP_DataBytes=4
 	constant	UseRS232SyncBytes=1
 kRS232SyncByteValue	EQU	0xDD
 	constant	UseRS232Chksum=1
 ;
 kRS232_MasterAddr	EQU	0x01	;Master's Address
 kRS232_SlaveAddr	EQU	0x02	;This Slave's Address
-kSysMode	EQU	.3	;Default Mode
+kSysMode	EQU	.0	;Default Mode
 ;
 #Define	_C	STATUS,C
 #Define	_Z	STATUS,Z
@@ -195,7 +195,7 @@ BaudRate	EQU	Baud_38400
 kSysFlags	EQU	.0
 ;
 DebounceTime	EQU	.10
-kMaxMode	EQU	.4
+kMaxMode	EQU	.0
 ;
 ;=========================================================================================
 ;***** VARIABLE DEFINITIONS
