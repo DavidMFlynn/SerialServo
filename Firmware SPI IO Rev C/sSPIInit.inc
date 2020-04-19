@@ -60,7 +60,6 @@ InitializeIO	MOVLB	0x01	; select bank 1
 	movlw	PortBDDRBits	;setup for programer
 	movwf	TRISB
 ;
-	if useRS232
 ; setup serial I/O
 	BANKSEL	BAUDCON	; bank 3
 	movlw	BAUDCON_Value
@@ -77,7 +76,6 @@ InitializeIO	MOVLB	0x01	; select bank 1
 	BSF	PIE1,RCIE	; Serial Receive interupt
 	movlb	0x00	; bank 0
 ;
-	endif
 ;
 	CLRWDT
 ;-----------------------
@@ -87,8 +85,6 @@ InitializeIO	MOVLB	0x01	; select bank 1
 	MOVWF	SysLED_Time
 	movlw	0x01
 	movwf	SysLEDCount	;start blinking right away
-	movlw	.100
-	movwf	Timer4Lo	;ignor buttons for 1st second
 ;
 	CLRWDT
 ;

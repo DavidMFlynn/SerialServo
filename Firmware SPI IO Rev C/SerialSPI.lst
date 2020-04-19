@@ -109,7 +109,7 @@ SerialSPI.asm                                                         Page: 1
 00094 0000 		constant	UseAltSerialPort=1
 00095 0000 		constant	RP_LongAddr=0
 00096 0000 		constant	RP_AddressBytes=1
-00097 0000 		constant	RP_DataBytes=4
+00097 0000 		constant	RP_DataBytes=6
 00098 0000 		constant	UseRS232SyncBytes=1
 00099 0000 00DD 	kRS232SyncByteValue	EQU	0xDD
 00100 0000 		constant	UseRS232Chksum=1
@@ -266,1307 +266,1300 @@ SerialSPI.asm                                                         Page: 1
 00250 0000 0030 	#Define	DataSentFlag	SerFlags,2
 00251 0000 	;
 00252 0000 	;----ssStatus bits
-00253 0000 0032 	#Define	MD3_FFwd	ssStatus,0
-00254 0000 0032 	#Define	MD3_FRev	ssStatus,1
-00255 0000 0032 	#Define	ssio_OverCurSD	ssStatus,2	;Servo stopped for over-current
-00256 0000 0032 	#Define	ssRX_Timeout	ssStatus,3	;cleared by host read
-00257 0000 0032 	#Define	ssGripOCur	ssStatus,4	;cleared by host read
-00258 0000 0032 	#Define	ssGripMCur	ssStatus,5	;cleared by host read
-00259 0000 	;
-00260 0000 	; all bits of ssStatus+1 are cleared by a host kCmd_GetStatus command.
-00261 0000 0033 	#Define	ssEncParityError	ssStatus+1,0	;cleared by host read
-00262 0000 0033 	#Define	ssEncCmdError	ssStatus+1,1	;cleared by host read	
-00263 0000 0033 	#Define                ssCmdPosVerified       ssStatus+1,2
-00264 0000 	;
-00265 0000 	;---------------
-00266 0000 0036 	#Define	FirstRAMParam	SysMode
-00267 0000 0039 	#Define	LastRAMParam	SysFlags
-00268 0000 	;
-00269 0000 	;=========================================================================================
-00270 0000 	;  Bank1 Ram 0A0h-0EFh 80 Bytes
-00271 0000 	;
-00272 0000 		cblock	0x0A0
+00253 0000 0032 	#Define	ssRX_Timeout	ssStatus,3	;cleared by host read
+00254 0000 	;
+00255 0000 	;---------------
+00256 0000 0036 	#Define	FirstRAMParam	SysMode
+00257 0000 0039 	#Define	LastRAMParam	SysFlags
+00258 0000 	;
+00259 0000 	;=========================================================================================
+00260 0000 	;  Bank1 Ram 0A0h-0EFh 80 Bytes
+00261 0000 	;
+00262 0000 		cblock	0x0A0
+00263 0000 	;
+00264 0000 00A0 		RX_ParseFlags
+00265 0000 00A1 		RX_Flags
+00266 0000 00A2 		RX_DataCount
+00267 0000 00A3 		RX_CSUM
+00268 0000 00A4 		RX_SrcAdd:RP_AddressBytes
+00269 0000 00A5 		RX_DstAdd:RP_AddressBytes
+00270 0000 00A6 		RX_TempData:RP_DataBytes
+00271 0000 00AC 		RX_Data:RP_DataBytes
+00272 0000 00B2 		TX_Data:RP_DataBytes
 00273 0000 	;
-00274 0000 00A0 		RX_ParseFlags
-00275 0000 00A1 		RX_Flags
-00276 0000 00A2 		RX_DataCount
-00277 0000 00A3 		RX_CSUM
-00278 0000 00A4 		RX_SrcAdd:RP_AddressBytes
-00279 0000 00A5 		RX_DstAdd:RP_AddressBytes
-00280 0000 00A6 		RX_TempData:RP_DataBytes
-00281 0000 00AA 		RX_Data:RP_DataBytes
-00282 0000 00AE 		TX_Data:RP_DataBytes
-00283 0000 	;
-00284 0000 		endc
-00285 0000 	;
-00286 0000 	;
-00287 0000 	;=========================================================================================
-00288 0000 	;  Bank2 Ram 120h-16Fh 80 Bytes
-00289 0000 	;
-00290 0000 0002 	#Define	Ser_Buff_Bank	2
+00274 0000 		endc
+00275 0000 	;
+00276 0000 	;
+00277 0000 	;=========================================================================================
+00278 0000 	;  Bank2 Ram 120h-16Fh 80 Bytes
+00279 0000 	;
+00280 0000 0002 	#Define	Ser_Buff_Bank	2
+00281 0000 	;
+00282 0000 		cblock	0x120
+00283 0000 0120 		Ser_In_Bytes		;Bytes in Ser_In_Buff
+00284 0000 0121 		Ser_Out_Bytes		;Bytes in Ser_Out_Buff
+00285 0000 0122 		Ser_In_InPtr
+00286 0000 0123 		Ser_In_OutPtr
+00287 0000 0124 		Ser_Out_InPtr
+00288 0000 0125 		Ser_Out_OutPtr
+00289 0000 0126 		Ser_In_Buff:20
+00290 0000 0146 		Ser_Out_Buff:20
 SerialSPI.asm                                                         Page: 4
 /Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
 
-00291 0000 	;
-00292 0000 		cblock	0x120
-00293 0000 0120 		Ser_In_Bytes		;Bytes in Ser_In_Buff
-00294 0000 0121 		Ser_Out_Bytes		;Bytes in Ser_Out_Buff
-00295 0000 0122 		Ser_In_InPtr
-00296 0000 0123 		Ser_In_OutPtr
-00297 0000 0124 		Ser_Out_InPtr
-00298 0000 0125 		Ser_Out_OutPtr
-00299 0000 0126 		Ser_In_Buff:20
-00300 0000 0146 		Ser_Out_Buff:20
-00301 0000 		endc
-00302 0000 	;
-00303 0000 	;=========================================================================================
-00304 0000 	;  Bank3 Ram 1A0h-1EFh 80 Bytes
-00305 0000 	;
-00306 0000 	                       cblock                 0x1A0
-00307 0000 	;
-00308 0000 01A0 	                       SPI_Flags
-00309 0000 01A1 	                       SPI_InBuff:5                                  ;Status,MSB..LSB
-00310 0000 01A6 	                       SPI_OutBuff:5                                 ;Address,MSB..LSB
-00311 0000 	;
-00312 0000 	                       endc
+00291 0000 		endc
+00292 0000 	;
+00293 0000 	;=========================================================================================
+00294 0000 	;  Bank3 Ram 1A0h-1EFh 80 Bytes
+00295 0000 	;
+00296 0000 	                       cblock                 0x1A0
+00297 0000 	;
+00298 0000 01A0 	                       SPI_Flags
+00299 0000 01A1 	                       SPI_InBuff:5                                  ;Status,MSB..LSB
+00300 0000 01A6 	                       SPI_OutBuff:5                                 ;Address,MSB..LSB
+00301 0000 	;
+00302 0000 	                       endc
+00303 0000 	;
+00304 0000 	;=========================================================================================
+00305 0000 	;  Bank4 Ram 220h-26Fh 80 Bytes
+00306 0000 	;=========================================================================================
+00307 0000 	;  Bank5 Ram 2A0h-2EFh 80 Bytes
+00308 0000 	;
+00309 0000 	;=========================================================================================
+00310 0000 	;  Common Ram 70-7F same for all banks
+00311 0000 	;      except for ISR_W_Temp these are used for paramiter passing and temp vars
+00312 0000 	;=========================================================================================
 00313 0000 	;
-00314 0000 	;=========================================================================================
-00315 0000 	;  Bank4 Ram 220h-26Fh 80 Bytes
-00316 0000 	;=========================================================================================
-00317 0000 	;  Bank5 Ram 2A0h-2EFh 80 Bytes
-00318 0000 	;
-00319 0000 	;=========================================================================================
-00320 0000 	;  Common Ram 70-7F same for all banks
-00321 0000 	;      except for ISR_W_Temp these are used for paramiter passing and temp vars
-00322 0000 	;=========================================================================================
-00323 0000 	;
-00324 0000 		cblock	0x70
-00325 0000 0070 		Param70
-00326 0000 0071 		Param71
-00327 0000 0072 		Param72
-00328 0000 0073 		Param73
-00329 0000 0074 		Param74
-00330 0000 0075 		Param75
-00331 0000 0076 		Param76
-00332 0000 0077 		Param77
-00333 0000 0078 		Param78
-00334 0000 0079 		Param79
-00335 0000 007A 		Param7A
-00336 0000 007B 		Param7B
-00337 0000 007C 		Param7C
-00338 0000 007D 		Param7D
-00339 0000 007E 		Param7E
-00340 0000 007F 		Param7F
-00341 0000 		endc
+00314 0000 		cblock	0x70
+00315 0000 0070 		Param70
+00316 0000 0071 		Param71
+00317 0000 0072 		Param72
+00318 0000 0073 		Param73
+00319 0000 0074 		Param74
+00320 0000 0075 		Param75
+00321 0000 0076 		Param76
+00322 0000 0077 		Param77
+00323 0000 0078 		Param78
+00324 0000 0079 		Param79
+00325 0000 007A 		Param7A
+00326 0000 007B 		Param7B
+00327 0000 007C 		Param7C
+00328 0000 007D 		Param7D
+00329 0000 007E 		Param7E
+00330 0000 007F 		Param7F
+00331 0000 		endc
+00332 0000 	;
+00333 0000 	;=========================================================================================
+00334 0000 	;Conditions
+00335 0000 0080 	HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
+00336 0000 	;
+00337 0000 	;
+00338 0000 	;=========================================================================================
+00339 0000 	;=========================================================================================
+00340 0000 	; ID Locations
+00341 0000 		__idlocs	0x10d1
 00342 0000 	;
 00343 0000 	;=========================================================================================
-00344 0000 	;Conditions
-00345 0000 0080 	HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
-00346 0000 	;
-00347 0000 0070 	AS5047D_Flags	EQU	Param70	;Check that Param70 is OK to use
-00348 0000 	;
-00349 0000 0070 	#Define	ParityErrFlag	AS5047D_Flags,0
-00350 0000 0070 	#Define	AngleReadFlag	AS5047D_Flags,1
-00351 0000 0070 	#define	ContinueReadFlag	AS5047D_Flags,2
-00352 0000 0070 	#Define	CmdErrorFlag	AS5047D_Flags,3
-00353 0000 	;
-00354 0000 	;=========================================================================================
-00355 0000 	;=========================================================================================
-00356 0000 	; ID Locations
-00357 0000 		__idlocs	0x10d1
-00358 0000 	;
-00359 0000 	;=========================================================================================
-00360 0000 	; EEPROM locations (NV-RAM) 0x00..0x7F (offsets)
-00361 0000 	;
-00362 0000 	; default values
-00363 0000 		ORG	0xF000
-00364 F000 0000 		de	kSysMode	;nvSysMode
-00365 F001 0001 		de	kRS232_MasterAddr	;nvRS232_MasterAddr, 0x0F
-00366 F002 0002 		de	kRS232_SlaveAddr	;nvRS232_SlaveAddr, 0x10
-00367 F003 0000 		de	kSysFlags	;nvSysFlags
-00368 F004 	;
-00369 F004 		ORG	0xF0FF
-00370 F0FF 0000 		de	0x00	;Skip BootLoader
+00344 0000 	; EEPROM locations (NV-RAM) 0x00..0x7F (offsets)
+00345 0000 	;
+00346 0000 	; default values
+00347 0000 		ORG	0xF000
+00348 F000 0000 		de	kSysMode	;nvSysMode
+00349 F001 0001 		de	kRS232_MasterAddr	;nvRS232_MasterAddr, 0x0F
+00350 F002 0002 		de	kRS232_SlaveAddr	;nvRS232_SlaveAddr, 0x10
+00351 F003 0000 		de	kSysFlags	;nvSysFlags
+00352 F004 	;
+00353 F004 		ORG	0xF0FF
+00354 F0FF 0000 		de	0x00	;Skip BootLoader
+00355 F100 	;
+00356 F100 		cblock	0x0000
+00357 F100 	;
+00358 F100 0000 		nvSysMode
+00359 F100 0001 		nvRS232_MasterAddr
+00360 F100 0002 		nvRS232_SlaveAddr
+00361 F100 0003 		nvSysFlags
+00362 F100 	;
+00363 F100 		endc
+00364 F100 	;
+00365 F100 0000 	#Define	nvFirstParamByte	nvSysMode
+00366 F100 0003 	#Define	nvLastParamByte	nvSysFlags
+00367 F100 	;
+00368 F100 	;
+00369 F100 	;==============================================================================================
+00370 F100 	;============================================================================================
 00371 F100 	;
-00372 F100 		cblock	0x0000
+00372 F100 1E00 	BootLoaderStart	EQU	0x1E00
 00373 F100 	;
-00374 F100 	;
-00375 F100 0000 		nvSysMode
-00376 F100 0001 		nvRS232_MasterAddr
-00377 F100 0002 		nvRS232_SlaveAddr
-00378 F100 0003 		nvSysFlags
-00379 F100 		endc
-00380 F100 	;
-00381 F100 0000 	#Define	nvFirstParamByte	nvSysMode
-00382 F100 0003 	#Define	nvLastParamByte	nvSysFlags
-00383 F100 	;
-00384 F100 	;
-00385 F100 	;==============================================================================================
-00386 F100 	;============================================================================================
-00387 F100 	;
-00388 F100 1E00 	BootLoaderStart	EQU	0x1E00
-00389 F100 	;
+00374 F100 		ORG	0x000	; processor reset vector
+00375 0000 319E 		movlp	BootLoaderStart
+00376 0001 2E00 		goto	BootLoaderStart
+00377 0002 018A 	ProgStartVector	CLRF	PCLATH
+00378 0003 29AC 	  	goto	start	; go to beginning of program
+00379 0004 	;
+00380 0004 	;===============================================================================================
+00381 0004 	; Interupt Service Routine
+00382 0004 	;
+00383 0004 	; we loop through the interupt service routing every 0.008192 seconds
+00384 0004 	;
+00385 0004 	;
+00386 0004 		ORG	0x004	; interrupt vector location
+00387 0004 018A 		CLRF	PCLATH
+00388 0005 0188 		CLRF	BSR	; bank0
+00389 0006 	;
 SerialSPI.asm                                                         Page: 5
 /Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
 
-00390 F100 		ORG	0x000	; processor reset vector
-00391 0000 319E 		movlp	BootLoaderStart
-00392 0001 2E00 		goto	BootLoaderStart
-00393 0002 018A 	ProgStartVector	CLRF	PCLATH
-00394 0003 29A9 	  	goto	start	; go to beginning of program
-00395 0004 	;
-00396 0004 	;===============================================================================================
-00397 0004 	; Interupt Service Routine
-00398 0004 	;
-00399 0004 	; we loop through the interupt service routing every 0.008192 seconds
-00400 0004 	;
-00401 0004 	;
-00402 0004 		ORG	0x004	; interrupt vector location
-00403 0004 018A 		CLRF	PCLATH
-00404 0005 0188 		CLRF	BSR	; bank0
-00405 0006 	;
-00406 0006 	;
-00407 0006 1C91 		BTFSS	PIR1,TMR2IF
-00408 0007 281A 		goto	SystemTick_end
-00409 0008 	;
-00410 0008 1091 		BCF	PIR1,TMR2IF	; reset interupt flag bit
-00411 0009 	;------------------
-00412 0009 	; These routines run 100 times per second
-00413 0009 	;
-00414 0009 	;------------------
-00415 0009 	;Decrement timers until they are zero
-00416 0009 	;
-00417 0009 205B 		call	DecTimer1	;if timer 1 is not zero decrement
-00418 000A 2059 		call	DecTimer2
-00419 000B 2057 		call	DecTimer3
-00420 000C 2055 		call	DecTimer4
-00421 000D 	;
-00422 000D 	;-----------------------------------------------------------------
-00423 000D 	; blink LEDs
-00424 000D 	;
-00425 000D 	; All LEDs off
-00426 000D 0021 		movlb	0x01	;bank 1
-00427 000E 178C 		bsf	SysLED_Tris
-00428 000F 	;
-00429 000F 	;
-00430 000F 	; Read Switches
-00431 000F 0020 		movlb	0x00	;bank 0
-00432 0010 	;--------------------
-00433 0010 	; Sys LED time
-00434 0010 0BA3 		DECFSZ	SysLEDCount,F	;Is it time?
-00435 0011 3208 		bra	SystemBlink_end	; No, not yet
-00436 0012 	;
-00437 0012 08A1 		movf	SysLED_Blinks,F
-00438 0013 		SKPNZ		;Standard Blinking?
-00438 0013 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
-00439 0014 3200 		bra	SystemBlink_Std	; Yes
-00440 0015 	;
-00441 0015 	; custom blinking
-00442 0015 	;
-00443 0015 01A2 	SystemBlink_Std	CLRF	SysLED_BlinkCount
-00444 0016 0820 		MOVF	SysLED_Time,W
-00445 0017 00A3 	SystemBlink_DoIt	MOVWF	SysLEDCount
-00446 0018 0021 		movlb	0x01	;bank 1
-00447 0019 138C 		bcf	SysLED_Tris	;LED ON
-00448 001A 	SystemBlink_end:
-00449 001A 	;
-00450 001A 	;-------------
-00451 001A 	;
-00452 001A 	SystemTick_end:
-00453 001A 	;
-00454 001A 	;-----------------------------------------------------------------------------------------
-00455 001A 0009 		retfie		; return from interrupt
-00456 001B 	;
-00457 001B 	;
-00458 001B 	;=========================================================================================
-00459 001B 	;*****************************************************************************************
-00460 001B 	;=========================================================================================
-00461 001B 	;
-00462 001B 		include <F1847_Common.inc>
-00001 001B 	;=========================================================================================
-00002 001B 	; Commonly used routines PIC16F1847 version
-00003 001B 	;
-00004 001B 	;    Filename:      F1847 Common.inc
-00005 001B 	;    Date:          4/6/2019
-00006 001B 	;    File Version:  1.0.2
-00007 001B 	;
-00008 001B 	;    Author:        David M. Flynn
-00009 001B 	;    Company:       Oxford V.U.E., Inc.
-00010 001B 	;    E-Mail:        dflynn@oxfordvue.com
-00011 001B 	;    Web Site:      http://www.oxfordvue.com/
-00012 001B 	;
-00013 001B 	;=========================================================================================
-00014 001B 	;    History:
-00015 001B 	;
-00016 001B 	; 1.0.2  4/6/2019	Fixes to EERead/EEwrite
-00017 001B 	; 1.0.2 2/16/2019	Fix: added FSR0H to DecTimer.
-00018 001B 	; 1.0.1 11/21/2015	Updates DecTimer.
-00019 001B 	; 1.0   11/16/2013	Updated from F648A Common.inc
-00020 001B 	;
-00021 001B 	;=========================================================================================
-00022 001B 	; Routines:
-00023 001B 	;
-00024 001B 	; ClearRam	(2+0) Clears all RAM, call once before initializing variables, FSR0
-00025 001B 	; CopyToRam	(1+0) copy param memory (EEPROM) to ram, call once, FSR0
+00390 0006 	;
+00391 0006 1C91 		BTFSS	PIR1,TMR2IF
+00392 0007 281A 		goto	SystemTick_end
+00393 0008 	;
+00394 0008 1091 		BCF	PIR1,TMR2IF	; reset interupt flag bit
+00395 0009 	;------------------
+00396 0009 	; These routines run 100 times per second
+00397 0009 	;
+00398 0009 	;------------------
+00399 0009 	;Decrement timers until they are zero
+00400 0009 	;
+00401 0009 205E 		call	DecTimer1	;if timer 1 is not zero decrement
+00402 000A 205C 		call	DecTimer2
+00403 000B 205A 		call	DecTimer3
+00404 000C 2058 		call	DecTimer4
+00405 000D 	;
+00406 000D 	;-----------------------------------------------------------------
+00407 000D 	; blink LEDs
+00408 000D 	;
+00409 000D 	; All LEDs off
+00410 000D 0021 		movlb	0x01	;bank 1
+00411 000E 178C 		bsf	SysLED_Tris
+00412 000F 	;
+00413 000F 	;
+00414 000F 	; Read Switches
+00415 000F 0020 		movlb	0x00	;bank 0
+00416 0010 	;--------------------
+00417 0010 	; Sys LED time
+00418 0010 0BA3 		DECFSZ	SysLEDCount,F	;Is it time?
+00419 0011 3208 		bra	SystemBlink_end	; No, not yet
+00420 0012 	;
+00421 0012 08A1 		movf	SysLED_Blinks,F
+00422 0013 		SKPNZ		;Standard Blinking?
+00422 0013 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
+00423 0014 3200 		bra	SystemBlink_Std	; Yes
+00424 0015 	;
+00425 0015 	; custom blinking
+00426 0015 	;
+00427 0015 01A2 	SystemBlink_Std	CLRF	SysLED_BlinkCount
+00428 0016 0820 		MOVF	SysLED_Time,W
+00429 0017 00A3 	SystemBlink_DoIt	MOVWF	SysLEDCount
+00430 0018 0021 		movlb	0x01	;bank 1
+00431 0019 138C 		bcf	SysLED_Tris	;LED ON
+00432 001A 	SystemBlink_end:
+00433 001A 	;
+00434 001A 	;-------------
+00435 001A 	;
+00436 001A 	SystemTick_end:
+00437 001A 	;
+00438 001A 	;-----------------------------------------------------------------------------------------
+00439 001A 	;AUSART Serial ISR
+00440 001A 	;
+00441 001A 1E91 	IRQ_Ser	BTFSS	PIR1,RCIF	;RX has a byte?
+00442 001B 3201 		BRA	IRQ_Ser_End
+00443 001C 20B2 		CALL	RX_TheByte
+00444 001D 	;
+00445 001D 	IRQ_Ser_End:
+00446 001D 	;-----------------------------------------------------------------------------------------
+00447 001D 0009 		retfie		; return from interrupt
+00448 001E 	;
+00449 001E 	;
+00450 001E 	;=========================================================================================
+00451 001E 	;*****************************************************************************************
+00452 001E 	;=========================================================================================
+00453 001E 	;
+00454 001E 		include <F1847_Common.inc>
+00001 001E 	;=========================================================================================
+00002 001E 	; Commonly used routines PIC16F1847 version
+00003 001E 	;
+00004 001E 	;    Filename:      F1847 Common.inc
+00005 001E 	;    Date:          4/6/2019
+00006 001E 	;    File Version:  1.0.2
+00007 001E 	;
+00008 001E 	;    Author:        David M. Flynn
+00009 001E 	;    Company:       Oxford V.U.E., Inc.
+00010 001E 	;    E-Mail:        dflynn@oxfordvue.com
+00011 001E 	;    Web Site:      http://www.oxfordvue.com/
+00012 001E 	;
+00013 001E 	;=========================================================================================
+00014 001E 	;    History:
+00015 001E 	;
+00016 001E 	; 1.0.2  4/6/2019	Fixes to EERead/EEwrite
+00017 001E 	; 1.0.2 2/16/2019	Fix: added FSR0H to DecTimer.
+00018 001E 	; 1.0.1 11/21/2015	Updates DecTimer.
+00019 001E 	; 1.0   11/16/2013	Updated from F648A Common.inc
+00020 001E 	;
+00021 001E 	;=========================================================================================
+00022 001E 	; Routines:
+00023 001E 	;
+00024 001E 	; ClearRam	(2+0) Clears all RAM, call once before initializing variables, FSR0
+00025 001E 	; CopyToRam	(1+0) copy param memory (EEPROM) to ram, call once, FSR0
+00026 001E 	; SaveParams	(1+0) copy ram to param memory (EEPROM), FSR0
+00027 001E 	;
+00028 001E 	;  Set FSR0H before calling these routines
+00029 001E 	; DecTimer4	(0+0) Decrement routine for 16 bit timers, FSR0
+00030 001E 	; DecTimer3
+00031 001E 	; DecTimer2
+00032 001E 	; DecTimer1
+00033 001E 	; DecTimer	(0+0) High byte of counter address in W
 SerialSPI.asm                                                         Page: 6
 /Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
 
-00026 001B 	; SaveParams	(1+0) copy ram to param memory (EEPROM), FSR0
-00027 001B 	;
-00028 001B 	;  Set FSR0H before calling these routines
-00029 001B 	; DecTimer4	(0+0) Decrement routine for 16 bit timers, FSR0
-00030 001B 	; DecTimer3
-00031 001B 	; DecTimer2
-00032 001B 	; DecTimer1
-00033 001B 	; DecTimer	(0+0) High byte of counter address in W
-00034 001B 	;
-00035 001B 	; TestT4_Zero	Test for 16 bit timers = zero
-00036 001B 	; TestT3_Zero	If Timer is zero return Z flag,1 else Z=0
-00037 001B 	; TestT2_Zero
-00038 001B 	; TestT1_Zero
-00039 001B 	;
-00040 001B 	; Delay10uS	(0+0)Delay uS    1 cycle = 1uS, 8Mhz clock version
-00041 001B 	; Delay100uS
-00042 001B 	; Delay40uS
-00043 001B 	; DelayWuS
-00044 001B 	;
-00045 001B 	; EEReadW	(0+0) Read EEPROM address in W
-00046 001B 	; EERead	(0+0) Read EEPROM address in EEAddrTemp
-00047 001B 	; EEWriteW	(0+0) Write EEPROM address in W, Data in EEDataTemp
-00048 001B 	; EEWrite	(0+0) Write EEPROM address in EEAdrTemp, Data in EEDataTemp, FSR0
-00049 001B 	;
-00050 001B 	;=========================================================================================
-00051 001B 		ifndef UseEEParams
-00053 001B 		endif
-00054 001B 	;=========================================================================================
-00055 001B 	; Clears all RAM
-00056 001B 	; Entry: none
-00057 001B 	; Exit: none
-00058 001B 	; RAM used: All
-00059 001B 	; Calls:(2+0) ClearRam_L2
-00060 001B 	;
-00061 001B 0020 	ClearRam	MOVLB	0x00
-00062 001C 305F 		MOVLW	0x5F	;Clear 20h-7Eh, 95 bytes
-00063 001D 00FF 		MOVWF	Param7F
-00064 001E 3020 		MOVLW	0x20
-00065 001F 0084 		MOVWF	FSR0
-00066 0020 0185 		CLRF	FSR0H
-00067 0021 2035 		CALL	ClearRam_L2
-00068 0022 	;
-00069 0022 3050 		MOVLW	0x50	;Clear A0h-EFh, 80 bytes
-00070 0023 00FF 		MOVWF	Param7F
-00071 0024 30A0 		MOVLW	0xA0
-00072 0025 0084 		MOVWF	FSR0
-00073 0026 2035 		CALL	ClearRam_L2
-00074 0027 	;
-00075 0027 0A85 		INCF	FSR0H,F	
-00076 0028 202C 		CALL	ClearRam_2	;Banks 2,3
-00077 0029 0A85 		INCF	FSR0H,F	
-00078 002A 202C 		CALL	ClearRam_2	;Banks 4,5
-00079 002B 0A85 		INCF	FSR0H,F	;Banks 6,7
-00080 002C 	;	
-00081 002C 3050 	ClearRam_2	MOVLW	0x50	;Clear 120h-16Fh, 80 bytes
-00082 002D 00FF 		MOVWF	Param7F
-00083 002E 3020 		MOVLW	0x20
-00084 002F 0084 		MOVWF	FSR0
-00085 0030 2035 		CALL	ClearRam_L2
-00086 0031 	;
-00087 0031 3050 		MOVLW	0x50	;Clear A0h-EFh, 80 bytes
-00088 0032 00FF 		MOVWF	Param7F
-00089 0033 30A0 		MOVLW	0xA0
-00090 0034 0084 		MOVWF	FSR0
-00091 0035 	;
-00092 0035 0180 	ClearRam_L2	CLRF	INDF0
-00093 0036 0A84 		INCF	FSR0,F
-00094 0037 0BFF 		DECFSZ	Param7F,F
-00095 0038 33FC 		bra	ClearRam_L2
-00096 0039 0008 		RETURN
-00097 003A 	;
-00098 003A 		if UseEEParams
-00099 003A 	;==========================================================================
-00100 003A 	; copy param memory to ram
-00101 003A 	;
-00102 003A 3000 	CopyToRam	MOVLW	nvFirstParamByte
-00103 003B 00A4 		MOVWF	EEAddrTemp
-00104 003C 3036 		MOVLW	FirstRAMParam
-00105 003D 0084 		MOVWF	FSR0L
-00106 003E 0185 		CLRF	FSR0H
-00107 003F 2085 	CopyToRam_L1	CALL	EERead
-00108 0040 001A 		movwi	FSR0++
-00109 0041 0AA4 		INCF	EEAddrTemp,F
-00110 0042 303A 		MOVLW	LastRAMParam+1
-00111 0043 0204 		SUBWF	FSR0L,W
-00112 0044 		SKPZ
-00112 0044 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-00113 0045 33F9 		BRA	CopyToRam_L1
-00114 0046 0008 		RETURN
-00115 0047 	;
-00116 0047 	;===========================================================================
-00117 0047 	; copy ram to param memory
-00118 0047 	;
-00119 0047 3000 	SaveParams	MOVLW	nvFirstParamByte
-00120 0048 00A4 		MOVWF	EEAddrTemp
-00121 0049 3036 		MOVLW	FirstRAMParam
-00122 004A 0084 		MOVWF	FSR0L
-00123 004B 0185 		CLRF	FSR0H
-00124 004C 0012 	SaveParams_L1	moviw	FSR0++
+00034 001E 	;
+00035 001E 	; TestT4_Zero	Test for 16 bit timers = zero
+00036 001E 	; TestT3_Zero	If Timer is zero return Z flag,1 else Z=0
+00037 001E 	; TestT2_Zero
+00038 001E 	; TestT1_Zero
+00039 001E 	;
+00040 001E 	; Delay10uS	(0+0)Delay uS    1 cycle = 1uS, 8Mhz clock version
+00041 001E 	; Delay100uS
+00042 001E 	; Delay40uS
+00043 001E 	; DelayWuS
+00044 001E 	;
+00045 001E 	; EEReadW	(0+0) Read EEPROM address in W
+00046 001E 	; EERead	(0+0) Read EEPROM address in EEAddrTemp
+00047 001E 	; EEWriteW	(0+0) Write EEPROM address in W, Data in EEDataTemp
+00048 001E 	; EEWrite	(0+0) Write EEPROM address in EEAdrTemp, Data in EEDataTemp, FSR0
+00049 001E 	;
+00050 001E 	;=========================================================================================
+00051 001E 		ifndef UseEEParams
+00053 001E 		endif
+00054 001E 	;=========================================================================================
+00055 001E 	; Clears all RAM
+00056 001E 	; Entry: none
+00057 001E 	; Exit: none
+00058 001E 	; RAM used: All
+00059 001E 	; Calls:(2+0) ClearRam_L2
+00060 001E 	;
+00061 001E 0020 	ClearRam	MOVLB	0x00
+00062 001F 305F 		MOVLW	0x5F	;Clear 20h-7Eh, 95 bytes
+00063 0020 00FF 		MOVWF	Param7F
+00064 0021 3020 		MOVLW	0x20
+00065 0022 0084 		MOVWF	FSR0
+00066 0023 0185 		CLRF	FSR0H
+00067 0024 2038 		CALL	ClearRam_L2
+00068 0025 	;
+00069 0025 3050 		MOVLW	0x50	;Clear A0h-EFh, 80 bytes
+00070 0026 00FF 		MOVWF	Param7F
+00071 0027 30A0 		MOVLW	0xA0
+00072 0028 0084 		MOVWF	FSR0
+00073 0029 2038 		CALL	ClearRam_L2
+00074 002A 	;
+00075 002A 0A85 		INCF	FSR0H,F	
+00076 002B 202F 		CALL	ClearRam_2	;Banks 2,3
+00077 002C 0A85 		INCF	FSR0H,F	
+00078 002D 202F 		CALL	ClearRam_2	;Banks 4,5
+00079 002E 0A85 		INCF	FSR0H,F	;Banks 6,7
+00080 002F 	;	
+00081 002F 3050 	ClearRam_2	MOVLW	0x50	;Clear 120h-16Fh, 80 bytes
+00082 0030 00FF 		MOVWF	Param7F
+00083 0031 3020 		MOVLW	0x20
+00084 0032 0084 		MOVWF	FSR0
+00085 0033 2038 		CALL	ClearRam_L2
+00086 0034 	;
+00087 0034 3050 		MOVLW	0x50	;Clear A0h-EFh, 80 bytes
+00088 0035 00FF 		MOVWF	Param7F
+00089 0036 30A0 		MOVLW	0xA0
+00090 0037 0084 		MOVWF	FSR0
+00091 0038 	;
+00092 0038 0180 	ClearRam_L2	CLRF	INDF0
+00093 0039 0A84 		INCF	FSR0,F
+00094 003A 0BFF 		DECFSZ	Param7F,F
+00095 003B 33FC 		bra	ClearRam_L2
+00096 003C 0008 		RETURN
+00097 003D 	;
+00098 003D 		if UseEEParams
+00099 003D 	;==========================================================================
+00100 003D 	; copy param memory to ram
+00101 003D 	;
+00102 003D 3000 	CopyToRam	MOVLW	nvFirstParamByte
+00103 003E 00A4 		MOVWF	EEAddrTemp
+00104 003F 3036 		MOVLW	FirstRAMParam
+00105 0040 0084 		MOVWF	FSR0L
+00106 0041 0185 		CLRF	FSR0H
+00107 0042 2088 	CopyToRam_L1	CALL	EERead
+00108 0043 001A 		movwi	FSR0++
+00109 0044 0AA4 		INCF	EEAddrTemp,F
+00110 0045 303A 		MOVLW	LastRAMParam+1
+00111 0046 0204 		SUBWF	FSR0L,W
+00112 0047 		SKPZ
+00112 0047 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+00113 0048 33F9 		BRA	CopyToRam_L1
+00114 0049 0008 		RETURN
+00115 004A 	;
+00116 004A 	;===========================================================================
+00117 004A 	; copy ram to param memory
+00118 004A 	;
+00119 004A 3000 	SaveParams	MOVLW	nvFirstParamByte
+00120 004B 00A4 		MOVWF	EEAddrTemp
+00121 004C 3036 		MOVLW	FirstRAMParam
+00122 004D 0084 		MOVWF	FSR0L
+00123 004E 0185 		CLRF	FSR0H
+00124 004F 0012 	SaveParams_L1	moviw	FSR0++
+00125 0050 00A5 		MOVWF	EEDataTemp
+00126 0051 2092 		CALL	EEWrite
+00127 0052 0AA4 		INCF	EEAddrTemp,F
+00128 0053 303A 		MOVLW	LastRAMParam+1	;last byte
+00129 0054 0204 		SUBWF	FSR0L,W
+00130 0055 		SKPZ
+00130 0055 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+00131 0056 33F8 		BRA	SaveParams_L1
 SerialSPI.asm                                                         Page: 7
 /Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
 
-00125 004D 00A5 		MOVWF	EEDataTemp
-00126 004E 208F 		CALL	EEWrite
-00127 004F 0AA4 		INCF	EEAddrTemp,F
-00128 0050 303A 		MOVLW	LastRAMParam+1	;last byte
-00129 0051 0204 		SUBWF	FSR0L,W
-00130 0052 		SKPZ
-00130 0052 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-00131 0053 33F8 		BRA	SaveParams_L1
-00132 0054 0008 		RETURN
-00133 0055 	;
-00134 0055 		endif
-00135 0055 	;=====================================================================================================
-00136 0055 	;=========================================================================================================
-00137 0055 	; Decrement routine for 16 bit timers
-00138 0055 	; Set FSR0H before calling these routines.
-00139 0055 	;
-00140 0055 302D 	DecTimer4	movlw	Timer4Hi
-00141 0056 3205 		bra	DecTimer
-00142 0057 302B 	DecTimer3	movlw	Timer3Hi
-00143 0058 3203 		bra	DecTimer
-00144 0059 3029 	DecTimer2	movlw	Timer2Hi
-00145 005A 3201 		bra	DecTimer
-00146 005B 3027 	DecTimer1	movlw	Timer1Hi
-00147 005C 	;DecTimer
-00148 005C 	; entry: FSR=Timer(n)Hi
-00149 005C 0084 	DecTimer	MOVWF	FSR0L
-00150 005D 3000 		movlw	High Timer4Hi
-00151 005E 0085 		movwf	FSR0H
-00152 005F 0013 		MOVIW	FSR0--	;TimerNHi
-00153 0060 0400 		IORWF	INDF0,W	;TimerNLo
-00154 0061 		SKPNZ
-00154 0061 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
-00155 0062 0008 		RETURN
-00156 0063 3001 		MOVLW	0x01
-00157 0064 0280 		SUBWF	INDF0,F	;TimerNLo
-00158 0065 0A84 		INCF	FSR0L,F
-00159 0066 0103 		CLRW
-00160 0067 3B80 		SUBWFB	INDF0,F	;TimerNHi
-00161 0068 0008 		RETURN
-00162 0069 	;
-00163 0069 	;==============================================================================================
-00164 0069 	; Test for 16 bit timers = zero
-00165 0069 	;If Timer is zero return Z flag,1 else Z=0
-00166 0069 	;
-00167 0069 0020 	TestT4_Zero	movlb	0
-00168 006A 082C 		movf	Timer4Lo,W
-00169 006B 042D 		iorwf	Timer4Hi,W
-00170 006C 0008 		return
-00171 006D 	;
-00172 006D 0020 	TestT3_Zero	movlb	0
-00173 006E 082A 		movf	Timer3Lo,W
-00174 006F 042B 		iorwf	Timer3Hi,W
-00175 0070 0008 		return
-00176 0071 	;
-00177 0071 0020 	TestT2_Zero	movlb	0
-00178 0072 0828 		movf	Timer2Lo,W
-00179 0073 0429 		iorwf	Timer2Hi,W
-00180 0074 0008 		return
-00181 0075 	;
-00182 0075 0020 	TestT1_Zero	movlb	0
-00183 0076 0826 		movf	Timer1Lo,W
-00184 0077 0427 		iorwf	Timer1Hi,W
-00185 0078 0008 		return	
-00186 0079 	;
-00187 0079 		if oldCode
-00203 0079 		endif
-00204 0079 	;======================================================================================
-00205 0079 	;Delay uS    1 cycle = .125uS, 32MHz clock version
-00206 0079 	; RAM used: Param77
-00207 0079 	; Calls:(0) none
-00208 0079 	;
-00209 0079 3005 	Delay10uS	MOVLW	0x05	;(2*3+5)/2=10
-00210 007A 3203 		bra	DelayWuS
-00211 007B 3041 	Delay100uS	MOVLW	d'65'	;(28*3+5)/2=100
-00212 007C 3201 		bra	DelayWuS
-00213 007D 3019 	Delay40uS	MOVLW	d'25'	;(11*3+5)=40
-00214 007E 00F7 	DelayWuS	MOVWF	Param77
-00215 007F 0000 	DelayWuS_Loop	nop
-00216 0080 0000 		nop
-00217 0081 0BF7 		DECFSZ	Param77,F
-00218 0082 33FC 		bra	DelayWuS_Loop
-00219 0083 0008 		RETURN
-00220 0084 	;==============================================================================================
-00221 0084 	; Read EEPROM
-00222 0084 	; entry: EEPROM address to read in W
-00223 0084 	;        Bank 0 selected
-00224 0084 	; exit: W=EEDATA, Bank 0 selected
-00225 0084 	;
-00226 0084 00A4 	EEReadW	movwf	EEAddrTemp
-00227 0085 	;
-00228 0085 	;==============================================================================================
-00229 0085 	; Read EEPROM
-00230 0085 	; entry: EEPROM address to read in EEAddrTemp
-00231 0085 	;        Bank 0 selected
-00232 0085 	; exit: W=EEDATA, Bank 0 selected
-00233 0085 	;
-00234 0085 0824 	EERead	movf	EEAddrTemp,W
-00235 0086 0023 		MOVLB	0x03	;Bank 3
-00236 0087 0091 		movwf	EEADR	;Address to read
+00132 0057 0008 		RETURN
+00133 0058 	;
+00134 0058 		endif
+00135 0058 	;=====================================================================================================
+00136 0058 	;=========================================================================================================
+00137 0058 	; Decrement routine for 16 bit timers
+00138 0058 	; Set FSR0H before calling these routines.
+00139 0058 	;
+00140 0058 302D 	DecTimer4	movlw	Timer4Hi
+00141 0059 3205 		bra	DecTimer
+00142 005A 302B 	DecTimer3	movlw	Timer3Hi
+00143 005B 3203 		bra	DecTimer
+00144 005C 3029 	DecTimer2	movlw	Timer2Hi
+00145 005D 3201 		bra	DecTimer
+00146 005E 3027 	DecTimer1	movlw	Timer1Hi
+00147 005F 	;DecTimer
+00148 005F 	; entry: FSR=Timer(n)Hi
+00149 005F 0084 	DecTimer	MOVWF	FSR0L
+00150 0060 3000 		movlw	High Timer4Hi
+00151 0061 0085 		movwf	FSR0H
+00152 0062 0013 		MOVIW	FSR0--	;TimerNHi
+00153 0063 0400 		IORWF	INDF0,W	;TimerNLo
+00154 0064 		SKPNZ
+00154 0064 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
+00155 0065 0008 		RETURN
+00156 0066 3001 		MOVLW	0x01
+00157 0067 0280 		SUBWF	INDF0,F	;TimerNLo
+00158 0068 0A84 		INCF	FSR0L,F
+00159 0069 0103 		CLRW
+00160 006A 3B80 		SUBWFB	INDF0,F	;TimerNHi
+00161 006B 0008 		RETURN
+00162 006C 	;
+00163 006C 	;==============================================================================================
+00164 006C 	; Test for 16 bit timers = zero
+00165 006C 	;If Timer is zero return Z flag,1 else Z=0
+00166 006C 	;
+00167 006C 0020 	TestT4_Zero	movlb	0
+00168 006D 082C 		movf	Timer4Lo,W
+00169 006E 042D 		iorwf	Timer4Hi,W
+00170 006F 0008 		return
+00171 0070 	;
+00172 0070 0020 	TestT3_Zero	movlb	0
+00173 0071 082A 		movf	Timer3Lo,W
+00174 0072 042B 		iorwf	Timer3Hi,W
+00175 0073 0008 		return
+00176 0074 	;
+00177 0074 0020 	TestT2_Zero	movlb	0
+00178 0075 0828 		movf	Timer2Lo,W
+00179 0076 0429 		iorwf	Timer2Hi,W
+00180 0077 0008 		return
+00181 0078 	;
+00182 0078 0020 	TestT1_Zero	movlb	0
+00183 0079 0826 		movf	Timer1Lo,W
+00184 007A 0427 		iorwf	Timer1Hi,W
+00185 007B 0008 		return	
+00186 007C 	;
+00187 007C 		if oldCode
+00203 007C 		endif
+00204 007C 	;======================================================================================
+00205 007C 	;Delay uS    1 cycle = .125uS, 32MHz clock version
+00206 007C 	; RAM used: Param77
+00207 007C 	; Calls:(0) none
+00208 007C 	;
+00209 007C 3005 	Delay10uS	MOVLW	0x05	;(2*3+5)/2=10
+00210 007D 3203 		bra	DelayWuS
+00211 007E 3041 	Delay100uS	MOVLW	d'65'	;(28*3+5)/2=100
+00212 007F 3201 		bra	DelayWuS
+00213 0080 3019 	Delay40uS	MOVLW	d'25'	;(11*3+5)=40
+00214 0081 00F7 	DelayWuS	MOVWF	Param77
+00215 0082 0000 	DelayWuS_Loop	nop
+00216 0083 0000 		nop
+00217 0084 0BF7 		DECFSZ	Param77,F
+00218 0085 33FC 		bra	DelayWuS_Loop
+00219 0086 0008 		RETURN
+00220 0087 	;==============================================================================================
+00221 0087 	; Read EEPROM
+00222 0087 	; entry: EEPROM address to read in W
+00223 0087 	;        Bank 0 selected
+00224 0087 	; exit: W=EEDATA, Bank 0 selected
+00225 0087 	;
+00226 0087 00A4 	EEReadW	movwf	EEAddrTemp
+00227 0088 	;
+00228 0088 	;==============================================================================================
+00229 0088 	; Read EEPROM
+00230 0088 	; entry: EEPROM address to read in EEAddrTemp
+00231 0088 	;        Bank 0 selected
+00232 0088 	; exit: W=EEDATA, Bank 0 selected
+00233 0088 	;
+00234 0088 0824 	EERead	movf	EEAddrTemp,W
+00235 0089 0023 		MOVLB	0x03	;Bank 3
+00236 008A 0091 		movwf	EEADR	;Address to read
+00237 008B 1315 		bcf	EECON1,CFGS	;not config mem
+00238 008C 1395 		bcf	EECON1,EEPGD	;Data memory
+00239 008D 1415 		bsf	EECON1,RD
+00240 008E 0813 		movf	EEDAT,W	;W=EEDAT
+00241 008F 0020 		MOVLB	0x00	;Bank 0
+00242 0090 0008 		return
+00243 0091 	;
+00244 0091 	;==============================================================================================
 SerialSPI.asm                                                         Page: 8
 /Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
 
-00237 0088 1315 		bcf	EECON1,CFGS	;not config mem
-00238 0089 1395 		bcf	EECON1,EEPGD	;Data memory
-00239 008A 1415 		bsf	EECON1,RD
-00240 008B 0813 		movf	EEDAT,W	;W=EEDAT
-00241 008C 0020 		MOVLB	0x00	;Bank 0
-00242 008D 0008 		return
-00243 008E 	;
-00244 008E 	;==============================================================================================
-00245 008E 	; Write EEPROM
-00246 008E 	; entry: EEPROM address to write in W
-00247 008E 	;        EEPROM data to write in EEDataTemp
-00248 008E 	;        Bank 0 selected
-00249 008E 	; exit: Bank 0 selected
-00250 008E 	;
-00251 008E 00A4 	EEWriteW	movwf	EEAddrTemp
-00252 008F 	;
-00253 008F 	;==============================================================================================
-00254 008F 	; Write EEPROM
-00255 008F 	; entry: EEPROM address to write in EEAdrTemp
-00256 008F 	;        EEPROM data to write in EEDataTemp
-00257 008F 	;        Bank 0 selected
-00258 008F 	; exit: Bank 0 selected
-00259 008F 	;
-00260 008F 0824 	EEWrite	MOVF	EEAddrTemp,W
-00261 0090 0023 		MOVLB	0x03	;Bank 3
-00262 0091 0091 		movwf	EEADR	;Address to write
-00263 0092 0020 		movlb	0x00	; bank 0
-00264 0093 0825 		movf	EEDataTemp,W
-00265 0094 0023 		movlb	0x03
-00266 0095 0093 		movwf	EEDAT
-00267 0096 1315 		bcf	EECON1,CFGS	;not config mem
-00268 0097 1395 		bcf	EECON1,EEPGD	;Data memory
-00269 0098 1515 		bsf	EECON1,WREN
-00270 0099 138B 		bcf	INTCON,GIE	;Disale Ints
-00271 009A 1B8B 		btfsc	INTCON,GIE
-00272 009B 33FD 		bra	$-2
-00273 009C 3055 		movlw	0x55
-00274 009D 0096 		movwf	EECON2	;write 55
-00275 009E 30AA 		movlw	0xAA
-00276 009F 0096 		movwf	EECON2	;write AA
-00277 00A0 1495 		bsf	EECON1,WR
-00278 00A1 1895 	EEWriteLoop	btfsc	EECON1,WR	
-00279 00A2 33FE 		bra	EEWriteLoop
-00280 00A3 1115 		bcf	EECON1,WREN
-00281 00A4 178B 		bsf	INTCON,GIE
-00282 00A5 0020 		MOVLB	0x00	;Bank 0
-00283 00A6 0008 		return
-00284 00A7 	;
-00285 00A7 	;	
-00286 00A7 	;=========================================================================================
-00287 00A7 	;=========================================================================================
-00288 00A7 	;
-00289 00A7 	;
-00290 00A7 	;
-00291 00A7 	;
-00463 00A7 		include <SerBuff1938.inc>
-00001 00A7 	;=========================================================================================
-00002 00A7 	;
-00003 00A7 	;    Filename:      SerBuff.inc
-00004 00A7 	;    Date:          5/24/2018                                    
-00005 00A7 	;    File Version:  1.0.5
-00006 00A7 	;
-00007 00A7 	;    Author:        David M. Flynn
-00008 00A7 	;    Company:       Oxford V.U.E., Inc.
-00009 00A7 	;    E-Mail:        dflynn@oxfordvue.com
-00010 00A7 	;
-00011 00A7 	;=========================================================================================
-00012 00A7 	;=========================================================================================
-00013 00A7 	; Notes:
-00014 00A7 	;
-00015 00A7 	; History:
-00016 00A7 	; 1.0.5    5/24/2018   Added GetSerInBytes.
-00017 00A7 	; 1.0.4    5/23/2018	Added FlushInBuff.
-00018 00A7 	; 1.0.3    12/15/2015	Optimized some code to be segment independent.
-00019 00A7 	; 1.0.2    10/23/2015	Modified for 'F1938
-00020 00A7 	; 1.0.1    12/6/2013	Modified for 'F1847
-00021 00A7 	; 1.0      5/25/2008	First Rev'd version
-00022 00A7 	;
-00023 00A7 	;=========================================================================================
-00024 00A7 	; Bank0 Variables:
-00025 00A7 	;
-00026 00A7 	;	cblock	0x20
-00027 00A7 	;	TXByte		;Next byte to send
-00028 00A7 	;	RXByte		;Last byte received
-00029 00A7 	;	SerFlags
-00030 00A7 	;	endc
-00031 00A7 	;
-00032 00A7 	;#Define	DataReceivedFlag	SerFlags,1
-00033 00A7 	;#Define	DataSentFlag	SerFlags,2
-00034 00A7 	;
-00035 00A7 	; Bank2 Variables:
-00036 00A7 	;#Define	Ser_Buff_Bank	2
-00037 00A7 	;	cblock	0x120
-00038 00A7 	;	Ser_In_Bytes		;Bytes in Ser_In_Buff
-00039 00A7 	;	Ser_Out_Bytes		;Bytes in Ser_Out_Buff
-00040 00A7 	;	Ser_In_InPtr
-00041 00A7 	;	Ser_In_OutPtr
-00042 00A7 	;	Ser_Out_InPtr
-00043 00A7 	;	Ser_Out_OutPtr
+00245 0091 	; Write EEPROM
+00246 0091 	; entry: EEPROM address to write in W
+00247 0091 	;        EEPROM data to write in EEDataTemp
+00248 0091 	;        Bank 0 selected
+00249 0091 	; exit: Bank 0 selected
+00250 0091 	;
+00251 0091 00A4 	EEWriteW	movwf	EEAddrTemp
+00252 0092 	;
+00253 0092 	;==============================================================================================
+00254 0092 	; Write EEPROM
+00255 0092 	; entry: EEPROM address to write in EEAdrTemp
+00256 0092 	;        EEPROM data to write in EEDataTemp
+00257 0092 	;        Bank 0 selected
+00258 0092 	; exit: Bank 0 selected
+00259 0092 	;
+00260 0092 0824 	EEWrite	MOVF	EEAddrTemp,W
+00261 0093 0023 		MOVLB	0x03	;Bank 3
+00262 0094 0091 		movwf	EEADR	;Address to write
+00263 0095 0020 		movlb	0x00	; bank 0
+00264 0096 0825 		movf	EEDataTemp,W
+00265 0097 0023 		movlb	0x03
+00266 0098 0093 		movwf	EEDAT
+00267 0099 1315 		bcf	EECON1,CFGS	;not config mem
+00268 009A 1395 		bcf	EECON1,EEPGD	;Data memory
+00269 009B 1515 		bsf	EECON1,WREN
+00270 009C 138B 		bcf	INTCON,GIE	;Disale Ints
+00271 009D 1B8B 		btfsc	INTCON,GIE
+00272 009E 33FD 		bra	$-2
+00273 009F 3055 		movlw	0x55
+00274 00A0 0096 		movwf	EECON2	;write 55
+00275 00A1 30AA 		movlw	0xAA
+00276 00A2 0096 		movwf	EECON2	;write AA
+00277 00A3 1495 		bsf	EECON1,WR
+00278 00A4 1895 	EEWriteLoop	btfsc	EECON1,WR	
+00279 00A5 33FE 		bra	EEWriteLoop
+00280 00A6 1115 		bcf	EECON1,WREN
+00281 00A7 178B 		bsf	INTCON,GIE
+00282 00A8 0020 		MOVLB	0x00	;Bank 0
+00283 00A9 0008 		return
+00284 00AA 	;
+00285 00AA 	;	
+00286 00AA 	;=========================================================================================
+00287 00AA 	;=========================================================================================
+00288 00AA 	;
+00289 00AA 	;
+00290 00AA 	;
+00291 00AA 	;
+00455 00AA 		include <SerBuff1938.inc>
+00001 00AA 	;=========================================================================================
+00002 00AA 	;
+00003 00AA 	;    Filename:      SerBuff.inc
+00004 00AA 	;    Date:          5/24/2018                                    
+00005 00AA 	;    File Version:  1.0.5
+00006 00AA 	;
+00007 00AA 	;    Author:        David M. Flynn
+00008 00AA 	;    Company:       Oxford V.U.E., Inc.
+00009 00AA 	;    E-Mail:        dflynn@oxfordvue.com
+00010 00AA 	;
+00011 00AA 	;=========================================================================================
+00012 00AA 	;=========================================================================================
+00013 00AA 	; Notes:
+00014 00AA 	;
+00015 00AA 	; History:
+00016 00AA 	; 1.0.5    5/24/2018   Added GetSerInBytes.
+00017 00AA 	; 1.0.4    5/23/2018	Added FlushInBuff.
+00018 00AA 	; 1.0.3    12/15/2015	Optimized some code to be segment independent.
+00019 00AA 	; 1.0.2    10/23/2015	Modified for 'F1938
+00020 00AA 	; 1.0.1    12/6/2013	Modified for 'F1847
+00021 00AA 	; 1.0      5/25/2008	First Rev'd version
+00022 00AA 	;
+00023 00AA 	;=========================================================================================
+00024 00AA 	; Bank0 Variables:
+00025 00AA 	;
+00026 00AA 	;	cblock	0x20
+00027 00AA 	;	TXByte		;Next byte to send
+00028 00AA 	;	RXByte		;Last byte received
+00029 00AA 	;	SerFlags
+00030 00AA 	;	endc
+00031 00AA 	;
+00032 00AA 	;#Define	DataReceivedFlag	SerFlags,1
+00033 00AA 	;#Define	DataSentFlag	SerFlags,2
+00034 00AA 	;
+00035 00AA 	; Bank2 Variables:
+00036 00AA 	;#Define	Ser_Buff_Bank	2
+00037 00AA 	;	cblock	0x120
+00038 00AA 	;	Ser_In_Bytes		;Bytes in Ser_In_Buff
+00039 00AA 	;	Ser_Out_Bytes		;Bytes in Ser_Out_Buff
+00040 00AA 	;	Ser_In_InPtr
+00041 00AA 	;	Ser_In_OutPtr
+00042 00AA 	;	Ser_Out_InPtr
+00043 00AA 	;	Ser_Out_OutPtr
+00044 00AA 	;	Ser_In_Buff:20
+00045 00AA 	;	Ser_Out_Buff:20
+00046 00AA 	;	endc
+00047 00AA 	;
+00048 00AA 	;=========================================================================================
+00049 00AA 	; Routines	(Bank In/Bank Out)
+00050 00AA 	;
+00051 00AA 	; TX_TheByte	(0+0) Send one byte to UART
 SerialSPI.asm                                                         Page: 9
 /Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
 
-00044 00A7 	;	Ser_In_Buff:20
-00045 00A7 	;	Ser_Out_Buff:20
-00046 00A7 	;	endc
-00047 00A7 	;
-00048 00A7 	;=========================================================================================
-00049 00A7 	; Routines	(Bank In/Bank Out)
-00050 00A7 	;
-00051 00A7 	; TX_TheByte	(0+0) Send one byte to UART
-00052 00A7 	; RX_TheByte	(0+0) Receive one byte from UART
-00053 00A7 	; StoreSerIn	(X/0) Put the byte in W into the serial input buffer, FSR0
-00054 00A7 	; GetSerIn	(X/0) Get a byte from the serial input buffer, FSR0
-00055 00A7 	; FlushInBuff	(X/0) Flush the serial incoming buffer.
-00056 00A7 	; GetSerInBytes	(X/0) Get the number of bytes in the serial input buffer
-00057 00A7 	; GetSerOutBytes	(X/0) Get the number of bytes in the serial ouput buffer
-00058 00A7 	; StoreSerOut	(X/0) Put the byte in W into the serial output buffer, FSR0
-00059 00A7 	; POP_SerOut	(X/0) Remove the last char stored in the output buffer
-00060 00A7 	; GetSerOut	(X/0) Get a byte from the serial Output buffer, FSR0
-00061 00A7 	;	       W=Byte, Param78:0=ValidFlag
-00062 00A7 	;=========================================================================================
-00063 00A7 	;=========================================================================================
-00064 00A7 	; *** Put in main loop ***
-00065 00A7 	;
-00066 00A7 	; Handle Serial Communications
-00067 00A7 	;	BTFSC	PIR1,TXIF	;TX done?
-00068 00A7 	;	CALL	TX_TheByte	; Yes
-00069 00A7 	;
-00070 00A7 	; move any serial data received into the 32 byte input buffer
-00071 00A7 	;	BTFSS	DataReceivedFlag
-00072 00A7 	;	BRA	ML_Ser_Out
-00073 00A7 	;	MOVF	RXByte,W
-00074 00A7 	;	BCF	DataReceivedFlag
-00075 00A7 	;	CALL	StoreSerIn
-00076 00A7 	;
-00077 00A7 	;=========================================================================================
-00078 00A7 	; If the serial data has been sent and there are bytes in the buffer, send the next byte
-00079 00A7 	;
-00080 00A7 	;ML_Ser_Out	BTFSS	DataSentFlag
-00081 00A7 	;	BRA	ML_Ser_End
-00082 00A7 	;	CALL	GetSerOut
-00083 00A7 	;	BTFSS	Param78,0
-00084 00A7 	;	BRA	ML_Ser_End
-00085 00A7 	;	MOVWF	TXByte
-00086 00A7 	;	BCF	DataSentFlag
-00087 00A7 	;ML_Ser_End
-00088 00A7 	;
-00089 00A7 	;=========================================================================================
-00090 00A7 	; *** Put in Init section ***
-00091 00A7 	;BAUDCON_Value	EQU	b'00001000'
-00092 00A7 	;TXSTA_Value	EQU	b'00100100'	;8 bit, TX enabled, Async, High speed
-00093 00A7 	;RCSTA_Value	EQU	b'10010000'	;RX enabled, 8 bit, Continious receive
-00094 00A7 	;; 8MHz clock low speed (BRGH=0,BRG16=1)
-00095 00A7 	;;Baud_300	EQU	d'1666'	;0.299, -0.02%
-00096 00A7 	;;Baud_1200	EQU	d'416'	;1.199, -0.08%
-00097 00A7 	;;Baud_2400	EQU	d'207'	;2.404, +0.16%
-00098 00A7 	;;Baud_9600	EQU	d'51'	;9.615, +0.16%
-00099 00A7 	;; 8MHz clock high speed (BRGH=1,BRG16=1)
-00100 00A7 	;Baud_300	EQU	d'6666'	;0.299, -0.02%
-00101 00A7 	;Baud_1200	EQU	d'1666'	;1.199, -0.08%
-00102 00A7 	;Baud_2400	EQU	d'832'	;2.404, +0.16%
-00103 00A7 	;Baud_9600	EQU	d'207'	;9.615, +0.16%
-00104 00A7 	;Baud_19_2	EQU	d'103'	;19.23k, +0.16
-00105 00A7 	;Baud_57_6	EQU	d'34'	;57.14k, -0.79
-00106 00A7 	;BaudRate	EQU	Baud_9600
-00107 00A7 	;-------------
-00108 00A7 	;
-00109 00A7 	; setup serial I/O
-00110 00A7 	;	movlb	0x03	; bank 3
-00111 00A7 	;	MOVLW	TXSTA_Value
-00112 00A7 	;	MOVWF	TXSTA
-00113 00A7 	;	MOVLW	low BaudRate
-00114 00A7 	;	MOVWF	SPBRGL
-00115 00A7 	;	MOVLW	high BaudRate
-00116 00A7 	;	MOVWF	SPBRGH
-00117 00A7 	;	MOVLW	RCSTA_Value
-00118 00A7 	;	MOVWF	RCSTA
-00119 00A7 	;
-00120 00A7 	;	movlb	0x01	; bank 1
-00121 00A7 	;	BSF	PIE1,RCIE	; Serial Receive interupt
-00122 00A7 	;	movlb	0x00	; bank 0
-00123 00A7 	;	BSF	INTCON,PEIE	;Peripheral IRQ Enable
-00124 00A7 	;	BSF	INTCON,GIE
-00125 00A7 	;
-00126 00A7 	;=========================================================================================
-00127 00A7 	; *** Put in ISR ***
-00128 00A7 	;-----------------------------------------------------------------------------------------
-00129 00A7 	;AUSART Serial ISR
-00130 00A7 	;
-00131 00A7 	;IRQ_Ser	BTFSS	PIR1,RCIF	;RX has a byte?
-00132 00A7 	;	BRA	IRQ_Ser_End
-00133 00A7 	;	CALL	RX_TheByte
-00134 00A7 	;
-00135 00A7 	;IRQ_Ser_End
-00136 00A7 	;
-00137 00A7 	;=========================================================================================
-00138 00A7 	; Send one byte
-00139 00A7 	; Entry: Bank0
-00140 00A7 	; Exit: Bank0
-00141 00A7 	;
-00142 00A7 	;
+00052 00AA 	; RX_TheByte	(0+0) Receive one byte from UART
+00053 00AA 	; StoreSerIn	(X/0) Put the byte in W into the serial input buffer, FSR0
+00054 00AA 	; GetSerIn	(X/0) Get a byte from the serial input buffer, FSR0
+00055 00AA 	; FlushInBuff	(X/0) Flush the serial incoming buffer.
+00056 00AA 	; GetSerInBytes	(X/0) Get the number of bytes in the serial input buffer
+00057 00AA 	; GetSerOutBytes	(X/0) Get the number of bytes in the serial ouput buffer
+00058 00AA 	; StoreSerOut	(X/0) Put the byte in W into the serial output buffer, FSR0
+00059 00AA 	; POP_SerOut	(X/0) Remove the last char stored in the output buffer
+00060 00AA 	; GetSerOut	(X/0) Get a byte from the serial Output buffer, FSR0
+00061 00AA 	;	       W=Byte, Param78:0=ValidFlag
+00062 00AA 	;=========================================================================================
+00063 00AA 	;=========================================================================================
+00064 00AA 	; *** Put in main loop ***
+00065 00AA 	;
+00066 00AA 	; Handle Serial Communications
+00067 00AA 	;	BTFSC	PIR1,TXIF	;TX done?
+00068 00AA 	;	CALL	TX_TheByte	; Yes
+00069 00AA 	;
+00070 00AA 	; move any serial data received into the 32 byte input buffer
+00071 00AA 	;	BTFSS	DataReceivedFlag
+00072 00AA 	;	BRA	ML_Ser_Out
+00073 00AA 	;	MOVF	RXByte,W
+00074 00AA 	;	BCF	DataReceivedFlag
+00075 00AA 	;	CALL	StoreSerIn
+00076 00AA 	;
+00077 00AA 	;=========================================================================================
+00078 00AA 	; If the serial data has been sent and there are bytes in the buffer, send the next byte
+00079 00AA 	;
+00080 00AA 	;ML_Ser_Out	BTFSS	DataSentFlag
+00081 00AA 	;	BRA	ML_Ser_End
+00082 00AA 	;	CALL	GetSerOut
+00083 00AA 	;	BTFSS	Param78,0
+00084 00AA 	;	BRA	ML_Ser_End
+00085 00AA 	;	MOVWF	TXByte
+00086 00AA 	;	BCF	DataSentFlag
+00087 00AA 	;ML_Ser_End
+00088 00AA 	;
+00089 00AA 	;=========================================================================================
+00090 00AA 	; *** Put in Init section ***
+00091 00AA 	;BAUDCON_Value	EQU	b'00001000'
+00092 00AA 	;TXSTA_Value	EQU	b'00100100'	;8 bit, TX enabled, Async, High speed
+00093 00AA 	;RCSTA_Value	EQU	b'10010000'	;RX enabled, 8 bit, Continious receive
+00094 00AA 	;; 8MHz clock low speed (BRGH=0,BRG16=1)
+00095 00AA 	;;Baud_300	EQU	d'1666'	;0.299, -0.02%
+00096 00AA 	;;Baud_1200	EQU	d'416'	;1.199, -0.08%
+00097 00AA 	;;Baud_2400	EQU	d'207'	;2.404, +0.16%
+00098 00AA 	;;Baud_9600	EQU	d'51'	;9.615, +0.16%
+00099 00AA 	;; 8MHz clock high speed (BRGH=1,BRG16=1)
+00100 00AA 	;Baud_300	EQU	d'6666'	;0.299, -0.02%
+00101 00AA 	;Baud_1200	EQU	d'1666'	;1.199, -0.08%
+00102 00AA 	;Baud_2400	EQU	d'832'	;2.404, +0.16%
+00103 00AA 	;Baud_9600	EQU	d'207'	;9.615, +0.16%
+00104 00AA 	;Baud_19_2	EQU	d'103'	;19.23k, +0.16
+00105 00AA 	;Baud_57_6	EQU	d'34'	;57.14k, -0.79
+00106 00AA 	;BaudRate	EQU	Baud_9600
+00107 00AA 	;-------------
+00108 00AA 	;
+00109 00AA 	; setup serial I/O
+00110 00AA 	;	movlb	0x03	; bank 3
+00111 00AA 	;	MOVLW	TXSTA_Value
+00112 00AA 	;	MOVWF	TXSTA
+00113 00AA 	;	MOVLW	low BaudRate
+00114 00AA 	;	MOVWF	SPBRGL
+00115 00AA 	;	MOVLW	high BaudRate
+00116 00AA 	;	MOVWF	SPBRGH
+00117 00AA 	;	MOVLW	RCSTA_Value
+00118 00AA 	;	MOVWF	RCSTA
+00119 00AA 	;
+00120 00AA 	;	movlb	0x01	; bank 1
+00121 00AA 	;	BSF	PIE1,RCIE	; Serial Receive interupt
+00122 00AA 	;	movlb	0x00	; bank 0
+00123 00AA 	;	BSF	INTCON,PEIE	;Peripheral IRQ Enable
+00124 00AA 	;	BSF	INTCON,GIE
+00125 00AA 	;
+00126 00AA 	;=========================================================================================
+00127 00AA 	; *** Put in ISR ***
+00128 00AA 	;-----------------------------------------------------------------------------------------
+00129 00AA 	;AUSART Serial ISR
+00130 00AA 	;
+00131 00AA 	;IRQ_Ser	BTFSS	PIR1,RCIF	;RX has a byte?
+00132 00AA 	;	BRA	IRQ_Ser_End
+00133 00AA 	;	CALL	RX_TheByte
+00134 00AA 	;
+00135 00AA 	;IRQ_Ser_End
+00136 00AA 	;
+00137 00AA 	;=========================================================================================
+00138 00AA 	; Send one byte
+00139 00AA 	; Entry: Bank0
+00140 00AA 	; Exit: Bank0
+00141 00AA 	;
+00142 00AA 	;
+00143 00AA 1930 	TX_TheByte	BTFSC	DataSentFlag
+00144 00AB 0008 		RETURN
+00145 00AC 082E 		MOVF	TXByte,W	
+00146 00AD 0023  a		MOVLB	TXREG	;banksel
+00145 00AE 		BANKSEL	TXREG
+00147 00AE 009A 		MOVWF	TXREG
+00148 00AF 0020 		MOVLB	0
+00149 00B0 1530 		BSF	DataSentFlag
 SerialSPI.asm                                                         Page: 10
 /Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
 
-00143 00A7 1930 	TX_TheByte	BTFSC	DataSentFlag
-00144 00A8 0008 		RETURN
-00145 00A9 082E 		MOVF	TXByte,W	
-00146 00AA 0023  a		MOVLB	TXREG	;banksel
-00145 00AB 		BANKSEL	TXREG
-00147 00AB 009A 		MOVWF	TXREG
-00148 00AC 0020 		MOVLB	0
-00149 00AD 1530 		BSF	DataSentFlag
-00150 00AE 0008 		RETURN
-00151 00AF 	;
-00152 00AF 	;=========================================================================================
-00153 00AF 	;
-00154 00AF 	RX_TheByte:
-00155 00AF 0023  a		MOVLB	RCSTA	;banksel
-00154 00B0 		BANKSEL	RCSTA	; bank 3
-00156 00B0 081D 		MOVF	RCSTA,W
-00157 00B1 3906 		ANDLW	0x06
-00158 00B2 		SKPZ		;Frame or Overrun Err?
-00158 00B2 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-00159 00B3 3205 		BRA	RX_TheByte_Err	; yes
-00160 00B4 0819 		MOVF	RCREG,W
-00161 00B5 	;
-00162 00B5 0020 		movlb	0x00	; bank 0
-00163 00B6 00AF 		MOVWF	RXByte
-00164 00B7 14B0 		BSF	DataReceivedFlag
-00165 00B8 0008 		RETURN
-00166 00B9 	;
-00167 00B9 0819 	RX_TheByte_Err	MOVF	RCREG,W	;bad byte so drop it
-00168 00BA 01AF 		CLRF	RXByte
-00169 00BB 121D 		BCF	RCSTA,CREN
-00170 00BC 111D 		BCF	RCSTA,FERR
-00171 00BD 109D 		BCF	RCSTA,OERR
-00172 00BE 161D 		BSF	RCSTA,CREN
-00173 00BF 0020 		movlb	0x00
-00174 00C0 0008 		RETURN
-00175 00C1 	;
-00176 00C1 	;=========================================================================================
-00177 00C1 	;=========================================================================================
-00178 00C1 	; Put the byte in W into the serial input buffer
-00179 00C1 	;
-00180 00C1 	; Entry: W = byte to store
-00181 00C1 	; Exit: none
-00182 00C1 	; Ram Used: Param78, FSR
-00183 00C1 	;
-00184 00C1 00F8 	StoreSerIn	MOVWF	Param78
-00185 00C2 0022 		MOVLB	Ser_Buff_Bank
-00186 00C3 0AA0 		INCF	Ser_In_Bytes,F
-00187 00C4 	;	
-00188 00C4 0822 		MOVF	Ser_In_InPtr,W
-00189 00C5 391F 		ANDLW	0x1F
-00190 00C6 0AA2 		INCF	Ser_In_InPtr,F
-00191 00C7 3E26 		ADDLW	low Ser_In_Buff
-00192 00C8 0084 		MOVWF	FSR0
-00193 00C9 3001 		MOVLW	high Ser_In_Buff
-00194 00CA 0085 		MOVWF	FSR0H
-00195 00CB 0878 		MOVF	Param78,W
-00196 00CC 0080 		MOVWF	INDF0
-00197 00CD 0020 		MOVLB	0x00
-00198 00CE 0008 		RETURN
-00199 00CF 	;
-00200 00CF 	;=========================================================================================
-00201 00CF 	; Get a byte from the serial input buffer
-00202 00CF 	;
-00203 00CF 	; Entry: none
-00204 00CF 	; Exit: W=byte from buffer, Param78,0=valid
-00205 00CF 	;
-00206 00CF 0022 	GetSerIn	MOVLB	Ser_Buff_Bank
-00207 00D0 1078 		BCF	Param78,0	;no data
-00208 00D1 08A0 		MOVF	Ser_In_Bytes,F
-00209 00D2 		SKPNZ
-00209 00D2 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
-00210 00D3 320A 		bra	GetSerIn_End
-00211 00D4 1478 		BSF	Param78,0
-00212 00D5 03A0 		DECF	Ser_In_Bytes,F
-00213 00D6 0823 		MOVF	Ser_In_OutPtr,W
-00214 00D7 391F 		ANDLW	0x1F
-00215 00D8 0AA3 		INCF	Ser_In_OutPtr,F
-00216 00D9 3E26 		ADDLW	low Ser_In_Buff
-00217 00DA 0084 		MOVWF	FSR0L
-00218 00DB 3001 		MOVLW	high Ser_In_Buff
-00219 00DC 0085 		MOVWF	FSR0H
-00220 00DD 0800 		MOVF	INDF0,W
-00221 00DE 0020 	GetSerIn_End	movlb	0
-00222 00DF 0008 		return
-00223 00E0 	;
-00224 00E0 	;=========================================================================================
-00225 00E0 	; Flush the serial incoming buffer
-00226 00E0 	; Entry: none
-00227 00E0 	; Exit: bank 0
-00228 00E0 	;
-00229 00E0 0022 	FlushInBuff	movlb	Ser_Buff_Bank
-00230 00E1 01A0 		clrf	Ser_In_Bytes
-00231 00E2 01A3 		clrf	Ser_In_OutPtr
-00232 00E3 01A2 		clrf	Ser_In_InPtr
-00233 00E4 0020 		movlb	0
-00234 00E5 0008 		return
-00235 00E6 	;
-00236 00E6 	;=========================================================================================
-00237 00E6 	; Get the number of bytes in the serial input buffer
+00150 00B1 0008 		RETURN
+00151 00B2 	;
+00152 00B2 	;=========================================================================================
+00153 00B2 	;
+00154 00B2 	RX_TheByte:
+00155 00B2 0023  a		MOVLB	RCSTA	;banksel
+00154 00B3 		BANKSEL	RCSTA	; bank 3
+00156 00B3 081D 		MOVF	RCSTA,W
+00157 00B4 3906 		ANDLW	0x06
+00158 00B5 		SKPZ		;Frame or Overrun Err?
+00158 00B5 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+00159 00B6 3205 		BRA	RX_TheByte_Err	; yes
+00160 00B7 0819 		MOVF	RCREG,W
+00161 00B8 	;
+00162 00B8 0020 		movlb	0x00	; bank 0
+00163 00B9 00AF 		MOVWF	RXByte
+00164 00BA 14B0 		BSF	DataReceivedFlag
+00165 00BB 0008 		RETURN
+00166 00BC 	;
+00167 00BC 0819 	RX_TheByte_Err	MOVF	RCREG,W	;bad byte so drop it
+00168 00BD 01AF 		CLRF	RXByte
+00169 00BE 121D 		BCF	RCSTA,CREN
+00170 00BF 111D 		BCF	RCSTA,FERR
+00171 00C0 109D 		BCF	RCSTA,OERR
+00172 00C1 161D 		BSF	RCSTA,CREN
+00173 00C2 0020 		movlb	0x00
+00174 00C3 0008 		RETURN
+00175 00C4 	;
+00176 00C4 	;=========================================================================================
+00177 00C4 	;=========================================================================================
+00178 00C4 	; Put the byte in W into the serial input buffer
+00179 00C4 	;
+00180 00C4 	; Entry: W = byte to store
+00181 00C4 	; Exit: none
+00182 00C4 	; Ram Used: Param78, FSR
+00183 00C4 	;
+00184 00C4 00F8 	StoreSerIn	MOVWF	Param78
+00185 00C5 0022 		MOVLB	Ser_Buff_Bank
+00186 00C6 0AA0 		INCF	Ser_In_Bytes,F
+00187 00C7 	;	
+00188 00C7 0822 		MOVF	Ser_In_InPtr,W
+00189 00C8 391F 		ANDLW	0x1F
+00190 00C9 0AA2 		INCF	Ser_In_InPtr,F
+00191 00CA 3E26 		ADDLW	low Ser_In_Buff
+00192 00CB 0084 		MOVWF	FSR0
+00193 00CC 3001 		MOVLW	high Ser_In_Buff
+00194 00CD 0085 		MOVWF	FSR0H
+00195 00CE 0878 		MOVF	Param78,W
+00196 00CF 0080 		MOVWF	INDF0
+00197 00D0 0020 		MOVLB	0x00
+00198 00D1 0008 		RETURN
+00199 00D2 	;
+00200 00D2 	;=========================================================================================
+00201 00D2 	; Get a byte from the serial input buffer
+00202 00D2 	;
+00203 00D2 	; Entry: none
+00204 00D2 	; Exit: W=byte from buffer, Param78,0=valid
+00205 00D2 	;
+00206 00D2 0022 	GetSerIn	MOVLB	Ser_Buff_Bank
+00207 00D3 1078 		BCF	Param78,0	;no data
+00208 00D4 08A0 		MOVF	Ser_In_Bytes,F
+00209 00D5 		SKPNZ
+00209 00D5 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
+00210 00D6 320A 		bra	GetSerIn_End
+00211 00D7 1478 		BSF	Param78,0
+00212 00D8 03A0 		DECF	Ser_In_Bytes,F
+00213 00D9 0823 		MOVF	Ser_In_OutPtr,W
+00214 00DA 391F 		ANDLW	0x1F
+00215 00DB 0AA3 		INCF	Ser_In_OutPtr,F
+00216 00DC 3E26 		ADDLW	low Ser_In_Buff
+00217 00DD 0084 		MOVWF	FSR0L
+00218 00DE 3001 		MOVLW	high Ser_In_Buff
+00219 00DF 0085 		MOVWF	FSR0H
+00220 00E0 0800 		MOVF	INDF0,W
+00221 00E1 0020 	GetSerIn_End	movlb	0
+00222 00E2 0008 		return
+00223 00E3 	;
+00224 00E3 	;=========================================================================================
+00225 00E3 	; Flush the serial incoming buffer
+00226 00E3 	; Entry: none
+00227 00E3 	; Exit: bank 0
+00228 00E3 	;
+00229 00E3 0022 	FlushInBuff	movlb	Ser_Buff_Bank
+00230 00E4 01A0 		clrf	Ser_In_Bytes
+00231 00E5 01A3 		clrf	Ser_In_OutPtr
+00232 00E6 01A2 		clrf	Ser_In_InPtr
+00233 00E7 0020 		movlb	0
+00234 00E8 0008 		return
+00235 00E9 	;
+00236 00E9 	;=========================================================================================
+00237 00E9 	; Get the number of bytes in the serial input buffer
+00238 00E9 	;
+00239 00E9 	; Entry: none
+00240 00E9 	; Exit: W=bytes in buffer, Z
+00241 00E9 	;
+00242 00E9 0022 	GetSerInBytes	MOVLB	Ser_Buff_Bank
+00243 00EA 0820 		MOVF	Ser_In_Bytes,W
+00244 00EB 0020 		movlb	0
+00245 00EC 0008 		return
 SerialSPI.asm                                                         Page: 11
 /Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
 
-00238 00E6 	;
-00239 00E6 	; Entry: none
-00240 00E6 	; Exit: W=bytes in buffer, Z
-00241 00E6 	;
-00242 00E6 0022 	GetSerInBytes	MOVLB	Ser_Buff_Bank
-00243 00E7 0820 		MOVF	Ser_In_Bytes,W
-00244 00E8 0020 		movlb	0
-00245 00E9 0008 		return
-00246 00EA 	;
-00247 00EA 	;=========================================================================================
-00248 00EA 	; Get the number of bytes in the serial ouput buffer
-00249 00EA 	;
-00250 00EA 	; Entry: none
-00251 00EA 	; Exit: W=bytes in buffer, Z
-00252 00EA 	;
-00253 00EA 0022 	GetSerOutBytes	MOVLB	Ser_Buff_Bank
-00254 00EB 0821 		MOVF	Ser_Out_Bytes,W
-00255 00EC 0020 		movlb	0
-00256 00ED 0008 		return
-00257 00EE 	;
-00258 00EE 	;=========================================================================================
-00259 00EE 	; Put the byte in W into the serial output buffer
-00260 00EE 	;
-00261 00EE 	; Entry: W = byte to store
-00262 00EE 	; Exit: Param78 & W = byte stored, Bank 0
-00263 00EE 	; Ram used: Param78, FSR0
-00264 00EE 	; Calls: (0) none
-00265 00EE 	;
-00266 00EE 00F8 	StoreSerOut	MOVWF	Param78
-00267 00EF 0022 		MOVLB	Ser_Buff_Bank
-00268 00F0 0AA1 		INCF	Ser_Out_Bytes,F
-00269 00F1 	;	
-00270 00F1 0824 		MOVF	Ser_Out_InPtr,W
-00271 00F2 391F 		ANDLW	0x1F
-00272 00F3 0AA4 		INCF	Ser_Out_InPtr,F
-00273 00F4 3E46 		ADDLW	low Ser_Out_Buff
-00274 00F5 0084 		MOVWF	FSR0
-00275 00F6 3001 		MOVLW	high Ser_In_Buff
-00276 00F7 0085 		MOVWF	FSR0H
-00277 00F8 0878 		MOVF	Param78,W
-00278 00F9 0080 		MOVWF	INDF0
-00279 00FA 0020 		movlb	0
-00280 00FB 0008 		return
-00281 00FC 	;
-00282 00FC 	;=========================================================================================
-00283 00FC 	; Remove the last char stored in the output buffer
-00284 00FC 	;
-00285 00FC 0022 	POP_SerOut	MOVLB	Ser_Buff_Bank
-00286 00FD 08A1 		MOVF	Ser_Out_Bytes,F
-00287 00FE 		SKPNZ
-00287 00FE 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
-00288 00FF 3202 		bra	POP_SerOut_End
-00289 0100 03A1 		DECF	Ser_Out_Bytes,F
-00290 0101 03A4 		DECF	Ser_Out_InPtr,F
-00291 0102 0020 	POP_SerOut_End	movlb	0
-00292 0103 0008 		return
-00293 0104 	;
-00294 0104 	;=========================================================================================
-00295 0104 	; Get a byte from the serial Output buffer
-00296 0104 	;
-00297 0104 	; Entry: none
-00298 0104 	; Exit: W=byte from buffer, Param78,0=valid
-00299 0104 	;
-00300 0104 0022 	GetSerOut	MOVLB	Ser_Buff_Bank
-00301 0105 1078 		BCF	Param78,0	;no data
-00302 0106 08A1 		MOVF	Ser_Out_Bytes,F
-00303 0107 		SKPNZ
-00303 0107 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
-00304 0108 320A 		bra	GetSerOut_End
-00305 0109 1478 		BSF	Param78,0
-00306 010A 03A1 		DECF	Ser_Out_Bytes,F
-00307 010B 0825 		MOVF	Ser_Out_OutPtr,W
-00308 010C 391F 		ANDLW	0x1F
-00309 010D 0AA5 		INCF	Ser_Out_OutPtr,F
-00310 010E 3E46 		ADDLW	low Ser_Out_Buff
-00311 010F 0084 		MOVWF	FSR0L
-00312 0110 3001 		MOVLW	high Ser_In_Buff
-00313 0111 0085 		MOVWF	FSR0H
-00314 0112 0800 		MOVF	INDF0,W
-00315 0113 0020 	GetSerOut_End	movlb	0
-00316 0114 0008 		return
-00317 0115 	;
-00318 0115 	;=========================================================================================
-00319 0115 	;
-00320 0115 	;
-00321 0115 	;
-00322 0115 	;
-00323 0115 	;
-00324 0115 	;
-00325 0115 	;
-00326 0115 	;
-00327 0115 	;
-00328 0115 	;
-00329 0115 	;
-00330 0115 	;
-00331 0115 	;
-00332 0115 	;
-00333 0115 	;
-00334 0115 	;
+00246 00ED 	;
+00247 00ED 	;=========================================================================================
+00248 00ED 	; Get the number of bytes in the serial ouput buffer
+00249 00ED 	;
+00250 00ED 	; Entry: none
+00251 00ED 	; Exit: W=bytes in buffer, Z
+00252 00ED 	;
+00253 00ED 0022 	GetSerOutBytes	MOVLB	Ser_Buff_Bank
+00254 00EE 0821 		MOVF	Ser_Out_Bytes,W
+00255 00EF 0020 		movlb	0
+00256 00F0 0008 		return
+00257 00F1 	;
+00258 00F1 	;=========================================================================================
+00259 00F1 	; Put the byte in W into the serial output buffer
+00260 00F1 	;
+00261 00F1 	; Entry: W = byte to store
+00262 00F1 	; Exit: Param78 & W = byte stored, Bank 0
+00263 00F1 	; Ram used: Param78, FSR0
+00264 00F1 	; Calls: (0) none
+00265 00F1 	;
+00266 00F1 00F8 	StoreSerOut	MOVWF	Param78
+00267 00F2 0022 		MOVLB	Ser_Buff_Bank
+00268 00F3 0AA1 		INCF	Ser_Out_Bytes,F
+00269 00F4 	;	
+00270 00F4 0824 		MOVF	Ser_Out_InPtr,W
+00271 00F5 391F 		ANDLW	0x1F
+00272 00F6 0AA4 		INCF	Ser_Out_InPtr,F
+00273 00F7 3E46 		ADDLW	low Ser_Out_Buff
+00274 00F8 0084 		MOVWF	FSR0
+00275 00F9 3001 		MOVLW	high Ser_In_Buff
+00276 00FA 0085 		MOVWF	FSR0H
+00277 00FB 0878 		MOVF	Param78,W
+00278 00FC 0080 		MOVWF	INDF0
+00279 00FD 0020 		movlb	0
+00280 00FE 0008 		return
+00281 00FF 	;
+00282 00FF 	;=========================================================================================
+00283 00FF 	; Remove the last char stored in the output buffer
+00284 00FF 	;
+00285 00FF 0022 	POP_SerOut	MOVLB	Ser_Buff_Bank
+00286 0100 08A1 		MOVF	Ser_Out_Bytes,F
+00287 0101 		SKPNZ
+00287 0101 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
+00288 0102 3202 		bra	POP_SerOut_End
+00289 0103 03A1 		DECF	Ser_Out_Bytes,F
+00290 0104 03A4 		DECF	Ser_Out_InPtr,F
+00291 0105 0020 	POP_SerOut_End	movlb	0
+00292 0106 0008 		return
+00293 0107 	;
+00294 0107 	;=========================================================================================
+00295 0107 	; Get a byte from the serial Output buffer
+00296 0107 	;
+00297 0107 	; Entry: none
+00298 0107 	; Exit: W=byte from buffer, Param78,0=valid
+00299 0107 	;
+00300 0107 0022 	GetSerOut	MOVLB	Ser_Buff_Bank
+00301 0108 1078 		BCF	Param78,0	;no data
+00302 0109 08A1 		MOVF	Ser_Out_Bytes,F
+00303 010A 		SKPNZ
+00303 010A 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
+00304 010B 320A 		bra	GetSerOut_End
+00305 010C 1478 		BSF	Param78,0
+00306 010D 03A1 		DECF	Ser_Out_Bytes,F
+00307 010E 0825 		MOVF	Ser_Out_OutPtr,W
+00308 010F 391F 		ANDLW	0x1F
+00309 0110 0AA5 		INCF	Ser_Out_OutPtr,F
+00310 0111 3E46 		ADDLW	low Ser_Out_Buff
+00311 0112 0084 		MOVWF	FSR0L
+00312 0113 3001 		MOVLW	high Ser_In_Buff
+00313 0114 0085 		MOVWF	FSR0H
+00314 0115 0800 		MOVF	INDF0,W
+00315 0116 0020 	GetSerOut_End	movlb	0
+00316 0117 0008 		return
+00317 0118 	;
+00318 0118 	;=========================================================================================
+00319 0118 	;
+00320 0118 	;
+00321 0118 	;
+00322 0118 	;
+00323 0118 	;
+00324 0118 	;
+00325 0118 	;
+00326 0118 	;
+00327 0118 	;
+00328 0118 	;
+00329 0118 	;
+00330 0118 	;
+00331 0118 	;
+00332 0118 	;
+00333 0118 	;
+00334 0118 	;
+00335 0118 	;
+00336 0118 	;
+00337 0118 	;
+00338 0118 	;
+00456 0118 		include <RS232_Parse.inc>
+00001 0118 	;=========================================================================================
+00002 0118 	;
+00003 0118 	;    Filename:      RS232_Parse.inc
 SerialSPI.asm                                                         Page: 12
 /Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
 
-00335 0115 	;
-00336 0115 	;
-00337 0115 	;
-00338 0115 	;
-00464 0115 		include <RS232_Parse.inc>
-00001 0115 	;=========================================================================================
-00002 0115 	;
-00003 0115 	;    Filename:      RS232_Parse.inc
-00004 0115 	;    Date:          5/25/2018
-00005 0115 	;    File Version:  1.0d5
-00006 0115 	;
-00007 0115 	;    Author:        David M. Flynn
-00008 0115 	;    Company:       Oxford V.U.E., Inc.
-00009 0115 	;    E-Mail:        dflynn@oxfordvue.com
-00010 0115 	;
-00011 0115 	;=========================================================================================
-00012 0115 	; Routines:
-00013 0115 	;
-00014 0115 	; RS232_Parse	Call from main loop
-00015 0115 	; RS232_ClearTXData	Clear the TX data, FSR1
-00016 0115 	; RS232_Send	Send the data at TX_data, FSR0, FSR1
-00017 0115 	;
-00018 0115 	;=========================================================================================
-00019 0115 	; Notes:
-00020 0115 	;
-00021 0115 	; History:
-00022 0115 	; 1.0b5  5/25/2018	RS232_MasterAddr, RS232_SlaveAddr now in ram
-00023 0115 	; 1.0d4  5/18/2018	Added RS232_ClearTXData, RS232_Send.
-00024 0115 	; 1.0d3  5/17/2018	Used Timer1Lo for RXTimeout.
-00025 0115 	; 1.0d2  4/26/2018	Comments, used in robot arm project.
-00026 0115 	; 1.0d1  1/12/2016	Modified for I2C to RS-232 8 byte packets.
-00027 0115 	; 1.0d1  11/9/2015	Adapted for QD Tester
-00028 0115 	; 1.0    12/6/2013	First Rev'd version
-00029 0115 	;
-00030 0115 	; RS232_Parse	(X/0) Parse any bytes received by the serial port
-00031 0115 	; Packet format: (FF FF) SA0 (SA1) DA0 (DA1) D0 D1 D2 D3 D4 D5 D6 D7 (CS)
-00032 0115 	;  FF = Sync byte, SAn = Source Address, DA = Destination Address,
-00033 0115 	;       Dn = Data, CS Check Sum (xor of Address and Data bytes)
-00034 0115 	;  SA must be RS232_RAddr ( the boss )
-00035 0115 	;  DA must be RS232_MyAddr ( this program )
-00036 0115 	;  If the checksum matches put the data bytes in the RX_Data buffer,
-00037 0115 	;   set RXDataValidFlag and RXDataIsNew.
-00038 0115 	;=========================================================================================
-00039 0115 	;	constant RP_LongAddr=1		;16 bit addresses
-00040 0115 	; default to a 6 byte packet SA DA D0 D1 D2 D3
-00041 0115 	;
-00042 0115 		ifndef UseRS232SyncBytes
-00044 0115 		endif
-00045 0115 	;
-00046 0115 		ifndef UseRS232SendSyncBytes
-00048 0115 		endif
-00049 0115 	;
-00050 0115 		ifndef RP_LongAddr
-00052 0115 		endif
-00053 0115 	;
-00054 0115 		ifndef RP_DataBytes
-00056 0115 		endif
-00057 0115 	;
-00058 0115 		ifndef UseRS232Chksum
-00060 0115 		endif
-00061 0115 	;
-00062 0115 		constant RXTimeout=5		;50 mS max between incoming bytes
-00063 0115 	;=========================================================================================
-00064 0115 	; Bank0 variable used by RS232_Parse:
-00065 0115 	;
-00066 0115 	;	cblock
-00067 0115 	;	RS232_MasterAddr
-00068 0115 	;	RS232_SlaveAddr
-00069 0115 	;	endc
-00070 0115 	;
-00071 0115 	; Bank1 variable used by RS232_Parse:
-00072 0115 	;
-00073 0115 	;	cblock
-00074 0115 	;	RX_ParseFlags
-00075 0115 	;	RX_Flags
-00076 0115 	;	RX_DataCount
-00077 0115 	;	RX_CSUM
-00078 0115 	;	RX_TempData:RP_DataBytes
-00079 0115 	;	RX_Data:RP_DataBytes
-00080 0115 	;	TX_Data:RP_DataBytes
-00081 0115 	;	endc
-00082 0115 	;RX_ParseFlags Bits
-00083 0115 00A0 	#Define	SyncByte1RXd	RX_ParseFlags,0
-00084 0115 00A0 	#Define	SyncByte2RXd	RX_ParseFlags,1
-00085 0115 00A0 	#Define	SourceAddLoRXd	RX_ParseFlags,2
-00086 0115 00A0 	#Define	SourceAddHiRXd	RX_ParseFlags,3
-00087 0115 00A0 	#Define	DestAddLoRXd	RX_ParseFlags,4
-00088 0115 00A0 	#Define	DestAddHiRXd	RX_ParseFlags,5
-00089 0115 00A0 	#Define	AllDataRXd	RX_ParseFlags,6
-00090 0115 	;
-00091 0115 	;RX_Flags Bits
-00092 0115 00A1 	#Define	RXDataValidFlag	RX_Flags,0
-00093 0115 00A1 	#Define	RXDataIsNew	RX_Flags,1
-00094 0115 00A1 	#Define	RXSrcIsMaster	RX_Flags,2
-00095 0115 00A1 	#Define	RXDstIsMe	RX_Flags,3
-00096 0115 	;
-00097 0115 	;
-00098 0115 	; *** put in main loop
-00099 0115 	;	CALL	RS232_Parse
+00004 0118 	;    Date:          5/25/2018
+00005 0118 	;    File Version:  1.0d5
+00006 0118 	;
+00007 0118 	;    Author:        David M. Flynn
+00008 0118 	;    Company:       Oxford V.U.E., Inc.
+00009 0118 	;    E-Mail:        dflynn@oxfordvue.com
+00010 0118 	;
+00011 0118 	;=========================================================================================
+00012 0118 	; Routines:
+00013 0118 	;
+00014 0118 	; RS232_Parse	Call from main loop
+00015 0118 	; RS232_ClearTXData	Clear the TX data, FSR1
+00016 0118 	; RS232_Send	Send the data at TX_data, FSR0, FSR1
+00017 0118 	;
+00018 0118 	;=========================================================================================
+00019 0118 	; Notes:
+00020 0118 	;
+00021 0118 	; History:
+00022 0118 	; 1.0b5  5/25/2018	RS232_MasterAddr, RS232_SlaveAddr now in ram
+00023 0118 	; 1.0d4  5/18/2018	Added RS232_ClearTXData, RS232_Send.
+00024 0118 	; 1.0d3  5/17/2018	Used Timer1Lo for RXTimeout.
+00025 0118 	; 1.0d2  4/26/2018	Comments, used in robot arm project.
+00026 0118 	; 1.0d1  1/12/2016	Modified for I2C to RS-232 8 byte packets.
+00027 0118 	; 1.0d1  11/9/2015	Adapted for QD Tester
+00028 0118 	; 1.0    12/6/2013	First Rev'd version
+00029 0118 	;
+00030 0118 	; RS232_Parse	(X/0) Parse any bytes received by the serial port
+00031 0118 	; Packet format: (FF FF) SA0 (SA1) DA0 (DA1) D0 D1 D2 D3 D4 D5 D6 D7 (CS)
+00032 0118 	;  FF = Sync byte, SAn = Source Address, DA = Destination Address,
+00033 0118 	;       Dn = Data, CS Check Sum (xor of Address and Data bytes)
+00034 0118 	;  SA must be RS232_RAddr ( the boss )
+00035 0118 	;  DA must be RS232_MyAddr ( this program )
+00036 0118 	;  If the checksum matches put the data bytes in the RX_Data buffer,
+00037 0118 	;   set RXDataValidFlag and RXDataIsNew.
+00038 0118 	;=========================================================================================
+00039 0118 	;	constant RP_LongAddr=1		;16 bit addresses
+00040 0118 	; default to a 6 byte packet SA DA D0 D1 D2 D3
+00041 0118 	;
+00042 0118 		ifndef UseRS232SyncBytes
+00044 0118 		endif
+00045 0118 	;
+00046 0118 		ifndef UseRS232SendSyncBytes
+00048 0118 		endif
+00049 0118 	;
+00050 0118 		ifndef RP_LongAddr
+00052 0118 		endif
+00053 0118 	;
+00054 0118 		ifndef RP_DataBytes
+00056 0118 		endif
+00057 0118 	;
+00058 0118 		ifndef UseRS232Chksum
+00060 0118 		endif
+00061 0118 	;
+00062 0118 		constant RXTimeout=5		;50 mS max between incoming bytes
+00063 0118 	;=========================================================================================
+00064 0118 	; Bank0 variable used by RS232_Parse:
+00065 0118 	;
+00066 0118 	;	cblock
+00067 0118 	;	RS232_MasterAddr
+00068 0118 	;	RS232_SlaveAddr
+00069 0118 	;	endc
+00070 0118 	;
+00071 0118 	; Bank1 variable used by RS232_Parse:
+00072 0118 	;
+00073 0118 	;	cblock
+00074 0118 	;	RX_ParseFlags
+00075 0118 	;	RX_Flags
+00076 0118 	;	RX_DataCount
+00077 0118 	;	RX_CSUM
+00078 0118 	;	RX_TempData:RP_DataBytes
+00079 0118 	;	RX_Data:RP_DataBytes
+00080 0118 	;	TX_Data:RP_DataBytes
+00081 0118 	;	endc
+00082 0118 	;RX_ParseFlags Bits
+00083 0118 00A0 	#Define	SyncByte1RXd	RX_ParseFlags,0
+00084 0118 00A0 	#Define	SyncByte2RXd	RX_ParseFlags,1
+00085 0118 00A0 	#Define	SourceAddLoRXd	RX_ParseFlags,2
+00086 0118 00A0 	#Define	SourceAddHiRXd	RX_ParseFlags,3
+00087 0118 00A0 	#Define	DestAddLoRXd	RX_ParseFlags,4
+00088 0118 00A0 	#Define	DestAddHiRXd	RX_ParseFlags,5
+00089 0118 00A0 	#Define	AllDataRXd	RX_ParseFlags,6
+00090 0118 	;
+00091 0118 	;RX_Flags Bits
+00092 0118 00A1 	#Define	RXDataValidFlag	RX_Flags,0
+00093 0118 00A1 	#Define	RXDataIsNew	RX_Flags,1
+00094 0118 00A1 	#Define	RXSrcIsMaster	RX_Flags,2
+00095 0118 00A1 	#Define	RXDstIsMe	RX_Flags,3
+00096 0118 	;
+00097 0118 	;
+00098 0118 	; *** put in main loop
+00099 0118 	;	CALL	RS232_Parse
+00100 0118 	; if RXDataValidFlag is set data may be used
+00101 0118 	;
+00102 0118 	;=========================================================================================
+00103 0118 	; Parse any bytes received by the serial port
+00104 0118 	;
+00105 0118 	; Receive 0xFF,0xFF,SA0,(SA1),DA0,(DA1),Cmd,Data0,Data1,Data2,CS
+00106 0118 	;
+00107 0118 	;
 SerialSPI.asm                                                         Page: 13
 /Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
 
-00100 0115 	; if RXDataValidFlag is set data may be used
-00101 0115 	;
-00102 0115 	;=========================================================================================
-00103 0115 	; Parse any bytes received by the serial port
-00104 0115 	;
-00105 0115 	; Receive 0xFF,0xFF,SA0,(SA1),DA0,(DA1),Cmd,Data0,Data1,Data2,CS
-00106 0115 	;
-00107 0115 	;
-00108 0115 	; Entry: none
-00109 0115 	; Exit: none
-00110 0115 	; Ram Used: Param78, FSR
-00111 0115 	; Calls (1+0): GetSerIn
-00112 0115 	;
-00113 0115 0021 	RS232_Parse	movlb	0x01	;bank 1
-00114 0116 08A0 		movf	RX_ParseFlags,F
-00115 0117 		SKPNZ		;Receive in process?
-00115 0117 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
-00116 0118 3207 		bra	RS232_Parse_Byte	; no
-00117 0119 	;
-00118 0119 0020 		movlb	0	;bank 0
-00119 011A 08A6 		movf	Timer1Lo,F
-00120 011B 		SKPZ		;Timed out?
-00120 011B 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-00121 011C 3203 		bra	RS232_Parse_Byte	; no
-00122 011D 	;timed out
-00123 011D 15B2 		bsf	ssRX_Timeout
-00124 011E 0021 		movlb	0x01	;bank 1
-00125 011F 01A0 		clrf	RX_ParseFlags
-00126 0120 	;
-00127 0120 20CF 	RS232_Parse_Byte	CALL	GetSerIn
-00128 0121 1C78 		BTFSS	Param78,0	;Got a byte?
-00129 0122 0008 		RETURN		; No
-00130 0123 	;
-00131 0123 00F8 		MOVWF	Param78	;Data Byte RXd
-00132 0124 3005 		movlw	RXTimeout	;Reset time-out timer
-00133 0125 00A6 		movwf	Timer1Lo
-00134 0126 	; Command inturpreter
-00135 0126 		if UseRS232SyncBytes
-00136 0126 	;
-00137 0126 0021 		movlb	0x01	;bank 1
-00138 0127 08A0 		MOVF	RX_ParseFlags,F
-00139 0128 		SKPZ		;Beginning new packet?
-00139 0128 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-00140 0129 3205 		BRA	RS232_Parse_Sync2	; No
-00141 012A 30DD 		MOVLW	kRS232SyncByteValue
-00142 012B 0278 		SUBWF	Param78,W
-00143 012C 		SKPNZ		;Sync byte OK?
-00143 012C 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
-00144 012D 1420 		BSF	SyncByte1RXd	; Yes
-00145 012E 3218 		bra	RS232_Parse_Rtn
-00146 012F 	;
-00147 012F 18A0 	RS232_Parse_Sync2	btfsc	SyncByte2RXd
-00148 0130 3206 		bra	RS232_Parse_SALo
-00149 0131 30DD 		movlw	kRS232SyncByteValue
-00150 0132 0278 		subwf	Param78,W
-00151 0133 		SKPZ
-00151 0133 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-00152 0134 2983 		goto	RS232_Parse_Error
-00153 0135 14A0 		bsf	SyncByte2RXd
-00154 0136 3210 		bra	RS232_Parse_Rtn
-00155 0137 	;
-00156 0137 		endif
-00157 0137 	;
-00158 0137 	; LSB of Source Address
-00159 0137 0021 	RS232_Parse_SALo	movlb	0x01	;bank 1
-00160 0138 1920 		btfsc	SourceAddLoRXd
-00161 0139 320F 		bra	RS232_Parse_SALo_end
-00162 013A 	;
-00163 013A 01A3 		clrf	RX_CSUM
-00164 013B 01A2 		clrf	RX_DataCount
-00165 013C 1521 		bsf	RXSrcIsMaster
-00166 013D 0020 		movlb	0
-00167 013E 0837 		movf	RS232_MasterAddr,W
-00168 013F 0021 		movlb	1
-00169 0140 0278 		subwf	Param78,W
-00170 0141 		SKPZ
-00170 0141 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-00171 0142 1121 		bcf	RXSrcIsMaster
-00172 0143 1520 		bsf	SourceAddLoRXd
-00173 0144 0878 		movf	Param78,W
-00174 0145 00A4 		movwf	RX_SrcAdd
-00175 0146 06A3 		xorwf	RX_CSUM,F
-00176 0147 0020 	RS232_Parse_Rtn	movlb	0x00	;bank 0
-00177 0148 0008 		return
-00178 0149 	RS232_Parse_SALo_end:
-00179 0149 	;
-00180 0149 	; MSB of Source Address
-00181 0149 		if RP_LongAddr
-00196 0149 		endif
-00197 0149 	;
-00198 0149 	; LSB of Destination Address
-00199 0149 1A20 	RS232_Parse_DALo	btfsc	DestAddLoRXd
-00200 014A 320C 		bra	RS232_Parse_DALo_End
-00201 014B 15A1 		bsf	RXDstIsMe
-00202 014C 0020 		movlb	0
-00203 014D 0838 		movf	RS232_SlaveAddr,W
-00204 014E 0021 		movlb	1
-00205 014F 0278 		subwf	Param78,W
-00206 0150 		SKPZ
+00108 0118 	; Entry: none
+00109 0118 	; Exit: none
+00110 0118 	; Ram Used: Param78, FSR
+00111 0118 	; Calls (1+0): GetSerIn
+00112 0118 	;
+00113 0118 0021 	RS232_Parse	movlb	0x01	;bank 1
+00114 0119 08A0 		movf	RX_ParseFlags,F
+00115 011A 		SKPNZ		;Receive in process?
+00115 011A 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
+00116 011B 3207 		bra	RS232_Parse_Byte	; no
+00117 011C 	;
+00118 011C 0020 		movlb	0	;bank 0
+00119 011D 08A6 		movf	Timer1Lo,F
+00120 011E 		SKPZ		;Timed out?
+00120 011E 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+00121 011F 3203 		bra	RS232_Parse_Byte	; no
+00122 0120 	;timed out
+00123 0120 15B2 		bsf	ssRX_Timeout
+00124 0121 0021 		movlb	0x01	;bank 1
+00125 0122 01A0 		clrf	RX_ParseFlags
+00126 0123 	;
+00127 0123 20D2 	RS232_Parse_Byte	CALL	GetSerIn
+00128 0124 1C78 		BTFSS	Param78,0	;Got a byte?
+00129 0125 0008 		RETURN		; No
+00130 0126 	;
+00131 0126 00F8 		MOVWF	Param78	;Data Byte RXd
+00132 0127 3005 		movlw	RXTimeout	;Reset time-out timer
+00133 0128 00A6 		movwf	Timer1Lo
+00134 0129 	; Command inturpreter
+00135 0129 		if UseRS232SyncBytes
+00136 0129 	;
+00137 0129 0021 		movlb	0x01	;bank 1
+00138 012A 08A0 		MOVF	RX_ParseFlags,F
+00139 012B 		SKPZ		;Beginning new packet?
+00139 012B 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+00140 012C 3205 		BRA	RS232_Parse_Sync2	; No
+00141 012D 30DD 		MOVLW	kRS232SyncByteValue
+00142 012E 0278 		SUBWF	Param78,W
+00143 012F 		SKPNZ		;Sync byte OK?
+00143 012F 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
+00144 0130 1420 		BSF	SyncByte1RXd	; Yes
+00145 0131 3218 		bra	RS232_Parse_Rtn
+00146 0132 	;
+00147 0132 18A0 	RS232_Parse_Sync2	btfsc	SyncByte2RXd
+00148 0133 3206 		bra	RS232_Parse_SALo
+00149 0134 30DD 		movlw	kRS232SyncByteValue
+00150 0135 0278 		subwf	Param78,W
+00151 0136 		SKPZ
+00151 0136 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+00152 0137 2986 		goto	RS232_Parse_Error
+00153 0138 14A0 		bsf	SyncByte2RXd
+00154 0139 3210 		bra	RS232_Parse_Rtn
+00155 013A 	;
+00156 013A 		endif
+00157 013A 	;
+00158 013A 	; LSB of Source Address
+00159 013A 0021 	RS232_Parse_SALo	movlb	0x01	;bank 1
+00160 013B 1920 		btfsc	SourceAddLoRXd
+00161 013C 320F 		bra	RS232_Parse_SALo_end
+00162 013D 	;
+00163 013D 01A3 		clrf	RX_CSUM
+00164 013E 01A2 		clrf	RX_DataCount
+00165 013F 1521 		bsf	RXSrcIsMaster
+00166 0140 0020 		movlb	0
+00167 0141 0837 		movf	RS232_MasterAddr,W
+00168 0142 0021 		movlb	1
+00169 0143 0278 		subwf	Param78,W
+00170 0144 		SKPZ
+00170 0144 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+00171 0145 1121 		bcf	RXSrcIsMaster
+00172 0146 1520 		bsf	SourceAddLoRXd
+00173 0147 0878 		movf	Param78,W
+00174 0148 00A4 		movwf	RX_SrcAdd
+00175 0149 06A3 		xorwf	RX_CSUM,F
+00176 014A 0020 	RS232_Parse_Rtn	movlb	0x00	;bank 0
+00177 014B 0008 		return
+00178 014C 	RS232_Parse_SALo_end:
+00179 014C 	;
+00180 014C 	; MSB of Source Address
+00181 014C 		if RP_LongAddr
+00196 014C 		endif
+00197 014C 	;
+00198 014C 	; LSB of Destination Address
+00199 014C 1A20 	RS232_Parse_DALo	btfsc	DestAddLoRXd
+00200 014D 320C 		bra	RS232_Parse_DALo_End
+00201 014E 15A1 		bsf	RXDstIsMe
+00202 014F 0020 		movlb	0
+00203 0150 0838 		movf	RS232_SlaveAddr,W
+00204 0151 0021 		movlb	1
+00205 0152 0278 		subwf	Param78,W
+00206 0153 		SKPZ
+00206 0153 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+00207 0154 11A1 		bcf	RXDstIsMe
+00208 0155 1620 		bsf	DestAddLoRXd
+00209 0156 0878 		movf	Param78,W
+00210 0157 00A5 		movwf	RX_DstAdd
+00211 0158 06A3 		xorwf	RX_CSUM,F
+00212 0159 33F0 		bra	RS232_Parse_Rtn
+00213 015A 	RS232_Parse_DALo_End:
 SerialSPI.asm                                                         Page: 14
 /Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
 
-00206 0150 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-00207 0151 11A1 		bcf	RXDstIsMe
-00208 0152 1620 		bsf	DestAddLoRXd
-00209 0153 0878 		movf	Param78,W
-00210 0154 00A5 		movwf	RX_DstAdd
-00211 0155 06A3 		xorwf	RX_CSUM,F
-00212 0156 33F0 		bra	RS232_Parse_Rtn
-00213 0157 	RS232_Parse_DALo_End:
-00214 0157 	;
-00215 0157 	; MSB of Destination Address
-00216 0157 		if RP_LongAddr
-00231 0157 		endif
-00232 0157 	;
-00233 0157 1B20 	RS232_Parse_Data	btfsc	AllDataRXd
-00234 0158 320F 		bra	RS232_Parse_Data_end
-00235 0159 0822 		movf	RX_DataCount,W
-00236 015A 3EA6 		addlw	low RX_TempData
-00237 015B 0084 		movwf	FSR0L
-00238 015C 3000 		movlw	high RX_TempData
-00239 015D 0085 		movwf	FSR0H
-00240 015E 0878 		movf	Param78,W
-00241 015F 06A3 		xorwf	RX_CSUM,F
-00242 0160 0080 		movwf	INDF0
-00243 0161 0AA2 		incf	RX_DataCount,F
-00244 0162 3004 		movlw	RP_DataBytes
-00245 0163 0222 		subwf	RX_DataCount,W
-00246 0164 		SKPZ
-00246 0164 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-00247 0165 33E1 		bra	RS232_Parse_Rtn
-00248 0166 1720 		bsf	AllDataRXd
-00249 0167 	;
-00250 0167 		if UseRS232Chksum
-00251 0167 33DF 		bra	RS232_Parse_Rtn
-00252 0168 		endif
-00253 0168 	RS232_Parse_Data_end
-00254 0168 	;
-00255 0168 		if UseRS232Chksum
-00256 0168 	; checksum
-00257 0168 0878 		movf	Param78,W
-00258 0169 0223 		subwf	RX_CSUM,W
-00259 016A 		SKPZ		;Checksum matches?
-00259 016A 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-00260 016B 3217 		bra	RS232_Parse_Error	; No
-00261 016C 	;
-00262 016C 		endif
-00263 016C 	;
-00264 016C 30A6 		movlw	low RX_TempData
-00265 016D 0084 		movwf	FSR0L
-00266 016E 3000 		movlw	high RX_TempData
-00267 016F 0085 		movwf	FSR0H
-00268 0170 	;
-00269 0170 30AA 		movlw	low RX_Data
-00270 0171 0086 		movwf	FSR1L
-00271 0172 3000 		movlw	high RX_Data
-00272 0173 0087 		movwf	FSR1H
-00273 0174 	;
-00274 0174 3004 		movlw	RP_DataBytes
-00275 0175 00F8 		movwf	Param78
-00276 0176 0012 	RS232_Parse_L1	moviw	FSR0++
-00277 0177 001E 		movwi	FSR1++
-00278 0178 0BF8 		decfsz	Param78,F
-00279 0179 33FC 		bra	RS232_Parse_L1
-00280 017A 	;
-00281 017A 14A1 		bsf	RXDataIsNew	;good packet rx'd
-00282 017B 1421 		bsf	RXDataValidFlag
-00283 017C 1D21 		btfss	RXSrcIsMaster	;from master?
-00284 017D 1021 		bcf	RXDataValidFlag	; no
-00285 017E 1DA1 		btfss	RXDstIsMe	;to me?
-00286 017F 1021 		bcf	RXDataValidFlag	; no
-00287 0180 	;
-00288 0180 01A0 		clrf	RX_ParseFlags
-00289 0181 0020 		movlb	0x00
-00290 0182 0008 		return
-00291 0183 	;
-00292 0183 	;
-00293 0183 	; We didn't get the sync byte we were expecting so restart the parser
-00294 0183 01A0 	RS232_Parse_Error	CLRF	RX_ParseFlags
-00295 0184 28E0 		goto	FlushInBuff
-00296 0185 	;
-00297 0185 	;=========================================================================================
-00298 0185 	; Clear the TX data, unused bytes are sent as 0x00
-00299 0185 	; Entry: none
-00300 0185 	; Exit: Bank 0
-00301 0185 	; Ram used: Param78, FSR1
-00302 0185 	; Calls: none
-00303 0185 3001 	RS232_ClearTXData	movlw	1	;bank 1
-00304 0186 3004 		movlw	RP_DataBytes
-00305 0187 00F8 		movwf	Param78
-00306 0188 30AE 		movlw	low TX_Data
-00307 0189 0086 		movwf	FSR1L
-00308 018A 3000 		movlw	high TX_Data
-00309 018B 0087 		movwf	FSR1H
-00310 018C 3000 		movlw	0x00
-00311 018D 001E 	RS232_ClearTXData_L1	movwi	FSR1++
-00312 018E 0BF8 		decfsz	Param78,F
-00313 018F 33FD 		bra	RS232_ClearTXData_L1
-00314 0190 0020 		movlb	0x00
-00315 0191 0008 		return
-00316 0192 	;
+00214 015A 	;
+00215 015A 	; MSB of Destination Address
+00216 015A 		if RP_LongAddr
+00231 015A 		endif
+00232 015A 	;
+00233 015A 1B20 	RS232_Parse_Data	btfsc	AllDataRXd
+00234 015B 320F 		bra	RS232_Parse_Data_end
+00235 015C 0822 		movf	RX_DataCount,W
+00236 015D 3EA6 		addlw	low RX_TempData
+00237 015E 0084 		movwf	FSR0L
+00238 015F 3000 		movlw	high RX_TempData
+00239 0160 0085 		movwf	FSR0H
+00240 0161 0878 		movf	Param78,W
+00241 0162 06A3 		xorwf	RX_CSUM,F
+00242 0163 0080 		movwf	INDF0
+00243 0164 0AA2 		incf	RX_DataCount,F
+00244 0165 3006 		movlw	RP_DataBytes
+00245 0166 0222 		subwf	RX_DataCount,W
+00246 0167 		SKPZ
+00246 0167 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+00247 0168 33E1 		bra	RS232_Parse_Rtn
+00248 0169 1720 		bsf	AllDataRXd
+00249 016A 	;
+00250 016A 		if UseRS232Chksum
+00251 016A 33DF 		bra	RS232_Parse_Rtn
+00252 016B 		endif
+00253 016B 	RS232_Parse_Data_end
+00254 016B 	;
+00255 016B 		if UseRS232Chksum
+00256 016B 	; checksum
+00257 016B 0878 		movf	Param78,W
+00258 016C 0223 		subwf	RX_CSUM,W
+00259 016D 		SKPZ		;Checksum matches?
+00259 016D 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+00260 016E 3217 		bra	RS232_Parse_Error	; No
+00261 016F 	;
+00262 016F 		endif
+00263 016F 	;
+00264 016F 30A6 		movlw	low RX_TempData
+00265 0170 0084 		movwf	FSR0L
+00266 0171 3000 		movlw	high RX_TempData
+00267 0172 0085 		movwf	FSR0H
+00268 0173 	;
+00269 0173 30AC 		movlw	low RX_Data
+00270 0174 0086 		movwf	FSR1L
+00271 0175 3000 		movlw	high RX_Data
+00272 0176 0087 		movwf	FSR1H
+00273 0177 	;
+00274 0177 3006 		movlw	RP_DataBytes
+00275 0178 00F8 		movwf	Param78
+00276 0179 0012 	RS232_Parse_L1	moviw	FSR0++
+00277 017A 001E 		movwi	FSR1++
+00278 017B 0BF8 		decfsz	Param78,F
+00279 017C 33FC 		bra	RS232_Parse_L1
+00280 017D 	;
+00281 017D 14A1 		bsf	RXDataIsNew	;good packet rx'd
+00282 017E 1421 		bsf	RXDataValidFlag
+00283 017F 1D21 		btfss	RXSrcIsMaster	;from master?
+00284 0180 1021 		bcf	RXDataValidFlag	; no
+00285 0181 1DA1 		btfss	RXDstIsMe	;to me?
+00286 0182 1021 		bcf	RXDataValidFlag	; no
+00287 0183 	;
+00288 0183 01A0 		clrf	RX_ParseFlags
+00289 0184 0020 		movlb	0x00
+00290 0185 0008 		return
+00291 0186 	;
+00292 0186 	;
+00293 0186 	; We didn't get the sync byte we were expecting so restart the parser
+00294 0186 01A0 	RS232_Parse_Error	CLRF	RX_ParseFlags
+00295 0187 28E3 		goto	FlushInBuff
+00296 0188 	;
+00297 0188 	;=========================================================================================
+00298 0188 	; Clear the TX data, unused bytes are sent as 0x00
+00299 0188 	; Entry: none
+00300 0188 	; Exit: Bank 0
+00301 0188 	; Ram used: Param78, FSR1
+00302 0188 	; Calls: none
+00303 0188 3001 	RS232_ClearTXData	movlw	1	;bank 1
+00304 0189 3006 		movlw	RP_DataBytes
+00305 018A 00F8 		movwf	Param78
+00306 018B 30B2 		movlw	low TX_Data
+00307 018C 0086 		movwf	FSR1L
+00308 018D 3000 		movlw	high TX_Data
+00309 018E 0087 		movwf	FSR1H
+00310 018F 3000 		movlw	0x00
+00311 0190 001E 	RS232_ClearTXData_L1	movwi	FSR1++
+00312 0191 0BF8 		decfsz	Param78,F
+00313 0192 33FD 		bra	RS232_ClearTXData_L1
+00314 0193 0020 		movlb	0x00
+00315 0194 0008 		return
+00316 0195 	;
+00317 0195 	;=========================================================================================
+00318 0195 	; Send a data packet
+00319 0195 	;
+00320 0195 	;Entry: TX_Data = Data to send 
+00321 0195 	;Exit: TX_Data is cleared
+00322 0195 	;Ram used: Param78,Param79,Param7A,FSR0,FSR1
+00323 0195 	;Calls: (1+0) StoreSerOut
+00324 0195 	;
 SerialSPI.asm                                                         Page: 15
 /Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
 
-00317 0192 	;=========================================================================================
-00318 0192 	; Send a data packet
-00319 0192 	;
-00320 0192 	;Entry: TX_Data = Data to send 
-00321 0192 	;Exit: TX_Data is cleared
-00322 0192 	;Ram used: Param78,Param79,Param7A,FSR0,FSR1
-00323 0192 	;Calls: (1+0) StoreSerOut
-00324 0192 	;
-00325 0192 	RS232_Send:
-00326 0192 	;
-00327 0192 		if UseRS232SendSyncBytes
-00334 0192 		endif
-00335 0192 	;
-00336 0192 0020 		movlb	0x00	;bank 0
-00337 0193 01FA 		clrf	Param7A	;CSum
-00338 0194 0838 		movf	RS232_SlaveAddr,W	;source address
-00339 0195 06FA 		xorwf	Param7A,F
-00340 0196 20EE 		call	StoreSerOut
-00341 0197 	;
-00342 0197 		if RP_LongAddr
-00346 0197 		endif
-00347 0197 	;
-00348 0197 0837 		movf	RS232_MasterAddr,W	;destination address
-00349 0198 06FA 		xorwf	Param7A,F
-00350 0199 20EE 		call	StoreSerOut
-00351 019A 	;
-00352 019A 		if RP_LongAddr
-00356 019A 		endif
-00357 019A 	;
-00358 019A 0021 		movlb	1	;bank 1
-00359 019B 3004 		movlw	RP_DataBytes
-00360 019C 00F9 		movwf	Param79
-00361 019D 30AE 		movlw	low TX_Data
-00362 019E 0086 		movwf	FSR1L
-00363 019F 3000 		movlw	high TX_Data
-00364 01A0 0087 		movwf	FSR1H
-00365 01A1 	;
-00366 01A1 0016 	RS232_Send_L1	moviw	FSR1++
-00367 01A2 06FA 		xorwf	Param7A,F
-00368 01A3 20EE 		call	StoreSerOut
-00369 01A4 0BF9 		decfsz	Param79,F
-00370 01A5 33FB 		bra	RS232_Send_L1
-00371 01A6 	;
-00372 01A6 		if UseRS232Chksum
-00373 01A6 087A 		movf	Param7A,W
-00374 01A7 20EE 		call	StoreSerOut
-00375 01A8 		endif
-00376 01A8 	;
-00377 01A8 2985 		goto	RS232_ClearTXData
-00378 01A9 	;
-00379 01A9 	;=========================================================================================
-00380 01A9 	;
-00381 01A9 	;
-00382 01A9 	;
-00383 01A9 	;
-00384 01A9 	;
-00385 01A9 	;
-00386 01A9 	;
-00387 01A9 	;
-00388 01A9 	;
-00389 01A9 	;
-00390 01A9 	;
-00391 01A9 	;
-00392 01A9 	;
-00393 01A9 	;
-00394 01A9 	;
-00395 01A9 	;
-00396 01A9 	;
-00397 01A9 	;
-00398 01A9 	;
-00399 01A9 	;
-00400 01A9 	;
-00401 01A9 	;
-00402 01A9 	;
-00403 01A9 	;
-00465 01A9 	;
-00466 01A9 	;=========================================================================================
-00467 01A9 	;
-00468 01A9 	start	mLongCall	InitializeIO
-00468 01A9 3188      M		movlp	InitializeIO	                       movlp                  Destination
-00468 01AA 20E5      M		call	InitializeIO	                       call                   Destination
-00468 01AB 3181      M		movlp	$	                       movlp                  $
-00469 01AC 	;
-00470 01AC 	;
-00471 01AC 	;=========================================================================================
-00472 01AC 	;*****************************************************************************************
-00473 01AC 	;=========================================================================================
-00474 01AC 0064 	MainLoop	CLRWDT
-00475 01AD 	;
-00476 01AD 20E6 		call	GetSerInBytes
-00477 01AE 		SKPZ		;Any data?
-00477 01AE 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-00478 01AF 2115 		CALL	RS232_Parse	; yes
-00479 01B0 	;
-00480 01B0 0021 		movlb	1
-00481 01B1 1CA1 		btfss	RXDataIsNew
-00482 01B2 3203 		bra	ML_1
-00483 01B3 		mLongCall	HandleRXData
-00483 01B3 3188      M		movlp	HandleRXData	                       movlp                  Destination
+00325 0195 	RS232_Send:
+00326 0195 	;
+00327 0195 		if UseRS232SendSyncBytes
+00334 0195 		endif
+00335 0195 	;
+00336 0195 0020 		movlb	0x00	;bank 0
+00337 0196 01FA 		clrf	Param7A	;CSum
+00338 0197 0838 		movf	RS232_SlaveAddr,W	;source address
+00339 0198 06FA 		xorwf	Param7A,F
+00340 0199 20F1 		call	StoreSerOut
+00341 019A 	;
+00342 019A 		if RP_LongAddr
+00346 019A 		endif
+00347 019A 	;
+00348 019A 0837 		movf	RS232_MasterAddr,W	;destination address
+00349 019B 06FA 		xorwf	Param7A,F
+00350 019C 20F1 		call	StoreSerOut
+00351 019D 	;
+00352 019D 		if RP_LongAddr
+00356 019D 		endif
+00357 019D 	;
+00358 019D 0021 		movlb	1	;bank 1
+00359 019E 3006 		movlw	RP_DataBytes
+00360 019F 00F9 		movwf	Param79
+00361 01A0 30B2 		movlw	low TX_Data
+00362 01A1 0086 		movwf	FSR1L
+00363 01A2 3000 		movlw	high TX_Data
+00364 01A3 0087 		movwf	FSR1H
+00365 01A4 	;
+00366 01A4 0016 	RS232_Send_L1	moviw	FSR1++
+00367 01A5 06FA 		xorwf	Param7A,F
+00368 01A6 20F1 		call	StoreSerOut
+00369 01A7 0BF9 		decfsz	Param79,F
+00370 01A8 33FB 		bra	RS232_Send_L1
+00371 01A9 	;
+00372 01A9 		if UseRS232Chksum
+00373 01A9 087A 		movf	Param7A,W
+00374 01AA 20F1 		call	StoreSerOut
+00375 01AB 		endif
+00376 01AB 	;
+00377 01AB 2988 		goto	RS232_ClearTXData
+00378 01AC 	;
+00379 01AC 	;=========================================================================================
+00380 01AC 	;
+00381 01AC 	;
+00382 01AC 	;
+00383 01AC 	;
+00384 01AC 	;
+00385 01AC 	;
+00386 01AC 	;
+00387 01AC 	;
+00388 01AC 	;
+00389 01AC 	;
+00390 01AC 	;
+00391 01AC 	;
+00392 01AC 	;
+00393 01AC 	;
+00394 01AC 	;
+00395 01AC 	;
+00396 01AC 	;
+00397 01AC 	;
+00398 01AC 	;
+00399 01AC 	;
+00400 01AC 	;
+00401 01AC 	;
+00402 01AC 	;
+00403 01AC 	;
+00457 01AC 	;
+00458 01AC 	;=========================================================================================
+00459 01AC 	;
+00460 01AC 	start	mLongCall	InitializeIO
+00460 01AC 3188      M		movlp	InitializeIO	                       movlp                  Destination
+00460 01AD 20D5      M		call	InitializeIO	                       call                   Destination
+00460 01AE 3181      M		movlp	$	                       movlp                  $
+00461 01AF 	;
+00462 01AF 	;
+00463 01AF 	;=========================================================================================
+00464 01AF 	;*****************************************************************************************
+00465 01AF 	;=========================================================================================
+00466 01AF 0064 	MainLoop	CLRWDT
+00467 01B0 	;
+00468 01B0 20E9 		call	GetSerInBytes
+00469 01B1 		SKPZ		;Any data?
+00469 01B1 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+00470 01B2 2118 		CALL	RS232_Parse	; yes
+00471 01B3 	;
+00472 01B3 0021 		movlb	1
+00473 01B4 1CA1 		btfss	RXDataIsNew
+00474 01B5 3203 		bra	ML_1
+00475 01B6 		mLongCall	HandleRXData
+00475 01B6 3188      M		movlp	HandleRXData	                       movlp                  Destination
+00475 01B7 2004      M		call	HandleRXData	                       call                   Destination
+00475 01B8 3181      M		movlp	$	                       movlp                  $
+00476 01B9 	ML_1:
+00477 01B9 	;
+00478 01B9 	;
+00479 01B9 	;
+00480 01B9 	;---------------------
+00481 01B9 	; Handle Serial Communications
 SerialSPI.asm                                                         Page: 16
 /Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
 
-00483 01B4 2004      M		call	HandleRXData	                       call                   Destination
-00483 01B5 3181      M		movlp	$	                       movlp                  $
-00484 01B6 	ML_1:
-00485 01B6 	;
-00486 01B6 	;
-00487 01B6 	;
-00488 01B6 	;---------------------
-00489 01B6 	; Handle Serial Communications
-00490 01B6 1A11 		BTFSC	PIR1,TXIF	;TX done?
-00491 01B7 20A7 		CALL	TX_TheByte	; Yes
-00492 01B8 	;
-00493 01B8 	; move any serial data received into the 32 byte input buffer
-00494 01B8 1CB0 		BTFSS	DataReceivedFlag
-00495 01B9 3203 		BRA	ML_Ser_Out
-00496 01BA 082F 		MOVF	RXByte,W
-00497 01BB 10B0 		BCF	DataReceivedFlag
-00498 01BC 20C1 		CALL	StoreSerIn
-00499 01BD 	;
-00500 01BD 	; If the serial data has been sent and there are bytes in the buffer, send the next byte
-00501 01BD 	;
-00502 01BD 1D30 	ML_Ser_Out	BTFSS	DataSentFlag
-00503 01BE 3205 		BRA	ML_Ser_End
-00504 01BF 2104 		CALL	GetSerOut
-00505 01C0 1C78 		BTFSS	Param78,0
-00506 01C1 3202 		BRA	ML_Ser_End
-00507 01C2 00AE 		MOVWF	TXByte
-00508 01C3 1130 		BCF	DataSentFlag
-00509 01C4 	ML_Ser_End:
-00510 01C4 	;
-00511 01C4 29AC 		goto	MainLoop
-00512 01C5 	;=========================================================================================
-00513 01C5 	;*****************************************************************************************
-00514 01C5 	;=========================================================================================
-00515 01C5 	;
-00516 01C5 		org 0x800
-00517 0800 		include <SerialSPICmds.inc>
+00482 01B9 0020 	                       movlb                  0                      ;bank 0
+00483 01BA 1A11 		BTFSC	PIR1,TXIF	;TX done?
+00484 01BB 20AA 		CALL	TX_TheByte	; Yes
+00485 01BC 	;
+00486 01BC 	; move any serial data received into the 32 byte input buffer
+00487 01BC 1CB0 		BTFSS	DataReceivedFlag
+00488 01BD 3203 		BRA	ML_Ser_Out
+00489 01BE 082F 		MOVF	RXByte,W
+00490 01BF 10B0 		BCF	DataReceivedFlag
+00491 01C0 20C4 		CALL	StoreSerIn
+00492 01C1 	;
+00493 01C1 	; If the serial data has been sent and there are bytes in the buffer, send the next byte
+00494 01C1 	;
+00495 01C1 1D30 	ML_Ser_Out	BTFSS	DataSentFlag
+00496 01C2 3205 		BRA	ML_Ser_End
+00497 01C3 2107 		CALL	GetSerOut
+00498 01C4 1C78 		BTFSS	Param78,0
+00499 01C5 3202 		BRA	ML_Ser_End
+00500 01C6 00AE 		MOVWF	TXByte
+00501 01C7 1130 		BCF	DataSentFlag
+00502 01C8 	ML_Ser_End:
+00503 01C8 	;
+00504 01C8 29AF 		goto	MainLoop
+00505 01C9 	;=========================================================================================
+00506 01C9 	;*****************************************************************************************
+00507 01C9 	;=========================================================================================
+00508 01C9 	;
+00509 01C9 		org 0x800
+00510 0800 		include <SerialSPICmds.inc>
 00001 0800 	;=========================================================================================
 00002 0800 	;
 00003 0800 	;    Filename:      SerialServoCmds.inc
@@ -1610,7 +1603,7 @@ SerialSPI.asm                                                         Page: 1
 00041 0800 	;
 00042 0800 	RS232_Send_S0	mLongCall	RS232_Send
 00042 0800 3181      M		movlp	RS232_Send	                       movlp                  Destination
-00042 0801 2192      M		call	RS232_Send	                       call                   Destination
+00042 0801 2195      M		call	RS232_Send	                       call                   Destination
 00042 0802 3188      M		movlp	$	                       movlp                  $
 00043 0803 0008 		return
 00044 0804 	;
@@ -1623,27 +1616,27 @@ SerialSPI.asm                                                         Page: 1
 00051 0807 3202 		bra	HandleRXData_1
 00052 0808 0020 	HandleRXData_Rtn	movlb	0	;bank 0
 00053 0809 0008 		return		; no, ignore this packet
-00054 080A 	;---kCmd_SetMode-------------------
+00054 080A 	;
 00055 080A 0020 	HandleRXData_1	movlb	0	;bank 0
 00056 080B 	                       mMOVLF	RX_Data,FSR1
-00056 080B 30AA      M		movlw	low RX_Data	                       movlw                  low ADDRESS
+00056 080B 30AC      M		movlw	low RX_Data	                       movlw                  low ADDRESS
 00056 080C 0086      M		movwf	FSR1	                       movwf                  DEST
 00056 080D 3000      M		movlw	high RX_Data	                       movlw                  high ADDRESS
 00056 080E 0087      M		movwf	FSR1+1	                       movwf                  DEST+1
-SerialSPI.asm                                                         Page: 17
-/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
-
 00057 080F 		mMOVLF	TX_Data,FSR0
-00057 080F 30AE      M		movlw	low TX_Data	                       movlw                  low ADDRESS
+00057 080F 30B2      M		movlw	low TX_Data	                       movlw                  low ADDRESS
 00057 0810 0084      M		movwf	FSR0	                       movwf                  DEST
 00057 0811 3000      M		movlw	high TX_Data	                       movlw                  high ADDRESS
 00057 0812 0085      M		movwf	FSR0+1	                       movwf                  DEST+1
 00058 0813 	;Dispatcher
 00059 0813 	;
+SerialSPI.asm                                                         Page: 17
+/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
+
 00060 0813 0016 		moviw	FSR1++
 00061 0814 00F8 		movwf	Param78	;aka RX_Data
-00062 0815 		
-00063 0815 	;
+00062 0815 	;	
+00063 0815 	;---kCmd_SetMode------------------
 00064 0815 3081 		movlw	kCmd_SetMode
 00065 0816 0278 		subwf	Param78,W	;aka RX_Data
 00066 0817 		SKPZ
@@ -1658,7 +1651,7 @@ SerialSPI.asm                                                         Page: 1
 00073 081D 	;
 00074 081D 0016 		moviw	FSR1++
 00075 081E 00B6 		movwf	SysMode
-00076 081F 28AA 		goto	TX_ACK
+00076 081F 28A7 		goto	TX_ACK
 00077 0820 	;
 00078 0820 	Cmd_SetMode_end:
 00079 0820 	;---kCmd_GetMode------------------
@@ -1685,432 +1678,400 @@ SerialSPI.asm                                                         Page: 1
 00096 082C 0084      M		movwf	FSR0	                       movwf                  DEST
 00096 082D 3001      M		movlw	high SPI_OutBuff	                       movlw                  high ADDRESS
 00096 082E 0085      M		movwf	FSR0+1	                       movwf                  DEST+1
-00097 082F 3F40 	                       moviw                  0[FSR1]                ;Address
+00097 082F 0016 	                       moviw                  FSR1++                 ;Address
 00098 0830 3F80 	                       movwi                  0[FSR0]
-00099 0831 3F44 	                       moviw                  4[FSR1]                ;MSB
-00100 0832 3F81 	                       movwi                  1[FSR0]
-00101 0833 3F43 	                       moviw                  3[FSR1]
-00102 0834 3F82 	                       movwi                  2[FSR0]
-00103 0835 3F42 	                       moviw                  2[FSR1]
-00104 0836 3F83 	                       movwi                  3[FSR0]
-00105 0837 3F41 	                       moviw                  1[FSR1]                ;LSB
-00106 0838 3F84 	                       movwi                  4[FSR0]
-00107 0839 20CB 	                       call                   SPI_SendRecWord
-00108 083A 	                       mMOVLF	TX_Data,FSR0
-00108 083A 30AE      M		movlw	low TX_Data	                       movlw                  low ADDRESS
-00108 083B 0084      M		movwf	FSR0	                       movwf                  DEST
-00108 083C 3000      M		movlw	high TX_Data	                       movlw                  high ADDRESS
-00108 083D 0085      M		movwf	FSR0+1	                       movwf                  DEST+1
-00109 083E 	                       mMOVLF                 SPI_InBuff,FSR1
-00109 083E 30A1      M		movlw	low SPI_InBuff	                       movlw                  low ADDRESS
-00109 083F 0086      M		movwf	FSR1	                       movwf                  DEST
-00109 0840 3001      M		movlw	high SPI_InBuff	                       movlw                  high ADDRESS
-00109 0841 0087      M		movwf	FSR1+1	                       movwf                  DEST+1
-00110 0842 3F40 	                       moviw                  0[FSR1]                ;Address
-00111 0843 3F80 	                       movwi                  0[FSR0]
-00112 0844 3F44 	                       moviw                  4[FSR1]                ;LSB
-00113 0845 3F81 	                       movwi                  1[FSR0]
-00114 0846 3F43 	                       moviw                  3[FSR1]
-00115 0847 3F82 	                       movwi                  2[FSR0]
-00116 0848 3F42 	                       moviw                  2[FSR1]
-00117 0849 3F83 	                       movwi                  3[FSR0]
-00118 084A 3F41 	                       moviw                  1[FSR1]                ;MSB
-00119 084B 3F84 	                       movwi                  4[FSR0]
-00120 084C 2800 	                       goto	RS232_Send_S0
-00121 084D 	Cmd_SPIInOut_end:
-00122 084D 	;---kCmd_SaveParams-----------------
-00123 084D 3094 		movlw	kCmd_SaveParams
-00124 084E 0278 		subwf	Param78,W	;aka RX_Data
-00125 084F 		SKPZ
-00125 084F 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-00126 0850 3204 		bra	Cmd_SaveParams_end
-00127 0851 		mLongCall	SaveParams
-00127 0851 3180      M		movlp	SaveParams	                       movlp                  Destination
-00127 0852 2047      M		call	SaveParams	                       call                   Destination
-00127 0853 3188      M		movlp	$	                       movlp                  $
-00128 0854 28AA 		goto	TX_ACK
-00129 0855 	Cmd_SaveParams_end:
-00130 0855 	;---kCmd_RestoreParams--------------
-00131 0855 3095 		movlw	kCmd_RestoreParams
+00099 0831 0016 	                       moviw                  FSR1++                 ;LSB
+00100 0832 3F84 	                       movwi                  4[FSR0]
+00101 0833 0016 	                       moviw                  FSR1++
+00102 0834 3F83 	                       movwi                  3[FSR0]
+00103 0835 0016 	                       moviw                  FSR1++
+00104 0836 3F82 	                       movwi                  2[FSR0]
+00105 0837 0016 	                       moviw                  FSR1++                 ;MSB
+00106 0838 3F81 	                       movwi                  1[FSR0]
+00107 0839 	;
+00108 0839 20BB 	                       call                   SPI_SendRecWord
+00109 083A 	;
+00110 083A 	                       mMOVLF	TX_Data,FSR0
+00110 083A 30B2      M		movlw	low TX_Data	                       movlw                  low ADDRESS
+00110 083B 0084      M		movwf	FSR0	                       movwf                  DEST
+00110 083C 3000      M		movlw	high TX_Data	                       movlw                  high ADDRESS
+00110 083D 0085      M		movwf	FSR0+1	                       movwf                  DEST+1
+00111 083E 	                       mMOVLF                 SPI_InBuff,FSR1
+00111 083E 30A1      M		movlw	low SPI_InBuff	                       movlw                  low ADDRESS
+00111 083F 0086      M		movwf	FSR1	                       movwf                  DEST
+00111 0840 3001      M		movlw	high SPI_InBuff	                       movlw                  high ADDRESS
+00111 0841 0087      M		movwf	FSR1+1	                       movwf                  DEST+1
+00112 0842 3F40 	                       moviw                  0[FSR1]                ;Status
+00113 0843 	;                       movlw                  0x01                   ;tc
+00114 0843 001A 	                       movwi                  FSR0++
+00115 0844 3F44 	                       moviw                  4[FSR1]                ;LSB
+00116 0845 001A 	                       movwi                  FSR0++
+00117 0846 3F43 	                       moviw                  3[FSR1]
+00118 0847 001A 	                       movwi                  FSR0++
+00119 0848 3F42 	                       moviw                  2[FSR1]
+00120 0849 001A 	                       movwi                  FSR0++
+00121 084A 3F41 	                       moviw                  1[FSR1]                ;MSB
+00122 084B 001A 	                       movwi                  FSR0++
+00123 084C 2800 	                       goto	RS232_Send_S0
+00124 084D 	Cmd_SPIInOut_end:
+00125 084D 	;---kCmd_SaveParams-----------------
+00126 084D 3094 		movlw	kCmd_SaveParams
+00127 084E 0278 		subwf	Param78,W	;aka RX_Data
+00128 084F 		SKPZ
+00128 084F 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+00129 0850 3204 		bra	Cmd_SaveParams_end
+00130 0851 		mLongCall	SaveParams
+00130 0851 3180      M		movlp	SaveParams	                       movlp                  Destination
+00130 0852 204A      M		call	SaveParams	                       call                   Destination
+00130 0853 3188      M		movlp	$	                       movlp                  $
+00131 0854 28A7 		goto	TX_ACK
+00132 0855 	Cmd_SaveParams_end:
+00133 0855 	;---kCmd_RestoreParams--------------
+00134 0855 3095 		movlw	kCmd_RestoreParams
+00135 0856 0278 		subwf	Param78,W	;aka RX_Data
+00136 0857 		SKPZ
+00136 0857 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+00137 0858 3204 		bra	Cmd_RestoreParams_end
 SerialSPI.asm                                                         Page: 18
 /Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
 
-00132 0856 0278 		subwf	Param78,W	;aka RX_Data
-00133 0857 		SKPZ
-00133 0857 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-00134 0858 3204 		bra	Cmd_RestoreParams_end
-00135 0859 		mLongCall	CopyToRam
-00135 0859 3180      M		movlp	CopyToRam	                       movlp                  Destination
-00135 085A 203A      M		call	CopyToRam	                       call                   Destination
-00135 085B 3188      M		movlp	$	                       movlp                  $
-00136 085C 28AA 		goto	TX_ACK
-00137 085D 	Cmd_RestoreParams_end:
-00138 085D 	;---kCmd_GetStatus----------------
-00139 085D 3098 		movlw	kCmd_GetStatus
-00140 085E 0278 		subwf	Param78,W	;aka RX_Data
-00141 085F 		SKPZ
-00141 085F 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-00142 0860 320D 		bra	Cmd_GetStatus_end
-00143 0861 0832 		movf	ssStatus,W
-00144 0862 001A 		movwi	FSR0++
-00145 0863 0833 		movf	ssStatus+1,W
-00146 0864 001A 		movwi	FSR0++
-00147 0865 0834 		movf	ssStatus+2,W
-00148 0866 001A 		movwi	FSR0++
-00149 0867 0835 		movf	ssStatus+3,W
-00150 0868 001A 		movwi	FSR0++
-00151 0869 	;reset flags
-00152 0869 11B2 		bcf	ssRX_Timeout
-00153 086A 12B2 		bcf	ssGripMCur
-00154 086B 1232 		bcf	ssGripOCur
-00155 086C 	;
-00156 086C 01B3 		clrf	ssStatus+1
-00157 086D 	;	
-00158 086D 2800 		goto	RS232_Send_S0
-00159 086E 	Cmd_GetStatus_end:
-00160 086E 	;---kCmd_ReBoot---------------------
-00161 086E 3099 		movlw	kCmd_ReBoot
-00162 086F 0278 		subwf	Param78,W	;aka RX_Data
-00163 0870 		SKPZ
-00163 0870 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-00164 0871 3201 		bra	Cmd_ReBoot_end
-00165 0872 0001 		reset		;Does not return anything
-00166 0873 	Cmd_ReBoot_end:
-00167 0873 	;---kCmd_RunBootloader--------------
-00168 0873 309A 		movlw	kCmd_RunBootloader
-00169 0874 0278 		subwf	Param78,W
-00170 0875 		SKPZ
-00170 0875 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-00171 0876 3206 		bra	Cmd_RunBootloader_end
-00172 0877 30FF 		movlw	0xFF
-00173 0878 00A5 		movwf	EEDataTemp
-00174 0879 		mLongCall	EEWriteW	;Write EEPROM address in W
-00174 0879 3180      M		movlp	EEWriteW	                       movlp                  Destination
-00174 087A 208E      M		call	EEWriteW	                       call                   Destination
-00174 087B 3188      M		movlp	$	                       movlp                  $
-00175 087C 0001 		reset
-00176 087D 	Cmd_RunBootloader_end:
-00177 087D 	;---kCmd_SetMasterAddr------------
-00178 087D 30A1 		movlw	kCmd_SetMasterAddr
-00179 087E 0278 		subwf	Param78,W	;aka RX_Data
-00180 087F 		SKPZ
-00180 087F 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-00181 0880 3206 		bra	Cmd_SetMasterAddr_end
-00182 0881 0016 		moviw	FSR1++
-00183 0882 00B7 		movwf	RS232_MasterAddr
-00184 0883 		mLongCall	SaveParams
-00184 0883 3180      M		movlp	SaveParams	                       movlp                  Destination
-00184 0884 2047      M		call	SaveParams	                       call                   Destination
-00184 0885 3188      M		movlp	$	                       movlp                  $
-00185 0886 2800 		goto	RS232_Send_S0
-00186 0887 	Cmd_SetMasterAddr_end:
-00187 0887 	;---kCmd_SetSlaveAddr-------------
-00188 0887 30A2 		movlw	kCmd_SetSlaveAddr
-00189 0888 0278 		subwf	Param78,W	;aka RX_Data
-00190 0889 		SKPZ
-00190 0889 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-00191 088A 3206 		bra	Cmd_SetSlaveAddr_end
-00192 088B 0016 		moviw	FSR1++
-00193 088C 00B8 		movwf	RS232_SlaveAddr
-00194 088D 		mLongCall	SaveParams
-00194 088D 3180      M		movlp	SaveParams	                       movlp                  Destination
-00194 088E 2047      M		call	SaveParams	                       call                   Destination
-00194 088F 3188      M		movlp	$	                       movlp                  $
-00195 0890 2800 		goto	RS232_Send_S0
-00196 0891 	Cmd_SetSlaveAddr_end:
-00197 0891 	;---kCmd_SendIDString------------
-00198 0891 30AA 		movlw	kCmd_SendIDString
-00199 0892 0278 		subwf	Param78,W	;aka RX_Data
-00200 0893 		SKPZ
-00200 0893 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-00201 0894 3214 		bra	Cmd_SendIDString_end
-00202 0895 01F9 		clrf	Param79
-00203 0896 0879 	Cmd_SendIDString_L1	movf	Param79,W
-00204 0897 209E 		call	IDString
-00205 0898 3800 		iorlw	0x00
-00206 0899 		SKPNZ
-00206 0899 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
-00207 089A 0008 		return
-00208 089B 20AB 		call	StoreSerOut_S0
-00209 089C 0AF9 		incf	Param79,F
-00210 089D 33F8 		bra	Cmd_SendIDString_L1
+00138 0859 		mLongCall	CopyToRam
+00138 0859 3180      M		movlp	CopyToRam	                       movlp                  Destination
+00138 085A 203D      M		call	CopyToRam	                       call                   Destination
+00138 085B 3188      M		movlp	$	                       movlp                  $
+00139 085C 28A7 		goto	TX_ACK
+00140 085D 	Cmd_RestoreParams_end:
+00141 085D 	;---kCmd_GetStatus----------------
+00142 085D 3098 		movlw	kCmd_GetStatus
+00143 085E 0278 		subwf	Param78,W	;aka RX_Data
+00144 085F 		SKPZ
+00144 085F 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+00145 0860 320A 		bra	Cmd_GetStatus_end
+00146 0861 0832 		movf	ssStatus,W
+00147 0862 001A 		movwi	FSR0++
+00148 0863 0833 		movf	ssStatus+1,W
+00149 0864 001A 		movwi	FSR0++
+00150 0865 0834 		movf	ssStatus+2,W
+00151 0866 001A 		movwi	FSR0++
+00152 0867 0835 		movf	ssStatus+3,W
+00153 0868 001A 		movwi	FSR0++
+00154 0869 	;reset flags
+00155 0869 11B2 		bcf	ssRX_Timeout
+00156 086A 	;	
+00157 086A 2800 		goto	RS232_Send_S0
+00158 086B 	Cmd_GetStatus_end:
+00159 086B 	;---kCmd_ReBoot---------------------
+00160 086B 3099 		movlw	kCmd_ReBoot
+00161 086C 0278 		subwf	Param78,W	;aka RX_Data
+00162 086D 		SKPZ
+00162 086D 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+00163 086E 3201 		bra	Cmd_ReBoot_end
+00164 086F 0001 		reset		;Does not return anything
+00165 0870 	Cmd_ReBoot_end:
+00166 0870 	;---kCmd_RunBootloader--------------
+00167 0870 309A 		movlw	kCmd_RunBootloader
+00168 0871 0278 		subwf	Param78,W
+00169 0872 		SKPZ
+00169 0872 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+00170 0873 3206 		bra	Cmd_RunBootloader_end
+00171 0874 30FF 		movlw	0xFF
+00172 0875 00A5 		movwf	EEDataTemp
+00173 0876 		mLongCall	EEWriteW	;Write EEPROM address in W
+00173 0876 3180      M		movlp	EEWriteW	                       movlp                  Destination
+00173 0877 2091      M		call	EEWriteW	                       call                   Destination
+00173 0878 3188      M		movlp	$	                       movlp                  $
+00174 0879 0001 		reset
+00175 087A 	Cmd_RunBootloader_end:
+00176 087A 	;---kCmd_SetMasterAddr------------
+00177 087A 30A1 		movlw	kCmd_SetMasterAddr
+00178 087B 0278 		subwf	Param78,W	;aka RX_Data
+00179 087C 		SKPZ
+00179 087C 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+00180 087D 3206 		bra	Cmd_SetMasterAddr_end
+00181 087E 0016 		moviw	FSR1++
+00182 087F 00B7 		movwf	RS232_MasterAddr
+00183 0880 		mLongCall	SaveParams
+00183 0880 3180      M		movlp	SaveParams	                       movlp                  Destination
+00183 0881 204A      M		call	SaveParams	                       call                   Destination
+00183 0882 3188      M		movlp	$	                       movlp                  $
+00184 0883 2800 		goto	RS232_Send_S0
+00185 0884 	Cmd_SetMasterAddr_end:
+00186 0884 	;---kCmd_SetSlaveAddr-------------
+00187 0884 30A2 		movlw	kCmd_SetSlaveAddr
+00188 0885 0278 		subwf	Param78,W	;aka RX_Data
+00189 0886 		SKPZ
+00189 0886 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+00190 0887 3206 		bra	Cmd_SetSlaveAddr_end
+00191 0888 0016 		moviw	FSR1++
+00192 0889 00B8 		movwf	RS232_SlaveAddr
+00193 088A 		mLongCall	SaveParams
+00193 088A 3180      M		movlp	SaveParams	                       movlp                  Destination
+00193 088B 204A      M		call	SaveParams	                       call                   Destination
+00193 088C 3188      M		movlp	$	                       movlp                  $
+00194 088D 2800 		goto	RS232_Send_S0
+00195 088E 	Cmd_SetSlaveAddr_end:
+00196 088E 	;---kCmd_SendIDString------------
+00197 088E 30AA 		movlw	kCmd_SendIDString
+00198 088F 0278 		subwf	Param78,W	;aka RX_Data
+00199 0890 		SKPZ
+00199 0890 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+00200 0891 3214 		bra	Cmd_SendIDString_end
+00201 0892 01F9 		clrf	Param79
+00202 0893 0879 	Cmd_SendIDString_L1	movf	Param79,W
+00203 0894 209B 		call	IDString
+00204 0895 3800 		iorlw	0x00
+00205 0896 		SKPNZ
+00205 0896 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
+00206 0897 0008 		return
+00207 0898 20A8 		call	StoreSerOut_S0
+00208 0899 0AF9 		incf	Param79,F
+00209 089A 33F8 		bra	Cmd_SendIDString_L1
+00210 089B 	;
+00211 089B 000B 	IDString	brw
+00212 089C 3444 		retlw	'D'
+00213 089D 344D 		retlw	'M'
+00214 089E 3446 		retlw	'F'
+00215 089F 3445 		retlw	'E'
+00216 08A0 3420 		retlw	' '
+00217 08A1 3453 		retlw	'S'
 SerialSPI.asm                                                         Page: 19
 /Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
 
-00211 089E 	;
-00212 089E 000B 	IDString	brw
-00213 089F 3444 		retlw	'D'
-00214 08A0 344D 		retlw	'M'
-00215 08A1 3446 		retlw	'F'
-00216 08A2 3445 		retlw	'E'
-00217 08A3 3420 		retlw	' '
-00218 08A4 3453 		retlw	'S'
-00219 08A5 3450 		retlw	'P'
-00220 08A6 3449 		retlw	'I'
-00221 08A7 340A 		retlw	'\n'
-00222 08A8 3400 		retlw	0x00
-00223 08A9 	;
-00224 08A9 	Cmd_SendIDString_end:
-00225 08A9 	;--------------------------------
-00226 08A9 0008 		return
-00227 08AA 	;
-00228 08AA 30FF 	TX_ACK	movlw	0xFF
-00229 08AB 	StoreSerOut_S0	mLongCall	StoreSerOut
-00229 08AB 3180      M		movlp	StoreSerOut	                       movlp                  Destination
-00229 08AC 20EE      M		call	StoreSerOut	                       call                   Destination
-00229 08AD 3188      M		movlp	$	                       movlp                  $
-00230 08AE 0008 		return
-00231 08AF 	;
-00232 08AF 	;=========================================================================================
-00233 08AF 	;=========================================================================================
-00518 08AF 		include <TMC4361A_Lib.inc>
-00001 08AF 	;******************************************************************
-00002 08AF 	; TMC4361A Library for PIC16F1847
-00003 08AF 	; Filename: TMC4361A_Lib.inc
-00004 08AF 	; Created: 4/18/2020
-00005 08AF 	; Revision: 1.0d1 4/18/2020
-00006 08AF 	;******************************************************************
-00007 08AF 	; History:
-00008 08AF 	;   1.0d1 4/18/2020	First Code
-00009 08AF 	;******************************************************************
-00010 08AF 	; Notes:
-00011 08AF 	; SPI I/O for TMC4361A Motion Controller.
-00012 08AF 	; CKP=0, CKE=1, SMP=1
-00013 08AF 	; RB0	SPI CSn
-00014 08AF 	; RA6	SPI MOSI  aka SDO1
-00015 08AF 	; RB1	SPI MISO  aka SDI1
-00016 08AF 	; RB4	SPI CLK
-00017 08AF 	;
-00018 08AF 	;******************************************************************
-00019 08AF 	; Rotines:	(Stack Words Used)
-00020 08AF 	; Init_TMC4361A	(0) Call once to setup SSP1
-00021 08AF 	; SPI_SendRecWord	(0) Send SPI_OutBuff, Receive SPI_InBuff
-00022 08AF 	;
-00023 08AF 	;******************************************************************
-00024 08AF 	;
-00025 08AF 	; ***** Add to global declarations ****
-00026 08AF 	;TMC4361A_Flags	EQU	Param70	;Check that Param70 is OK to use
-00027 08AF 	;
-00028 08AF 0070 	#define	ContinueReadFlag	TMC4361A_Flags,2
-00029 08AF 0070 	#Define	CmdErrorFlag	TMC4361A_Flags,3
-00030 08AF 	;
-00031 08AF 	;******************************************************************
-00032 08AF 	; Initialize the MSSP
-00033 08AF 	; *SPI: CKP=0 Clock Idle is Low State,
-00034 08AF 	; SPI: CKE=1 Transmit occurs on transition from active to Idle clock state
-00035 08AF 	; *SPI: CKE=0 Transmit occurs on transition from Idle to active clock state
-00036 08AF 	; *SPI: SMP=1 Input data sampled at end of data output time
-00037 08AF 	; SPI master clock=Fosc/64
-00038 08AF 	;
-00039 08AF 0022 	SSP1CON1_Val	EQU	b'00100010'	;SSPEN=1, SPI Fosc/64
-00040 08AF 010D 	#Define	SPI_CSn	LATB,0
-00041 08AF 008D 	#Define	SPI_CSn_Tris	TRISB,0
-00042 08AF 008C 	#Define	SPI_MOSI_Tris	TRISA,6
-00043 08AF 008D 	#Define	SPI_MISO_Tris	TRISB,1
-00044 08AF 008D 	#Define	SPI_CLK_Tris	TRISB,4
-00045 08AF 	;
-00046 08AF 0022 	Init_TMC4361A	movlb	2	;bank 2
-00047 08B0 140D 		bsf	SPI_CSn	;inactive
-00048 08B1 	;
-00049 08B1 0021 		movlb	1	;bank 1
-00050 08B2 100D 		bcf	SPI_CSn_Tris	;output
-00051 08B3 148D 		bsf	SPI_MISO_Tris	;input
-00052 08B4 130C 		bcf	SPI_MOSI_Tris	;output
-00053 08B5 120D 		bcf	SPI_CLK_Tris	;output
-00054 08B6 	;
-00055 08B6 0024 		movlb	4	;bank 4
-00056 08B7 3022 		movlw	SSP1CON1_Val
-00057 08B8 0095 		movwf	SSP1CON1
-00058 08B9 1794 		bsf	SSP1STAT,SMP
-00059 08BA 	;	bsf	SSP1STAT,CKE	;CKE=1
-00060 08BA 1314 		bcf	SSP1STAT,CKE	;CKE=0
+00218 08A2 3450 		retlw	'P'
+00219 08A3 3449 		retlw	'I'
+00220 08A4 340A 		retlw	'\n'
+00221 08A5 3400 		retlw	0x00
+00222 08A6 	;
+00223 08A6 	Cmd_SendIDString_end:
+00224 08A6 	;--------------------------------
+00225 08A6 0008 		return
+00226 08A7 	;
+00227 08A7 30FF 	TX_ACK	movlw	0xFF
+00228 08A8 	StoreSerOut_S0	mLongCall	StoreSerOut
+00228 08A8 3180      M		movlp	StoreSerOut	                       movlp                  Destination
+00228 08A9 20F1      M		call	StoreSerOut	                       call                   Destination
+00228 08AA 3188      M		movlp	$	                       movlp                  $
+00229 08AB 0008 		return
+00230 08AC 	;
+00231 08AC 	;=========================================================================================
+00232 08AC 	;=========================================================================================
+00511 08AC 		include <TMC4361A_Lib.inc>
+00001 08AC 	;******************************************************************
+00002 08AC 	; TMC4361A Library for PIC16F1847
+00003 08AC 	; Filename: TMC4361A_Lib.inc
+00004 08AC 	; Created: 4/18/2020
+00005 08AC 	; Revision: 1.0d1 4/18/2020
+00006 08AC 	;******************************************************************
+00007 08AC 	; History:
+00008 08AC 	;   1.0d1 4/18/2020	First Code
+00009 08AC 	;******************************************************************
+00010 08AC 	; Notes:
+00011 08AC 	; SPI I/O for TMC4361A Motion Controller.
+00012 08AC 	; CKP=0, CKE=1, SMP=1
+00013 08AC 	; RB0	SPI CSn
+00014 08AC 	; RA6	SPI MOSI  aka SDO1
+00015 08AC 	; RB1	SPI MISO  aka SDI1
+00016 08AC 	; RB4	SPI CLK
+00017 08AC 	;
+00018 08AC 	;******************************************************************
+00019 08AC 	; Rotines:	(Stack Words Used)
+00020 08AC 	;
+00021 08AC 	; Init_TMC4361A	(0) Call once to setup SSP1
+00022 08AC 	; SPI_SendRecWord	(0) Send SPI_OutBuff, Receive SPI_InBuff
+00023 08AC 	;
+00024 08AC 	;******************************************************************
+00025 08AC 	; Initialize the MSSP
+00026 08AC 	; *SPI: CKP=0 Clock Idle is Low State,
+00027 08AC 	; SPI: CKE=1 Transmit occurs on transition from active to Idle clock state
+00028 08AC 	; *SPI: CKE=0 Transmit occurs on transition from Idle to active clock state
+00029 08AC 	; *SPI: SMP=1 Input data sampled at end of data output time
+00030 08AC 	; SPI master clock=Fosc/64
+00031 08AC 	;
+00032 08AC 0022 	SSP1CON1_Val	EQU	b'00100010'	;SSPEN=1, SPI Fosc/64
+00033 08AC 010D 	#Define	SPI_CSn	LATB,0
+00034 08AC 008D 	#Define	SPI_CSn_Tris	TRISB,0                ;RB0 CS
+00035 08AC 008C 	#Define	SPI_MOSI_Tris	TRISA,6                ;RA6 MOSI
+00036 08AC 008D 	#Define	SPI_MISO_Tris	TRISB,1                ;RB1 MISO
+00037 08AC 008D 	#Define	SPI_CLK_Tris	TRISB,4                ;RB4 CLK
+00038 08AC 	;
+00039 08AC 0022 	Init_TMC4361A	movlb	2	;bank 2
+00040 08AD 140D 		bsf	SPI_CSn	;inactive
+00041 08AE 	;
+00042 08AE 0021 		movlb	1	;bank 1
+00043 08AF 100D 		bcf	SPI_CSn_Tris	;output
+00044 08B0 148D 		bsf	SPI_MISO_Tris	;input
+00045 08B1 130C 		bcf	SPI_MOSI_Tris	;output
+00046 08B2 120D 		bcf	SPI_CLK_Tris	;output
+00047 08B3 	;
+00048 08B3 0024 		movlb	4	;bank 4
+00049 08B4 3022 		movlw	SSP1CON1_Val
+00050 08B5 0095 		movwf	SSP1CON1
+00051 08B6 1615 		bsf                    SSP1CON1,CKP           ;CKP=1, Idle CLK High
+00052 08B7 	;	bcf                    SSP1CON1,CKP           ;CKP=0, Idle CLK Low
+00053 08B7 1794 		bsf	SSP1STAT,SMP
+00054 08B8 	;	bsf	SSP1STAT,CKE	;CKE=1,
+00055 08B8 1314 		bcf	SSP1STAT,CKE	;CKE=0, 
+00056 08B9 	;
+00057 08B9 	;	BANKSEL	PEI1
+00058 08B9 	;	bsf	PIE1,SSP1	;enable interupt
+00059 08B9 0020 		movlb	0	;bank 0
+00060 08BA 0008 		return
 00061 08BB 	;
-00062 08BB 	;	BANKSEL	PEI1
-00063 08BB 	;	bsf	PIE1,SSP1	;enable interupt
-00064 08BB 0020 		movlb	0	;bank 0
-00065 08BC 0008 		return
-00066 08BD 	;
-00067 08BD 	;=========================================================================================
-00068 08BD 	; Copy 5 bytes from (FSR0) to (FSR1)
-00069 08BD 	;
-00070 08BD 3005 	Copy5_FSR0_FSR1        movlw                  0x05
-00071 08BE 00F8 	                       movwf                  Param78
-00072 08BF 0012 	Copy5_FSR0_FSR1_L1     moviw                  FSR0++
+00062 08BB 	;*******************************************************************
+00063 08BB 	; Send and Receive
+00064 08BB 	;
+00065 08BB 	; Entry: SPI_OutBuff = word to send
+00066 08BB 	; Exit: SPI_InBuff = word received
+00067 08BB 	; RAM Used: Param78, FSR0, FSR1
+00068 08BB 	; Calls: none
+00069 08BB 	;
+00070 08BB 	SPI_SendRecWord	mMOVLF                 SPI_InBuff,FSR0
+00070 08BB 30A1      M		movlw	low SPI_InBuff	                       movlw                  low ADDRESS
+00070 08BC 0084      M		movwf	FSR0	                       movwf                  DEST
+00070 08BD 3001      M		movlw	high SPI_InBuff	                       movlw                  high ADDRESS
+00070 08BE 0085      M		movwf	FSR0+1	                       movwf                  DEST+1
+00071 08BF 	                       mMOVLF                 SPI_OutBuff,FSR1
+00071 08BF 30A6      M		movlw	low SPI_OutBuff	                       movlw                  low ADDRESS
+00071 08C0 0086      M		movwf	FSR1	                       movwf                  DEST
+00071 08C1 3001      M		movlw	high SPI_OutBuff	                       movlw                  high ADDRESS
+00071 08C2 0087      M		movwf	FSR1+1	                       movwf                  DEST+1
+00072 08C3 3005 	                       movlw                  0x05                   ;Tx/Rx 5 bytes
 SerialSPI.asm                                                         Page: 20
 /Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
 
-00073 08C0 001E 	                       movwi                  FSR1++
-00074 08C1 0BF8 	                       decfsz                 Param78,F
-00075 08C2 33FC 	                       bra                    Copy5_FSR0_FSR1_L1
-00076 08C3 0008 	                       return
-00077 08C4 	;
-00078 08C4 	;=========================================================================================
-00079 08C4 	; Copy 5 bytes from (FSR1) to (FSR0)
-00080 08C4 	;
-00081 08C4 3005 	Copy5_FSR1_FSR0        movlw                  0x05
-00082 08C5 00F8 	                       movwf                  Param78
-00083 08C6 0016 	Copy5_FSR1_FSR0_L1     moviw                  FSR1++
-00084 08C7 001A 	                       movwi                  FSR0++
-00085 08C8 0BF8 	                       decfsz                 Param78,F
-00086 08C9 33FC 	                       bra                    Copy5_FSR1_FSR0_L1
-00087 08CA 0008 	                       return
-00088 08CB 	;
-00089 08CB 	;*******************************************************************
-00090 08CB 	; Send and Receive
-00091 08CB 	;
-00092 08CB 	; Entry: SPI_OutBuff = word to send
-00093 08CB 	; Exit: SPI_InBuff = word received
-00094 08CB 	; RAM Used: Param78, FSR0, FSR1
-00095 08CB 	; Calls: none
-00096 08CB 	;
-00097 08CB 	SPI_SendRecWord	mMOVLF                 SPI_InBuff,FSR0
-00097 08CB 30A1      M		movlw	low SPI_InBuff	                       movlw                  low ADDRESS
-00097 08CC 0084      M		movwf	FSR0	                       movwf                  DEST
-00097 08CD 3001      M		movlw	high SPI_InBuff	                       movlw                  high ADDRESS
-00097 08CE 0085      M		movwf	FSR0+1	                       movwf                  DEST+1
-00098 08CF 	                       mMOVLF                 SPI_OutBuff,FSR1
-00098 08CF 30A6      M		movlw	low SPI_OutBuff	                       movlw                  low ADDRESS
-00098 08D0 0086      M		movwf	FSR1	                       movwf                  DEST
-00098 08D1 3001      M		movlw	high SPI_OutBuff	                       movlw                  high ADDRESS
-00098 08D2 0087      M		movwf	FSR1+1	                       movwf                  DEST+1
-00099 08D3 3005 	                       movlw                  0x05                   ;Tx/Rx 5 bytes
-00100 08D4 00F8 	                       movwf                  Param78
-00101 08D5 0022 	                       movlb	2	;bank 2
-00102 08D6 100D 		bcf	SPI_CSn	;assert chip select
-00103 08D7 0024 		movlb	4	;bank 4
-00104 08D8 0016 	SPI_SendRecWord_L2	moviw	FSR1++                 ;Out Buffer
-00105 08D9 0091 		movwf	SSP1BUF
-00106 08DA 0000 	SPI_SendRecWord_L1	nop
-00107 08DB 1C14 		btfss	SSP1STAT,BF
-00108 08DC 33FD 		bra	SPI_SendRecWord_L1
-00109 08DD 0811 		movf	SSP1BUF,W
-00110 08DE 0012 		moviw	FSR0++                 ;In Buffer
-00111 08DF 0BF8 		decfsz                 Param78,F
-00112 08E0 33F7 		bra                    SPI_SendRecWord_L2
-00113 08E1 	;
-00114 08E1 0022 		movlb	2
-00115 08E2 140D 		bsf	SPI_CSn	;disable chip select
-00116 08E3 0020 		movlb	0	;bank 0
-00117 08E4 0008 		return
-00118 08E5 	;
-00119 08E5 	;*************************************************************************
-00120 08E5 	;*************************************************************************
-00519 08E5 		include <sSPIInit.inc>
-00001 08E5 	;=========================================================================================
-00002 08E5 	; call once
-00003 08E5 	;=========================================================================================
-00004 08E5 	;
-00005 08E5 0021 	InitializeIO	MOVLB	0x01	; select bank 1
-00006 08E6 1795 		bsf	OPTION_REG,NOT_WPUEN	; disable pullups on port B
-00007 08E7 1295 		bcf	OPTION_REG,TMR0CS	; TMR0 clock Fosc/4
-00008 08E8 1195 		bcf	OPTION_REG,PSA	; prescaler assigned to TMR0
-00009 08E9 1415 		bsf	OPTION_REG,PS0	;111 8mhz/4/256=7812.5hz=128uS/Ct=0.032768S/ISR
-00010 08EA 1495 		bsf	OPTION_REG,PS1	;101 8mhz/4/64=31250hz=32uS/Ct=0.008192S/ISR
-00011 08EB 1515 		bsf	OPTION_REG,PS2
-00012 08EC 	;
-00013 08EC 30F0 		MOVLW	OSCCON_Value
-00014 08ED 0099 		MOVWF	OSCCON
-00015 08EE 3017 		movlw	b'00010111'	; WDT prescaler 1:65536 period is 2 sec (RESET value)
-00016 08EF 0097 		movwf	WDTCON
-00017 08F0 	;
-00018 08F0 0024 		movlb	4	; bank 4
-00019 08F1 168C 		bsf	WPUA,WPUA5	;Put a pull up on the MCLR unused pin.
-00020 08F2 	;
-00021 08F2 0023 		MOVLB	0x03	; bank 3
-00022 08F3 3000 		movlw	ANSELA_Val
-00023 08F4 008C 		movwf	ANSELA
-00024 08F5 3000 		movlw	ANSELB_Val
-00025 08F6 008D 		movwf	ANSELB
-00026 08F7 	;
-00027 08F7 	;Setup T2 for 100/s
-00028 08F7 0020 		movlb	0	; bank 0
-00029 08F8 304F 		MOVLW	T2CON_Value
-00030 08F9 009C 		MOVWF	T2CON
-00031 08FA 307D 		MOVLW	PR2_Value
-00032 08FB 009B 		MOVWF	PR2
-00033 08FC 0021 		movlb	1	; bank 1
-00034 08FD 1491 		bsf	PIE1,TMR2IE	; enable Timer 2 interupt
-00035 08FE 	;
-00036 08FE 	;
-00037 08FE 	;SPI MISO >> SDI1 RB1, default
-00038 08FE 	;SPI CLK >> RB4, default
-00039 08FE 0022 		movlb	2	;bank 2
-00040 08FF 179D 		bsf	APFCON0,RXDTSEL	;RX >> RB2
-00041 0900 141E 		bsf	APFCON1,TXCKSEL	;TX >> RB5
-00042 0901 171D 		bsf	APFCON0,SDO1SEL	;SPI MOSI >> SDO1 RA6
+00073 08C4 00F8 	                       movwf                  Param78
+00074 08C5 0022 	                       movlb	2	;bank 2
+00075 08C6 100D 		bcf	SPI_CSn	;assert chip select
+00076 08C7 0024 		movlb	4	;bank 4
+00077 08C8 0016 	SPI_SendRecWord_L2	moviw	FSR1++                 ;Out Buffer
+00078 08C9 0091 		movwf	SSP1BUF
+00079 08CA 0000 	SPI_SendRecWord_L1	nop
+00080 08CB 1C14 		btfss	SSP1STAT,BF
+00081 08CC 33FD 		bra	SPI_SendRecWord_L1
+00082 08CD 0811 		movf	SSP1BUF,W
+00083 08CE 001A 		movwi	FSR0++                 ;In Buffer
+00084 08CF 0BF8 		decfsz                 Param78,F
+00085 08D0 33F7 		bra                    SPI_SendRecWord_L2
+00086 08D1 	;
+00087 08D1 0022 		movlb	2
+00088 08D2 140D 		bsf	SPI_CSn	;disable chip select
+00089 08D3 0020 		movlb	0	;bank 0
+00090 08D4 0008 		return
+00091 08D5 	;
+00092 08D5 	;*************************************************************************
+00093 08D5 	;*************************************************************************
+00512 08D5 		include <sSPIInit.inc>
+00001 08D5 	;=========================================================================================
+00002 08D5 	; call once
+00003 08D5 	;=========================================================================================
+00004 08D5 	;
+00005 08D5 0021 	InitializeIO	MOVLB	0x01	; select bank 1
+00006 08D6 1795 		bsf	OPTION_REG,NOT_WPUEN	; disable pullups on port B
+00007 08D7 1295 		bcf	OPTION_REG,TMR0CS	; TMR0 clock Fosc/4
+00008 08D8 1195 		bcf	OPTION_REG,PSA	; prescaler assigned to TMR0
+00009 08D9 1415 		bsf	OPTION_REG,PS0	;111 8mhz/4/256=7812.5hz=128uS/Ct=0.032768S/ISR
+00010 08DA 1495 		bsf	OPTION_REG,PS1	;101 8mhz/4/64=31250hz=32uS/Ct=0.008192S/ISR
+00011 08DB 1515 		bsf	OPTION_REG,PS2
+00012 08DC 	;
+00013 08DC 30F0 		MOVLW	OSCCON_Value
+00014 08DD 0099 		MOVWF	OSCCON
+00015 08DE 3017 		movlw	b'00010111'	; WDT prescaler 1:65536 period is 2 sec (RESET value)
+00016 08DF 0097 		movwf	WDTCON
+00017 08E0 	;
+00018 08E0 0024 		movlb	4	; bank 4
+00019 08E1 168C 		bsf	WPUA,WPUA5	;Put a pull up on the MCLR unused pin.
+00020 08E2 	;
+00021 08E2 0023 		MOVLB	0x03	; bank 3
+00022 08E3 3000 		movlw	ANSELA_Val
+00023 08E4 008C 		movwf	ANSELA
+00024 08E5 3000 		movlw	ANSELB_Val
+00025 08E6 008D 		movwf	ANSELB
+00026 08E7 	;
+00027 08E7 	;Setup T2 for 100/s
+00028 08E7 0020 		movlb	0	; bank 0
+00029 08E8 304F 		MOVLW	T2CON_Value
+00030 08E9 009C 		MOVWF	T2CON
+00031 08EA 307D 		MOVLW	PR2_Value
+00032 08EB 009B 		MOVWF	PR2
+00033 08EC 0021 		movlb	1	; bank 1
+00034 08ED 1491 		bsf	PIE1,TMR2IE	; enable Timer 2 interupt
+00035 08EE 	;
+00036 08EE 	;
+00037 08EE 	;SPI MISO >> SDI1 RB1, default
+00038 08EE 	;SPI CLK >> RB4, default
+00039 08EE 0022 		movlb	2	;bank 2
+00040 08EF 179D 		bsf	APFCON0,RXDTSEL	;RX >> RB2
+00041 08F0 141E 		bsf	APFCON1,TXCKSEL	;TX >> RB5
+00042 08F1 171D 		bsf	APFCON0,SDO1SEL	;SPI MOSI >> SDO1 RA6
+00043 08F2 	;	
+00044 08F2 	; clear memory to zero
+00045 08F2 		mLongCall	ClearRam
+00045 08F2 3180      M		movlp	ClearRam	                       movlp                  Destination
+00045 08F3 201E      M		call	ClearRam	                       call                   Destination
+00045 08F4 3188      M		movlp	$	                       movlp                  $
+00046 08F5 0064 		CLRWDT
+00047 08F6 		mLongCall	CopyToRam
+00047 08F6 3180      M		movlp	CopyToRam	                       movlp                  Destination
+00047 08F7 203D      M		call	CopyToRam	                       call                   Destination
+00047 08F8 3188      M		movlp	$	                       movlp                  $
+00048 08F9 	;
+00049 08F9 	;
+00050 08F9 	;
+00051 08F9 0020 		MOVLB	0x00	;Bank 0
+00052 08FA 	; setup data ports
+00053 08FA 3011 		movlw	PortBValue
+00054 08FB 008D 		movwf	PORTB	;init port B
+00055 08FC 3000 		movlw	PortAValue
+00056 08FD 008C 		movwf	PORTA
+00057 08FE 0021 		MOVLB	0x01	; bank 1
+00058 08FF 30BF 		movlw	PortADDRBits
+00059 0900 008C 		movwf	TRISA
+00060 0901 30C6 		movlw	PortBDDRBits	;setup for programer
+00061 0902 008D 		movwf	TRISB
+00062 0903 	;
+00063 0903 	; setup serial I/O
+00064 0903 0023  a		MOVLB	BAUDCON	;banksel
+00063 0904 		BANKSEL	BAUDCON	; bank 3
+00065 0904 3008 		movlw	BAUDCON_Value
+00066 0905 009F 		movwf	BAUDCON
+00067 0906 30CF 		MOVLW	low BaudRate
+00068 0907 009B 		MOVWF	SPBRGL
+00069 0908 3000 		MOVLW	high BaudRate
+00070 0909 009C 		MOVWF	SPBRGH
 SerialSPI.asm                                                         Page: 21
 /Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
 
-00043 0902 	;	
-00044 0902 	; clear memory to zero
-00045 0902 		mLongCall	ClearRam
-00045 0902 3180      M		movlp	ClearRam	                       movlp                  Destination
-00045 0903 201B      M		call	ClearRam	                       call                   Destination
-00045 0904 3189      M		movlp	$	                       movlp                  $
-00046 0905 0064 		CLRWDT
-00047 0906 		mLongCall	CopyToRam
-00047 0906 3180      M		movlp	CopyToRam	                       movlp                  Destination
-00047 0907 203A      M		call	CopyToRam	                       call                   Destination
-00047 0908 3189      M		movlp	$	                       movlp                  $
-00048 0909 	;
-00049 0909 	;
-00050 0909 	;
-00051 0909 0020 		MOVLB	0x00	;Bank 0
-00052 090A 	; setup data ports
-00053 090A 3011 		movlw	PortBValue
-00054 090B 008D 		movwf	PORTB	;init port B
-00055 090C 3000 		movlw	PortAValue
-00056 090D 008C 		movwf	PORTA
-00057 090E 0021 		MOVLB	0x01	; bank 1
-00058 090F 30BF 		movlw	PortADDRBits
-00059 0910 008C 		movwf	TRISA
-00060 0911 30C6 		movlw	PortBDDRBits	;setup for programer
-00061 0912 008D 		movwf	TRISB
-00062 0913 	;
-00063 0913 		if useRS232
-00064 0913 	; setup serial I/O
-00065 0913 0023  a		MOVLB	BAUDCON	;banksel
-00064 0914 		BANKSEL	BAUDCON	; bank 3
-00066 0914 3008 		movlw	BAUDCON_Value
-00067 0915 009F 		movwf	BAUDCON
-00068 0916 30CF 		MOVLW	low BaudRate
-00069 0917 009B 		MOVWF	SPBRGL
-00070 0918 3000 		MOVLW	high BaudRate
-00071 0919 009C 		MOVWF	SPBRGH
-00072 091A 3024 		MOVLW	TXSTA_Value
-00073 091B 009E 		MOVWF	TXSTA
-00074 091C 3090 		MOVLW	RCSTA_Value
-00075 091D 009D 		MOVWF	RCSTA
-00076 091E 0021 		movlb	0x01	; bank 1
-00077 091F 1691 		BSF	PIE1,RCIE	; Serial Receive interupt
-00078 0920 0020 		movlb	0x00	; bank 0
-00079 0921 	;
-00080 0921 		endif
-00081 0921 	;
-00082 0921 0064 		CLRWDT
-00083 0922 	;-----------------------
-00084 0922 	;
-00085 0922 0020 		MOVLB	0x00
-00086 0923 3064 		MOVLW	LEDTIME
-00087 0924 00A0 		MOVWF	SysLED_Time
-00088 0925 3001 		movlw	0x01
-00089 0926 00A3 		movwf	SysLEDCount	;start blinking right away
-00090 0927 3064 		movlw	.100
-00091 0928 00AC 		movwf	Timer4Lo	;ignor buttons for 1st second
-00092 0929 	;
-00093 0929 0064 		CLRWDT
-00094 092A 	;
-00095 092A 20AF 		call	Init_TMC4361A	;initialize the SPI I/O
-00096 092B 	;
-00097 092B 	;
-00098 092B 170B 		bsf	INTCON,PEIE	; enable periferal interupts
-00099 092C 178B 		bsf	INTCON,GIE	; enable interupts
-00100 092D 	;
-00101 092D 0008 		return
-00102 092E 	;
-00520 092E 	;
-00521 092E 		org BootLoaderStart
-00522 1E00 		include <BootLoader1847.inc>
+00071 090A 3024 		MOVLW	TXSTA_Value
+00072 090B 009E 		MOVWF	TXSTA
+00073 090C 3090 		MOVLW	RCSTA_Value
+00074 090D 009D 		MOVWF	RCSTA
+00075 090E 0021 		movlb	0x01	; bank 1
+00076 090F 1691 		BSF	PIE1,RCIE	; Serial Receive interupt
+00077 0910 0020 		movlb	0x00	; bank 0
+00078 0911 	;
+00079 0911 	;
+00080 0911 0064 		CLRWDT
+00081 0912 	;-----------------------
+00082 0912 	;
+00083 0912 0020 		MOVLB	0x00
+00084 0913 3064 		MOVLW	LEDTIME
+00085 0914 00A0 		MOVWF	SysLED_Time
+00086 0915 3001 		movlw	0x01
+00087 0916 00A3 		movwf	SysLEDCount	;start blinking right away
+00088 0917 	;
+00089 0917 0064 		CLRWDT
+00090 0918 	;
+00091 0918 20AC 		call	Init_TMC4361A	;initialize the SPI I/O
+00092 0919 	;
+00093 0919 	;
+00094 0919 170B 		bsf	INTCON,PEIE	; enable periferal interupts
+00095 091A 178B 		bsf	INTCON,GIE	; enable interupts
+00096 091B 	;
+00097 091B 0008 		return
+00098 091C 	;
+00513 091C 	;
+00514 091C 		org BootLoaderStart
+00515 1E00 		include <BootLoader1847.inc>
 00001 1E00 	;************************************************
 00002 1E00 	; BootLoader for PIC16F1847
 00003 1E00 	; filename: Bootloader1847.inc
@@ -2140,9 +2101,6 @@ SerialSPI.asm                                                         Page: 1
 00027 1E00 	;  ProgStartVector	CLRF	PCLATH
 00028 1E00 	;	goto	Start
 00029 1E00 	;
-SerialSPI.asm                                                         Page: 22
-/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
-
 00030 1E00 	;  DataEEProm (0xFF) = 0xFF = run bootloader
 00031 1E00 	;
 00032 1E00 	; What happens next:
@@ -2182,6 +2140,9 @@ SerialSPI.asm                                                         Page: 1
 00066 1E00 		
 00067 1E00 0023 		IH_Addr_Lo:2		;
 00068 1E00 0025 		IH_Addr_Hi:2		;extended linear address, alway 0x0000 for Prog mem
+SerialSPI.asm                                                         Page: 22
+/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
+
 00069 1E00 0027 		IH_Bytes
 00070 1E00 0028 		IH_ByteCount
 00071 1E00 0029 		IH_Type		;Record Type 0..5
@@ -2242,9 +2203,6 @@ SerialSPI.asm                                                         Page: 1
 00125 1E03 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
 00126 1E04 320B 		bra	BootLoader_End
 00127 1E05 	;
-SerialSPI.asm                                                         Page: 23
-/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
-
 00128 1E05 	; Bootloader is active send "**"
 00129 1E05 302A 		movlw	IH_Ack
 00130 1E06 26FE 		call	SendChar
@@ -2284,6 +2242,9 @@ SerialSPI.asm                                                         Page: 1
 00164 1E1C 		SKPZ		;Char=":"
 00164 1E1C 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
 00165 1E1D 3203 		bra	BLP_TestNum	; No
+SerialSPI.asm                                                         Page: 23
+/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
+
 00166 1E1E 	; It's a ":" so set state=1, wait for length
 00167 1E1E 3001 		movlw	IHS_Length
 00168 1E1F 00AA 		movwf	IH_State
@@ -2344,9 +2305,6 @@ SerialSPI.asm                                                         Page: 1
 00218 1E4B 	;	
 00219 1E4B 3041 	BLP_IHS_Length	movlw	.65	; Yes, is it in range 0..64?
 00220 1E4C 022B 		subwf	IH_TempVal,W
-SerialSPI.asm                                                         Page: 24
-/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
-
 00221 1E4D 		SKPNB		;<=64?
 00221 1E4D 1C03      M		BTFSS	STATUS,C		BTFSS	STATUS,C
 00222 1E4E 3203 		bra	BLP_SaveIH_Length
@@ -2386,6 +2344,9 @@ SerialSPI.asm                                                         Page: 1
 00255 1E68 07AD 		addwf	ChkSum,F
 00256 1E69 0AA8 		incf	IH_ByteCount,F
 00257 1E6A 	; if IH_ByteCount=IH_Bytes then next state
+SerialSPI.asm                                                         Page: 24
+/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
+
 00258 1E6A 0828 		movf	IH_ByteCount,W
 00259 1E6B 0227 		subwf	IH_Bytes,W
 00260 1E6C 		SKPZ		;Done with data?
@@ -2446,9 +2407,6 @@ SerialSPI.asm                                                         Page: 1
 00312 1E8F 0012 		moviw	FSR0++
 00313 1E90 00A5 		movwf	IH_Addr_Hi
 00314 1E91 302A 	BLPV_Exit_Ack	movlw	IH_Ack
-SerialSPI.asm                                                         Page: 25
-/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
-
 00315 1E92 26FE 	BLPV_Exit	call	SendChar
 00316 1E93 2E13 		goto	BL_ParseNextLine
 00317 1E94 	;---------------------
@@ -2488,6 +2446,9 @@ SerialSPI.asm                                                         Page: 1
 00348 1EA4 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
 00349 1EA5 3208 		bra	BIHD_FlushBuff	; No, write current data to PFM
 00350 1EA6 	;
+SerialSPI.asm                                                         Page: 25
+/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
+
 00351 1EA6 30E0 		movlw	AddressMask
 00352 1EA7 0520 		andwf	PROG_ADDR_LO,W
 00353 1EA8 00F8 		movwf	Param78                ;Param78 = Prog Address LSB & 0xE0
@@ -2548,9 +2509,6 @@ SerialSPI.asm                                                         Page: 1
 00405 1ECD 	; fall thru to BLP_WriteBuffer
 00406 1ECD 	;=============================================
 00407 1ECD 	; Write SourceBuffer to Prog memory
-SerialSPI.asm                                                         Page: 26
-/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
-
 00408 1ECD 	;
 00409 1ECD 	; Entry: SourceBuffer, ProgWordCount, PROG_ADDR_HI:PROG_ADDR_LO
 00410 1ECD 	;
@@ -2590,6 +2548,9 @@ SerialSPI.asm                                                         Page: 1
 00444 1EE3 3040 	FSR1_DestBuff          movlw	low DestBuffer
 00445 1EE4 0086 		movwf	FSR1L
 00446 1EE5 3021 		movlw	high DestBuffer
+SerialSPI.asm                                                         Page: 26
+/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
+
 00447 1EE6 0087 		movwf	FSR1H
 00448 1EE7 0008 		return
 00449 1EE8 	;
@@ -2650,9 +2611,6 @@ SerialSPI.asm                                                         Page: 1
 00503 1F06 0091 		MOVWF	EEADRL
 00504 1F07 	;
 00505 1F07 	;Data Memory
-SerialSPI.asm                                                         Page: 27
-/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
-
 00506 1F07 	;Address to read ;Deselect Config space
 00507 1F07 1315 		BCF	EECON1,CFGS
 00508 1F08 1395 		BCF	EECON1,EEPGD
@@ -2692,6 +2650,9 @@ SerialSPI.asm                                                         Page: 1
 00542 1F1F 	; Exit: W=1 if new = blank else W=0
 00543 1F1F 	;
 00544 1F1F 3020 	TestErased	movlw	BlockWords
+SerialSPI.asm                                                         Page: 27
+/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
+
 00545 1F20 00F9 		movwf	Param79
 00546 1F21 0016 	TestErased_L1	moviw	FSR1++	;LSB
 00547 1F22 3CFF 		sublw	0xFF
@@ -2752,9 +2713,6 @@ SerialSPI.asm                                                         Page: 1
 00596 1F46 	;==============================================
 00597 1F46 	; Fill SourceBuffer w/ 0x3FFF
 00598 1F46 	;
-SerialSPI.asm                                                         Page: 28
-/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
-
 00599 1F46 26E8 	EraseSourceBuffer	call                   FSR1_SourceBuffer
 00600 1F47 10AC 	                       bcf	DataInBuffer           ;mark SourceBuffer as empty
 00601 1F48 	;
@@ -2794,6 +2752,9 @@ SerialSPI.asm                                                         Page: 1
 00635 1F5C 001E 		movwi	FSR1++	; Store in user location
 00636 1F5D 0BF9 		decfsz	Param79,F
 00637 1F5E 3202 		bra	ReadProgBlock_1
+SerialSPI.asm                                                         Page: 28
+/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
+
 00638 1F5F 0020 		movlb	0
 00639 1F60 0008 		return
 00640 1F61 	;
@@ -2854,9 +2815,6 @@ SerialSPI.asm                                                         Page: 1
 00695 1F81 	;
 00696 1F81 0016 	WriteProgBlock_L1	moviw	FSR1++
 00697 1F82 0093 		movwf	EEDATL
-SerialSPI.asm                                                         Page: 29
-/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
-
 00698 1F83 0016 		moviw	FSR1++
 00699 1F84 0094 		movwf	EEDATH
 00700 1F85 	;
@@ -2896,6 +2854,9 @@ SerialSPI.asm                                                         Page: 1
 00734 1F9E 0021 	InitializeBLIO	MOVLB	0x01	; select bank 1
 00735 1F9F 1795 		bsf	OPTION_REG,NOT_WPUEN	; disable pullups on port B
 00736 1FA0 1295 		bcf	OPTION_REG,TMR0CS	; TMR0 clock Fosc/4
+SerialSPI.asm                                                         Page: 29
+/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
+
 00737 1FA1 1195 		bcf	OPTION_REG,PSA	; prescaler assigned to TMR0
 00738 1FA2 1415 		bsf	OPTION_REG,PS0	;111 8mhz/4/256=7812.5hz=128uS/Ct=0.032768S/ISR
 00739 1FA3 1495 		bsf	OPTION_REG,PS1	;101 8mhz/4/64=31250hz=32uS/Ct=0.008192S/ISR
@@ -2956,9 +2917,6 @@ SerialSPI.asm                                                         Page: 1
 00794 1FCA 	;	bsf	INTCON,PEIE	; enable periferal interupts
 00795 1FCA 138B 		bcf	INTCON,GIE	; disable interupts
 00796 1FCB 	;
-SerialSPI.asm                                                         Page: 30
-/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
-
 00797 1FCB 0008 		return
 00798 1FCC 	;
 00799 1FCC 	;
@@ -2989,18 +2947,20 @@ SerialSPI.asm                                                         Page: 1
 00824 1FCC 	 
 00825 1FCC 	 
 00826 1FCC 	 
-00523 1FCC 	;
-00524 1FCC 	;
-00525 1FCC 		END
+00516 1FCC 	;
+00517 1FCC 	;
+00518 1FCC 		END
 
 X-Ref Table
 ANSELA	018C 	InitializeIO, InitializeBLIO
 ANSELA_Val	0000 	InitializeIO, InitializeBLIO
 ANSELB	018D 	InitializeIO, InitializeBLIO
 ANSELB_Val	0000 	InitializeIO, InitializeBLIO
+SerialSPI.asm   X-Ref Table                                              Page: 30
+/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
+
 APFCON0	011D 	InitializeIO, InitializeBLIO
 APFCON1	011E 	InitializeIO, InitializeBLIO
-AS5047D_Flags	0070 	Init_TMC4361A
 AddressMask	00E0 	BufferIHData, BIHD_PutInBuff
 AllDataRXd	RX_ParseFlags,6	RS232_Parse, RS232_Parse_DALo_End
 BAUDCON	019F 	InitializeIO, InitializeBLIO
@@ -3049,46 +3009,40 @@ CB_NotBlank ^	1F3B 	CompareBlock_L1
 CFGS	0006 	EERead, EEWrite, ReadEEData, WriteEEData, ReadProgBlock, EraseProgBlock
 		WriteProgBlock
 CKE	0006 	Init_TMC4361A
+CKP	0004 	Init_TMC4361A
 CREN	0004 	RX_TheByte_Err, GetChar_Err
 ChkSum	002D 	BootLoaderStart, BL_ParseNextLine, BLP_SaveIH_Length, BLP_IHS_AddrMSB
 		BLP_IHS_AddrLSB, BLP_IHS_DataType, BLP_IHS_Data, BLP_IHS_CSum
-ClearRam ^	001B 	InitializeIO
-ClearRam_2 ^	002C 	ClearRam
-ClearRam_L2 ^	0035 	ClearRam, ClearRam_2, ClearRam_L2
-CmdErrorFlag	AS5047D_Flags,3	Init_TMC4361A
+ClearRam ^	001E 	InitializeIO
+ClearRam_2 ^	002F 	ClearRam
+ClearRam_L2 ^	0038 	ClearRam, ClearRam_2, ClearRam_L2
 Cmd_GetMode_end ^	0827 	Cmd_SetMode_end
-Cmd_GetStatus_end ^	086E 	Cmd_RestoreParams_end
-SerialSPI.asm   X-Ref Table                                              Page: 31
-/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
-
-Cmd_ReBoot_end ^	0873 	Cmd_GetStatus_end
+Cmd_GetStatus_end ^	086B 	Cmd_RestoreParams_end
+Cmd_ReBoot_end ^	0870 	Cmd_GetStatus_end
 Cmd_RestoreParams_end ^	085D 	Cmd_SaveParams_end
-Cmd_RunBootloader_end ^	087D 	Cmd_ReBoot_end
+Cmd_RunBootloader_end ^	087A 	Cmd_ReBoot_end
 Cmd_SPIInOut_end ^	084D 	Cmd_GetMode_end
 Cmd_SaveParams_end ^	0855 	Cmd_SPIInOut_end
-Cmd_SendIDString_L1 ^	0896 	Cmd_SendIDString_L1
-Cmd_SendIDString_end ^	08A9 	Cmd_SetSlaveAddr_end
-Cmd_SetMasterAddr_end ^	0887 	Cmd_RunBootloader_end
+Cmd_SendIDString_L1 ^	0893 	Cmd_SendIDString_L1
+Cmd_SendIDString_end ^	08A6 	Cmd_SetSlaveAddr_end
+Cmd_SetMasterAddr_end ^	0884 	Cmd_RunBootloader_end
 Cmd_SetMode_end ^	0820 	HandleRXData_1
-Cmd_SetSlaveAddr_end ^	0891 	Cmd_SetMasterAddr_end
+Cmd_SetSlaveAddr_end ^	088E 	Cmd_SetMasterAddr_end
 CompareBlock ^	1F2C 	BLP_WriteBuffer
 CompareBlock_L1 ^	1F2E 	CB_Next
-ContinueReadFlag	AS5047D_Flags,2	Init_TMC4361A
-Copy5_FSR0_FSR1_L1 ^	08BF 	Copy5_FSR0_FSR1_L1
-Copy5_FSR1_FSR0_L1 ^	08C6 	Copy5_FSR1_FSR0_L1
-CopyToRam ^	003A 	Cmd_SaveParams_end, InitializeIO
-CopyToRam_L1 ^	003F 	CopyToRam_L1
+CopyToRam ^	003D 	Cmd_SaveParams_end, InitializeIO
+CopyToRam_L1 ^	0042 	CopyToRam_L1
 DataInBuffer	IH_Flags,1	BootLoaderStart, BL_Parse, BLPV_EndCmd, BufferIHData, BIHD_PutInBuff_L1
 		EraseSourceBuffer
-DataReceivedFlag	SerFlags,1	TX_TheByte, ML_1
+DataReceivedFlag	SerFlags,1	RX_TheByte, ML_1
 DataSentFlag	SerFlags,2	TX_TheByte, ML_Ser_Out
-DecTimer ^	005C 	DecTimer4, DecTimer3, DecTimer2
-DecTimer1 ^	005B 	ProgStartVector
-DecTimer2 ^	0059 	ProgStartVector
-DecTimer3 ^	0057 	ProgStartVector
-DecTimer4 ^	0055 	ProgStartVector
-DelayWuS ^	007E 	DecTimer
-DelayWuS_Loop ^	007F 	DelayWuS_Loop
+DecTimer ^	005F 	DecTimer4, DecTimer3, DecTimer2
+DecTimer1 ^	005E 	ProgStartVector
+DecTimer2 ^	005C 	ProgStartVector
+DecTimer3 ^	005A 	ProgStartVector
+DecTimer4 ^	0058 	ProgStartVector
+DelayWuS ^	0081 	DecTimer
+DelayWuS_Loop ^	0082 	DelayWuS_Loop
 DestAddHiRXd	RX_ParseFlags,5	RS232_Parse
 DestAddLoRXd	RX_ParseFlags,4	RS232_Parse, RS232_Parse_SALo_end
 DestBuffer	2140 	BootLoaderStart, FSR1_DestBuff
@@ -3104,24 +3058,27 @@ EECON2	0196 	EEWrite, WriteEEData, EraseProgBlock, WriteProgBlock_L1, WriteProgB
 EEDAT	0193 	EERead, EEWrite
 EEDATH	0194 	ReadProgBlock_L1, WriteProgBlock_L1
 EEDATL	0193 	ReadEEData, WriteEEData, ReadProgBlock_L1, WriteProgBlock_L1
+SerialSPI.asm   X-Ref Table                                              Page: 31
+/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
+
 EEDataTemp	0025 	SaveParams_L1, EEWrite, Cmd_ReBoot_end
 EEPGD	0007 	EERead, EEWrite, ReadEEData, WriteEEData, ReadProgBlock, EraseProgBlock
 		WriteProgBlock
-EERead ^	0085 	CopyToRam_L1
-EEWrite ^	008F 	SaveParams_L1
-EEWriteLoop ^	00A1 	EEWriteLoop
-EEWriteW ^	008E 	Cmd_ReBoot_end
+EERead ^	0088 	CopyToRam_L1
+EEWrite ^	0092 	SaveParams_L1
+EEWriteLoop ^	00A4 	EEWriteLoop
+EEWriteW ^	0091 	Cmd_ReBoot_end
 EraseBlock_L1 ^	1F4A 	EraseBlock_L1
 EraseProgBlock ^	1F63 	BLP_WriteBuffer
 EraseSourceBuffer ^	1F46 	BootLoaderStart, BLP_WriteBuffer_end
 F	0001 	ProgStartVector, ClearRam, ClearRam_L2, CopyToRam_L1, SaveParams_L1, DecTimer
 		DelayWuS_Loop, StoreSerIn, GetSerIn, StoreSerOut, GetSerOut, RS232_Parse, RS232_Parse_Byte
 		RS232_Parse_SALo, RS232_Parse_SALo_end, RS232_Parse_DALo_End, RS232_Parse_L1, RS232_ClearTXData_L1
-		RS232_Send, RS232_Send_L1, Cmd_SendIDString_L1, Copy5_FSR0_FSR1_L1, Copy5_FSR1_FSR0_L1
-		SPI_SendRecWord_L1, BLP_TestNum, BLP_TestNum_1, BLP_TestNum_2, BLP_SaveIH_Length
-		BLP_NextState, BLP_IHS_AddrMSB, BLP_IHS_AddrLSB, BLP_IHS_DataType, BLP_IHS_Data
-		BufferIHData, BIHD_PutInBuff_E2, BIHD_PutInBuff_L1, TestErased_L1, CB_Next, EraseBlock_L1
-		ReadProgBlock_L1, ReadProgBlock_1, WriteProgBlock_L1
+		RS232_Send, RS232_Send_L1, Cmd_SendIDString_L1, SPI_SendRecWord_L1, BLP_TestNum
+		BLP_TestNum_1, BLP_TestNum_2, BLP_SaveIH_Length, BLP_NextState, BLP_IHS_AddrMSB
+		BLP_IHS_AddrLSB, BLP_IHS_DataType, BLP_IHS_Data, BufferIHData, BIHD_PutInBuff_E2
+		BIHD_PutInBuff_L1, TestErased_L1, CB_Next, EraseBlock_L1, ReadProgBlock_L1, ReadProgBlock_1
+		WriteProgBlock_L1
 FERR	0002 	RX_TheByte_Err, GetChar_Err
 FREE	0004 	EraseProgBlock
 FSR0	0004 	ClearRam, ClearRam_2, ClearRam_L2, StoreSerIn, StoreSerOut, HandleRXData_1
@@ -3139,19 +3096,19 @@ FSR1L	0006 	RS232_Parse_Data_end, RS232_ClearTXData, RS232_Send, BIHD_PutInBuff_
 FSR1_DestBuff ^	1EE3 	BLP_WriteBuffer
 FSR1_SourceBuffer ^	1EE8 	BLP_WriteBuffer, EraseSourceBuffer
 FirstRAMParam	SysMode	CopyToRam, SaveParams
-FlushInBuff ^	00E0 	RS232_Parse_Error
+FlushInBuff ^	00E3 	RS232_Parse_Error
 GIE	0007 	EEWrite, EEWriteLoop, InitializeIO, InitializeBLIO
 GetChar ^	1EED 	BLP_L2, GetChar, GetChar_Err
 GetChar_Err ^	1EF8 	GetChar
-GetSerIn ^	00CF 	RS232_Parse_Byte
-GetSerInBytes ^	00E6 	MainLoop
-GetSerIn_End ^	00DE 	GetSerIn
-GetSerOut ^	0104 	ML_Ser_Out
-GetSerOut_End ^	0113 	GetSerOut
+GetSerIn ^	00D2 	RS232_Parse_Byte
+GetSerInBytes ^	00E9 	MainLoop
+GetSerIn_End ^	00E1 	GetSerIn
+GetSerOut ^	0107 	ML_Ser_Out
+GetSerOut_End ^	0116 	GetSerOut
 HandleRXData ^	0804 	MainLoop
 HandleRXData_1 ^	080A 	HandleRXData
 HandleRXData_Rtn ^	0808 	HandleRXData_1
-IDString ^	089E 	Cmd_SendIDString_L1
+IDString ^	089B 	Cmd_SendIDString_L1
 IHS_Length	0001 	BLP_L2
 IH_Ack	002A 	BootLoaderStart, BLPV_EndCmd, BLPV_Exit_Ack
 IH_Addr_Hi	0025 	BootLoaderStart, BLPV_HighAddr, BufferIHData
@@ -3160,9 +3117,6 @@ IH_Addr_Lo	0023 	BootLoaderStart, BLP_IHS_AddrMSB, BLP_IHS_AddrLSB, BufferIHData
 IH_ByteCount	0028 	BootLoaderStart, BL_ParseNextLine, BLP_IHS_Data, BIHD_PutInBuff_E2
 IH_Bytes	0027 	BootLoaderStart, BLP_SaveIH_Length, BLP_IHS_DataType, BLP_IHS_Data
 IH_ErrorBadCSum	002D 	BLP_IHS_CSum
-SerialSPI.asm   X-Ref Table                                              Page: 32
-/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
-
 IH_ErrorBadLen	002B 	BLP_IHS_Length
 IH_ErrorBadType	003D 	BLPV_BadType
 IH_Flags	002C 	BootLoaderStart, BL_Parse, BLP_L1, BLP_TestNum_1, BLPV_EndCmd, BufferIHData
@@ -3175,19 +3129,20 @@ IH_Type	0029 	BootLoaderStart, BLP_IHS_DataType, BLP_Validate
 INDF0	0000 	ClearRam_L2, DecTimer, StoreSerIn, GetSerIn, StoreSerOut, GetSerOut, RS232_Parse_DALo_End
 INDF1	0001 	HandleRXData_1
 INTCON	000B 	EEWrite, EEWriteLoop, InitializeIO, InitializeBLIO
-Init_TMC4361A ^	08AF 	InitializeIO
+IRQ_Ser_End ^	001D 	SystemBlink_end
+Init_TMC4361A ^	08AC 	InitializeIO
 InitializeBLIO ^	1F9E 	BootLoaderStart
-InitializeIO ^	08E5 	start
+InitializeIO ^	08D5 	start
 LATB	010D 	Init_TMC4361A, SPI_SendRecWord, SPI_SendRecWord_L1
 LEDTIME	0064 	InitializeIO
 LWLO	0005 	WriteProgBlock, WriteProgBlock_Wr
 LastRAMParam	SysFlags	CopyToRam_L1, SaveParams_L1
 LoadProgAddr ^	1F72 	ReadProgBlock, EraseProgBlock, WriteProgBlock
-ML_1 ^	01B6 	MainLoop
-ML_Ser_End ^	01C4 	ML_Ser_Out
-ML_Ser_Out ^	01BD 	ML_1
+ML_1 ^	01B9 	MainLoop
+ML_Ser_End ^	01C8 	ML_Ser_Out
+ML_Ser_Out ^	01C1 	ML_1
 MSN_Done	IH_Flags,0	BootLoaderStart, BLP_L1, BLP_TestNum_1
-MainLoop ^	01AC 	ML_Ser_End
+MainLoop ^	01AF 	ML_Ser_End
 NOT_WPUEN	0007 	InitializeIO, InitializeBLIO
 OERR	0001 	RX_TheByte_Err, GetChar_Err
 OPTION_REG	0095 	InitializeIO, InitializeBLIO
@@ -3196,8 +3151,8 @@ OSCCON_Value	00F0 	InitializeIO, InitializeBLIO
 PCLATH	000A 	ProgStartVector
 PEIE	0006 	InitializeIO
 PIE1	0091 	InitializeIO
-PIR1	0011 	ProgStartVector, ML_1, GetChar, SendChar
-POP_SerOut_End ^	0102 	StoreSerOut
+PIR1	0011 	ProgStartVector, SystemBlink_end, ML_1, GetChar, SendChar
+POP_SerOut_End ^	0105 	StoreSerOut
 PORTA	000C 	InitializeIO, InitializeBLIO
 PORTB	000D 	InitializeIO, InitializeBLIO
 PR2	001B 	InitializeIO
@@ -3205,6 +3160,9 @@ PR2_Value	007D 	InitializeIO
 PROG_ADDR_HI	0021 	BootLoaderStart, BufferIHData, BIHD_PutInBuff, LoadProgAddr
 PROG_ADDR_LO	0020 	BootLoaderStart, BufferIHData, BIHD_PutInBuff, LoadProgAddr
 PS0	0000 	InitializeIO, InitializeBLIO
+SerialSPI.asm   X-Ref Table                                              Page: 32
+/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
+
 PS1	0001 	InitializeIO, InitializeBLIO
 PS2	0002 	InitializeIO, InitializeBLIO
 PSA	0003 	InitializeIO, InitializeBLIO
@@ -3214,9 +3172,8 @@ Param78	0078 	StoreSerIn, GetSerIn, StoreSerOut, GetSerOut, RS232_Parse_Byte, RS
 		RS232_Parse_L1, RS232_ClearTXData, RS232_ClearTXData_L1, ML_Ser_Out, HandleRXData_1
 		Cmd_SetMode_end, Cmd_GetMode_end, Cmd_SPIInOut_end, Cmd_SaveParams_end, Cmd_RestoreParams_end
 		Cmd_GetStatus_end, Cmd_ReBoot_end, Cmd_RunBootloader_end, Cmd_SetMasterAddr_end
-		Cmd_SetSlaveAddr_end, Init_TMC4361A, Copy5_FSR0_FSR1_L1, Copy5_FSR1_FSR0_L1, SPI_SendRecWord
-		SPI_SendRecWord_L1, BLP_L2, BLP_TestNum, BLP_TestNum_1, BLP_TestNum_2, BLP_IHS_CSum
-		BufferIHData, CompareBlock_L1, CB_NotBlank
+		Cmd_SetSlaveAddr_end, SPI_SendRecWord, SPI_SendRecWord_L1, BLP_L2, BLP_TestNum
+		BLP_TestNum_1, BLP_TestNum_2, BLP_IHS_CSum, BufferIHData, CompareBlock_L1, CB_NotBlank
 Param79	0079 	RS232_Send, RS232_Send_L1, Cmd_SetSlaveAddr_end, Cmd_SendIDString_L1
 		BIHD_PutInBuff_E2, BIHD_PutInBuff_L1, TestErased, TestErased_L1, CompareBlock, CB_Next
 		EraseSourceBuffer, EraseBlock_L1, ReadProgBlock, ReadProgBlock_L1, WriteProgBlock
@@ -3229,45 +3186,42 @@ PortBValue	0011 	InitializeIO, InitializeBLIO
 ProgStartVector ^	0002 	BootLoader_End
 ProgWordCount	0022 	BootLoaderStart, BIHD_PutInBuff, BIHD_PutInBuff_E2, BIHD_PutInBuff_L1
 RCIE	0005 	InitializeIO
-RCIF	0005 	GetChar
-RCREG	0199 	TX_TheByte, RX_TheByte_Err, GetChar, GetChar_Err
-RCSTA	019D 	TX_TheByte, RX_TheByte_Err, InitializeIO, GetChar, GetChar_Err, InitializeBLIO
+RCIF	0005 	SystemBlink_end, GetChar
+RCREG	0199 	RX_TheByte, RX_TheByte_Err, GetChar, GetChar_Err
+RCSTA	019D 	RX_TheByte, RX_TheByte_Err, InitializeIO, GetChar, GetChar_Err, InitializeBLIO
 RCSTA_Value	0090 	InitializeIO, InitializeBLIO
 RD	0000 	EERead, ReadEEData, ReadProgBlock_L1
-RP_DataBytes	0004 	RS232_Parse, RS232_Parse_DALo_End, RS232_Parse_Data_end, RS232_ClearTXData
+RP_DataBytes	0006 	RS232_Parse, RS232_Parse_DALo_End, RS232_Parse_Data_end, RS232_ClearTXData
 		RS232_Send
 RP_LongAddr	0000 	RS232_Parse, RS232_Parse_SALo_end, RS232_Parse_DALo_End, RS232_Send
-RS232_ClearTXData ^	0185 	RS232_Send_L1
-RS232_ClearTXData_L1 ^	018D 	RS232_ClearTXData_L1
+RS232_ClearTXData ^	0188 	RS232_Send_L1
+RS232_ClearTXData_L1 ^	0190 	RS232_ClearTXData_L1
 RS232_MasterAddr	0037 	RS232_Parse_SALo, RS232_Send, Cmd_RunBootloader_end
-RS232_Parse ^	0115 	MainLoop
-RS232_Parse_Byte ^	0120 	RS232_Parse
-RS232_Parse_DALo_End ^	0157 	RS232_Parse_SALo_end
-RS232_Parse_Data_end ^	0168 	RS232_Parse_DALo_End
-RS232_Parse_Error ^	0183 	RS232_Parse_Sync2, RS232_Parse_Data_end
-RS232_Parse_L1 ^	0176 	RS232_Parse_L1
-RS232_Parse_Rtn ^	0147 	RS232_Parse_Byte, RS232_Parse_Sync2, RS232_Parse_SALo_end
+RS232_Parse ^	0118 	MainLoop
+RS232_Parse_Byte ^	0123 	RS232_Parse
+RS232_Parse_DALo_End ^	015A 	RS232_Parse_SALo_end
+RS232_Parse_Data_end ^	016B 	RS232_Parse_DALo_End
+RS232_Parse_Error ^	0186 	RS232_Parse_Sync2, RS232_Parse_Data_end
+RS232_Parse_L1 ^	0179 	RS232_Parse_L1
+RS232_Parse_Rtn ^	014A 	RS232_Parse_Byte, RS232_Parse_Sync2, RS232_Parse_SALo_end
 		RS232_Parse_DALo_End
-RS232_Parse_SALo ^	0137 	RS232_Parse_Sync2
-RS232_Parse_SALo_end ^	0149 	RS232_Parse_SALo
-RS232_Parse_Sync2 ^	012F 	RS232_Parse_Byte
-RS232_Send ^	0192 	RS232_Send_S0
-RS232_Send_L1 ^	01A1 	RS232_Send_L1
+RS232_Parse_SALo ^	013A 	RS232_Parse_Sync2
+RS232_Parse_SALo_end ^	014C 	RS232_Parse_SALo
+RS232_Parse_Sync2 ^	0132 	RS232_Parse_Byte
+RS232_Send ^	0195 	RS232_Send_S0
+RS232_Send_L1 ^	01A4 	RS232_Send_L1
 RS232_Send_S0 ^	0800 	Cmd_SetMode_end, Cmd_GetMode_end, Cmd_RestoreParams_end, Cmd_RunBootloader_end
 		Cmd_SetMasterAddr_end
 RS232_SlaveAddr	0038 	RS232_Parse_SALo_end, RS232_Send, Cmd_SetMasterAddr_end
-RXByte	002F 	TX_TheByte, RX_TheByte_Err, ML_1
+RXByte	002F 	RX_TheByte, RX_TheByte_Err, ML_1
 RXDTSEL	0007 	InitializeIO, InitializeBLIO
 RXDataIsNew	RX_Flags,1	RS232_Parse, RS232_Parse_L1, MainLoop, HandleRXData
 RXDataValidFlag	RX_Flags,0	RS232_Parse, RS232_Parse_L1, HandleRXData
 RXDstIsMe	RX_Flags,3	RS232_Parse, RS232_Parse_SALo_end, RS232_Parse_L1
 RXSrcIsMaster	RX_Flags,2	RS232_Parse, RS232_Parse_SALo, RS232_Parse_L1
-SerialSPI.asm   X-Ref Table                                              Page: 33
-/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
-
 RXTimeout	0005 	RS232_Parse_Byte
 RX_CSUM	00A3 	RS232_Parse_SALo, RS232_Parse_SALo_end, RS232_Parse_DALo_End, RS232_Parse_Data_end
-RX_Data	00AA 	RS232_Parse_Data_end, HandleRXData_1
+RX_Data	00AC 	RS232_Parse_Data_end, HandleRXData_1
 RX_DataCount	00A2 	RS232_Parse_SALo, RS232_Parse_DALo_End
 RX_DstAdd	00A5 	RS232_Parse_SALo_end
 RX_Flags	00A1 	RS232_Parse, RS232_Parse_SALo, RS232_Parse_SALo_end, RS232_Parse_L1
@@ -3276,7 +3230,8 @@ RX_ParseFlags	00A0 	RS232_Parse, RS232_Parse_Byte, RS232_Parse_Sync2, RS232_Pars
 		RS232_Parse_SALo_end, RS232_Parse_DALo_End, RS232_Parse_L1, RS232_Parse_Error
 RX_SrcAdd	00A4 	RS232_Parse_SALo
 RX_TempData	00A6 	RS232_Parse_DALo_End, RS232_Parse_Data_end
-RX_TheByte_Err ^	00B9 	TX_TheByte
+RX_TheByte ^	00B2 	SystemBlink_end
+RX_TheByte_Err ^	00BC 	RX_TheByte
 ReadEEData ^	1F04 	BootLoaderStart
 ReadProgBlock ^	1F51 	BLP_WriteBuffer
 ReadProgBlock_1 ^	1F61 	ReadProgBlock_L1
@@ -3292,14 +3247,14 @@ SPI_InBuff	01A1 	Cmd_GetMode_end, SPI_SendRecWord
 SPI_MISO_Tris	TRISB,1	Init_TMC4361A
 SPI_MOSI_Tris	TRISA,6	Init_TMC4361A
 SPI_OutBuff	01A6 	Cmd_GetMode_end, SPI_SendRecWord
-SPI_SendRecWord ^	08CB 	Cmd_GetMode_end
-SPI_SendRecWord_L1 ^	08DA 	SPI_SendRecWord_L1
-SPI_SendRecWord_L2 ^	08D8 	SPI_SendRecWord_L1
+SPI_SendRecWord ^	08BB 	Cmd_GetMode_end
+SPI_SendRecWord_L1 ^	08CA 	SPI_SendRecWord_L1
+SPI_SendRecWord_L2 ^	08C8 	SPI_SendRecWord_L1
 SSP1BUF	0211 	SPI_SendRecWord_L2, SPI_SendRecWord_L1
 SSP1CON1	0215 	Init_TMC4361A
 SSP1CON1_Val	0022 	Init_TMC4361A
 SSP1STAT	0214 	Init_TMC4361A, SPI_SendRecWord_L1
-STATUS	0003 	ProgStartVector, CopyToRam_L1, SaveParams_L1, DecTimer, TX_TheByte, GetSerIn
+STATUS	0003 	ProgStartVector, CopyToRam_L1, SaveParams_L1, DecTimer, RX_TheByte, GetSerIn
 		StoreSerOut, GetSerOut, RS232_Parse, RS232_Parse_Byte, RS232_Parse_Sync2, RS232_Parse_SALo
 		RS232_Parse_SALo_end, RS232_Parse_DALo_End, RS232_Parse_Data_end, MainLoop, HandleRXData_1
 		Cmd_SetMode_end, Cmd_GetMode_end, Cmd_SPIInOut_end, Cmd_SaveParams_end, Cmd_RestoreParams_end
@@ -3307,11 +3262,14 @@ STATUS	0003 	ProgStartVector, CopyToRam_L1, SaveParams_L1, DecTimer, TX_TheByte,
 		Cmd_SetSlaveAddr_end, Cmd_SendIDString_L1, BootLoaderStart, BLP_L2, BLP_TestNum
 		BLP_IHS_Length, BLP_IHS_DataType, BLP_IHS_Data, BLP_IHS_CSum, BLP_Validate, BufferIHData
 		BIHD_PutInBuff_L1, GetChar, TestErased_L1, CompareBlock_L1, CB_NotBlank, WriteProgBlock_L1
-SaveParams ^	0047 	Cmd_SPIInOut_end, Cmd_RunBootloader_end, Cmd_SetMasterAddr_end
-SaveParams_L1 ^	004C 	SaveParams_L1
+SerialSPI.asm   X-Ref Table                                              Page: 33
+/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
+
+SaveParams ^	004A 	Cmd_SPIInOut_end, Cmd_RunBootloader_end, Cmd_SetMasterAddr_end
+SaveParams_L1 ^	004F 	SaveParams_L1
 SendChar ^	1EFE 	BootLoaderStart, BLP_IHS_Length, BLP_IHS_CSum, BLPV_EndCmd, BLPV_Exit
 		SendChar
-SerFlags	0030 	TX_TheByte, ML_1, ML_Ser_Out
+SerFlags	0030 	TX_TheByte, RX_TheByte, ML_1, ML_Ser_Out
 Ser_Buff_Bank	2	StoreSerIn, GetSerIn, FlushInBuff, GetSerInBytes, StoreSerOut, GetSerOut
 Ser_In_Buff	0126 	StoreSerIn, GetSerIn, StoreSerOut, GetSerOut
 Ser_In_Bytes	0120 	StoreSerIn, GetSerIn, FlushInBuff, GetSerInBytes
@@ -3325,9 +3283,9 @@ SerialBuffer	2180 	BootLoaderStart, FSR0_SerialBuffer
 SourceAddHiRXd	RX_ParseFlags,3	RS232_Parse
 SourceAddLoRXd	RX_ParseFlags,2	RS232_Parse, RS232_Parse_SALo
 SourceBuffer	2100 	BootLoaderStart, BIHD_PutInBuff_E2, BLP_WriteBuffer, FSR1_SourceBuffer
-StoreSerIn ^	00C1 	ML_1
-StoreSerOut ^	00EE 	RS232_Send, RS232_Send_L1, StoreSerOut_S0
-StoreSerOut_S0 ^	08AB 	Cmd_SendIDString_L1
+StoreSerIn ^	00C4 	ML_1
+StoreSerOut ^	00F1 	RS232_Send, RS232_Send_L1, StoreSerOut_S0
+StoreSerOut_S0 ^	08A8 	Cmd_SendIDString_L1
 SyncByte1RXd	RX_ParseFlags,0	RS232_Parse, RS232_Parse_Byte
 SyncByte2RXd	RX_ParseFlags,1	RS232_Parse, RS232_Parse_Sync2
 SysFlags	0039 	CopyToRam_L1, SaveParams_L1
@@ -3354,9 +3312,9 @@ TXIF	0004 	ML_1, SendChar
 TXREG	019A 	TX_TheByte, SendChar
 TXSTA	019E 	InitializeIO, InitializeBLIO
 TXSTA_Value	0024 	InitializeIO, InitializeBLIO
-TX_ACK ^	08AA 	HandleRXData_1, Cmd_SPIInOut_end, Cmd_SaveParams_end
-TX_Data	00AE 	RS232_ClearTXData, RS232_Send, HandleRXData_1, Cmd_GetMode_end
-TX_TheByte ^	00A7 	ML_1
+TX_ACK ^	08A7 	HandleRXData_1, Cmd_SPIInOut_end, Cmd_SaveParams_end
+TX_Data	00B2 	RS232_ClearTXData, RS232_Send, HandleRXData_1, Cmd_GetMode_end
+TX_TheByte ^	00AA 	ML_1
 TestErased ^	1F1F 	BLP_WriteBuffer
 TestErased_L1 ^	1F21 	TestErased_L1
 Timer1Hi	0027 	DecTimer1, DecTimer
@@ -3364,20 +3322,17 @@ Timer1Lo	0026 	DecTimer, RS232_Parse, RS232_Parse_Byte
 Timer2Hi	0029 	DecTimer2, DecTimer
 Timer2Lo	0028 	DecTimer
 Timer3Hi	002B 	DecTimer3, DecTimer
-SerialSPI.asm   X-Ref Table                                              Page: 34
-/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
-
 Timer3Lo	002A 	DecTimer
 Timer4Hi	002D 	DecTimer4, DecTimer
-Timer4Lo	002C 	DecTimer, InitializeIO
+Timer4Lo	002C 	DecTimer
 UseAltSerialPort	0001 	InitializeBLIO
 UseEEParams	0001 	ClearRam, CopyToRam
 UseRS232Chksum	0001 	RS232_Parse, RS232_Parse_DALo_End, RS232_Parse_Data_end, RS232_Send_L1
 UseRS232SendSyncBytes	0000 	RS232_Parse, RS232_Send
 UseRS232SyncBytes	0001 	RS232_Parse, RS232_Parse_Byte
 W	0000 	SystemBlink_Std, CopyToRam_L1, SaveParams_L1, DecTimer, EERead, EEWrite, TX_TheByte
-		RX_TheByte_Err, StoreSerIn, GetSerIn, GetSerInBytes, StoreSerOut, GetSerOut, RS232_Parse_Byte
-		RS232_Parse_Sync2, RS232_Parse_SALo, RS232_Parse_SALo_end, RS232_Parse_DALo_End
+		RX_TheByte, RX_TheByte_Err, StoreSerIn, GetSerIn, GetSerInBytes, StoreSerOut, GetSerOut
+		RS232_Parse_Byte, RS232_Parse_Sync2, RS232_Parse_SALo, RS232_Parse_SALo_end, RS232_Parse_DALo_End
 		RS232_Parse_Data_end, RS232_Send, RS232_Send_L1, ML_1, HandleRXData_1, Cmd_SetMode_end
 		Cmd_GetMode_end, Cmd_SPIInOut_end, Cmd_SaveParams_end, Cmd_RestoreParams_end, Cmd_GetStatus_end
 		Cmd_ReBoot_end, Cmd_RunBootloader_end, Cmd_SetMasterAddr_end, Cmd_SetSlaveAddr_end
@@ -3399,7 +3354,7 @@ WriteEEData_L1 ^	1F1A 	WriteEEData_L1
 WriteProgBlock ^	1F7A 	BLP_WriteBuffer
 WriteProgBlock_L1 ^	1F81 	WriteProgBlock_L1
 WriteProgBlock_Wr ^	1F93 	WriteProgBlock_L1
-Z	0002 	ProgStartVector, CopyToRam_L1, SaveParams_L1, DecTimer, TX_TheByte, GetSerIn
+Z	0002 	ProgStartVector, CopyToRam_L1, SaveParams_L1, DecTimer, RX_TheByte, GetSerIn
 		StoreSerOut, GetSerOut, RS232_Parse, RS232_Parse_Byte, RS232_Parse_Sync2, RS232_Parse_SALo
 		RS232_Parse_SALo_end, RS232_Parse_DALo_End, RS232_Parse_Data_end, MainLoop, HandleRXData_1
 		Cmd_SetMode_end, Cmd_GetMode_end, Cmd_SPIInOut_end, Cmd_SaveParams_end, Cmd_RestoreParams_end
@@ -3409,6 +3364,9 @@ Z	0002 	ProgStartVector, CopyToRam_L1, SaveParams_L1, DecTimer, TX_TheByte, GetS
 		GetChar, TestErased_L1, CompareBlock_L1, CB_NotBlank, WriteProgBlock_L1
 _Z	STATUS,Z	WriteProgBlock_L1
 kCmd_GetMode	0001 	Cmd_SetMode_end
+SerialSPI.asm   X-Ref Table                                              Page: 34
+/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
+
 kCmd_GetStatus	0098 	Cmd_RestoreParams_end
 kCmd_ReBoot	0099 	Cmd_GetStatus_end
 kCmd_RestoreParams	0095 	Cmd_SaveParams_end
@@ -3432,33 +3390,28 @@ nvRS232_SlaveAddr	0002 	InitializeBLIO
 nvSysFlags	0003 	InitializeBLIO
 nvSysMode	0000 	InitializeBLIO, CopyToRam, SaveParams
 oldCode	0000 	DecTimer
-ssGripMCur	ssStatus,5	Cmd_RestoreParams_end
-ssGripOCur	ssStatus,4	Cmd_RestoreParams_end
 ssRX_Timeout	ssStatus,3	RS232_Parse, Cmd_RestoreParams_end
 ssStatus	0032 	RS232_Parse, Cmd_RestoreParams_end
-start ^	01A9 	ProgStartVector
-useRS232	0001 	InitializeIO
+start ^	01AC 	ProgStartVector
  
 
 X-Ref Table (The UnCalled)
 BootLoader !	1E00 	
-Copy5_FSR0_FSR1 !	08BD 	
-Copy5_FSR1_FSR0 !	08C4 	
-Delay100uS !	007B 	
-Delay10uS !	0079 	
-Delay40uS !	007D 	
-EEReadW !	0084 	
+Delay100uS !	007E 	
+Delay10uS !	007C 	
+Delay40uS !	0080 	
+EEReadW !	0087 	
 EraseBlock !	1F48 	
-GetSerOutBytes !	00EA 	
-POP_SerOut !	00FC 	
-RS232_Parse_DALo !	0149 	
-RS232_Parse_Data !	0157 	
-RX_TheByte !	00AF 	
+GetSerOutBytes !	00ED 	
+IRQ_Ser !	001A 	
+POP_SerOut !	00FF 	
+RS232_Parse_DALo !	014C 	
+RS232_Parse_Data !	015A 	
 SystemBlink_DoIt !	0017 	
-TestT1_Zero !	0075 	
-TestT2_Zero !	0071 	
-TestT3_Zero !	006D 	
-TestT4_Zero !	0069 	
+TestT1_Zero !	0078 	
+TestT2_Zero !	0074 	
+TestT3_Zero !	0070 	
+TestT4_Zero !	006C 	
 WriteProgBlock_end !	1F9C 	
  
 
@@ -3466,20 +3419,17 @@ Memory Usage Map ('X' = Used, '-' = Unused)
  
 0000  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 0040  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
-SerialSPI.asm   Memory Usage Map                                         Page: 35
-/Users/davidflynn/Projects/SerialServo/Firmware SPI IO Rev C/
-
 0080  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 00C0  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 0100  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 0140  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 0180  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
-01C0  : XXXXX----------- ---------------- ---------------- ----------------
+01C0  : XXXXXXXXX------- ---------------- ---------------- ----------------
 0800  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 0840  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 0880  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 08C0  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
-0900  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXX-- ----------------
+0900  : XXXXXXXXXXXXXXXX XXXXXXXXXXXX---- ---------------- ----------------
 1E00  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 1E40  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 1E80  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
@@ -3489,8 +3439,8 @@ Memory Usage Map ('X' = Used, '-' = Unused)
 1F80  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 1FC0  : XXXXXXXXXXXX---- ---------------- ---------------- ----------------
  
-Program Memory Words Used:1215
-Program Memory Words Free:6977
+Program Memory Words Used:1201
+Program Memory Words Free:6991
  
 UserID
 8000  :XXXX

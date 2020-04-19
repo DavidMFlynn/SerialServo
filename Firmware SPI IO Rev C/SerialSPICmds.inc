@@ -51,7 +51,7 @@ HandleRXData	movlb	1	;bank 1
 	bra	HandleRXData_1
 HandleRXData_Rtn	movlb	0	;bank 0
 	return		; no, ignore this packet
-;---kCmd_SetMode-------------------
+;
 HandleRXData_1	movlb	0	;bank 0
                        mMOVLF	RX_Data,FSR1
 	mMOVLF	TX_Data,FSR0
@@ -59,8 +59,8 @@ HandleRXData_1	movlb	0	;bank 0
 ;
 	moviw	FSR1++
 	movwf	Param78	;aka RX_Data
-	
-;
+;	
+;---kCmd_SetMode------------------
 	movlw	kCmd_SetMode
 	subwf	Param78,W	;aka RX_Data
 	SKPZ
@@ -94,29 +94,32 @@ Cmd_GetMode_end:
                        bra                    Cmd_SPIInOut_end
 ;
                        mMOVLF                 SPI_OutBuff,FSR0
-                       moviw                  0[FSR1]                ;Address
+                       moviw                  FSR1++                 ;Address
                        movwi                  0[FSR0]
-                       moviw                  4[FSR1]                ;MSB
-                       movwi                  1[FSR0]
-                       moviw                  3[FSR1]
-                       movwi                  2[FSR0]
-                       moviw                  2[FSR1]
-                       movwi                  3[FSR0]
-                       moviw                  1[FSR1]                ;LSB
+                       moviw                  FSR1++                 ;LSB
                        movwi                  4[FSR0]
+                       moviw                  FSR1++
+                       movwi                  3[FSR0]
+                       moviw                  FSR1++
+                       movwi                  2[FSR0]
+                       moviw                  FSR1++                 ;MSB
+                       movwi                  1[FSR0]
+;
                        call                   SPI_SendRecWord
+;
                        mMOVLF	TX_Data,FSR0
                        mMOVLF                 SPI_InBuff,FSR1
-                       moviw                  0[FSR1]                ;Address
-                       movwi                  0[FSR0]
+                       moviw                  0[FSR1]                ;Status
+;                       movlw                  0x01                   ;tc
+                       movwi                  FSR0++
                        moviw                  4[FSR1]                ;LSB
-                       movwi                  1[FSR0]
+                       movwi                  FSR0++
                        moviw                  3[FSR1]
-                       movwi                  2[FSR0]
+                       movwi                  FSR0++
                        moviw                  2[FSR1]
-                       movwi                  3[FSR0]
+                       movwi                  FSR0++
                        moviw                  1[FSR1]                ;MSB
-                       movwi                  4[FSR0]
+                       movwi                  FSR0++
                        goto	RS232_Send_S0
 Cmd_SPIInOut_end:
 ;---kCmd_SaveParams-----------------
@@ -150,10 +153,6 @@ Cmd_RestoreParams_end:
 	movwi	FSR0++
 ;reset flags
 	bcf	ssRX_Timeout
-	bcf	ssGripMCur
-	bcf	ssGripOCur
-;
-	clrf	ssStatus+1
 ;	
 	goto	RS232_Send_S0
 Cmd_GetStatus_end:

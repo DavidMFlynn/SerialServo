@@ -17,16 +17,9 @@
 ;
 ;******************************************************************
 ; Rotines:	(Stack Words Used)
+;
 ; Init_TMC4361A	(0) Call once to setup SSP1
 ; SPI_SendRecWord	(0) Send SPI_OutBuff, Receive SPI_InBuff
-;
-;******************************************************************
-;
-; ***** Add to global declarations ****
-;TMC4361A_Flags	EQU	Param70	;Check that Param70 is OK to use
-;
-#define	ContinueReadFlag	TMC4361A_Flags,2
-#Define	CmdErrorFlag	TMC4361A_Flags,3
 ;
 ;******************************************************************
 ; Initialize the MSSP
@@ -38,10 +31,10 @@
 ;
 SSP1CON1_Val	EQU	b'00100010'	;SSPEN=1, SPI Fosc/64
 #Define	SPI_CSn	LATB,0
-#Define	SPI_CSn_Tris	TRISB,0
-#Define	SPI_MOSI_Tris	TRISA,6
-#Define	SPI_MISO_Tris	TRISB,1
-#Define	SPI_CLK_Tris	TRISB,4
+#Define	SPI_CSn_Tris	TRISB,0                ;RB0 CS
+#Define	SPI_MOSI_Tris	TRISA,6                ;RA6 MOSI
+#Define	SPI_MISO_Tris	TRISB,1                ;RB1 MISO
+#Define	SPI_CLK_Tris	TRISB,4                ;RB4 CLK
 ;
 Init_TMC4361A	movlb	2	;bank 2
 	bsf	SPI_CSn	;inactive
@@ -55,36 +48,16 @@ Init_TMC4361A	movlb	2	;bank 2
 	movlb	4	;bank 4
 	movlw	SSP1CON1_Val
 	movwf	SSP1CON1
+	bsf                    SSP1CON1,CKP           ;CKP=1, Idle CLK High
+;	bcf                    SSP1CON1,CKP           ;CKP=0, Idle CLK Low
 	bsf	SSP1STAT,SMP
-;	bsf	SSP1STAT,CKE	;CKE=1
-	bcf	SSP1STAT,CKE	;CKE=0
+;	bsf	SSP1STAT,CKE	;CKE=1,
+	bcf	SSP1STAT,CKE	;CKE=0, 
 ;
 ;	BANKSEL	PEI1
 ;	bsf	PIE1,SSP1	;enable interupt
 	movlb	0	;bank 0
 	return
-;
-;=========================================================================================
-; Copy 5 bytes from (FSR0) to (FSR1)
-;
-Copy5_FSR0_FSR1        movlw                  0x05
-                       movwf                  Param78
-Copy5_FSR0_FSR1_L1     moviw                  FSR0++
-                       movwi                  FSR1++
-                       decfsz                 Param78,F
-                       bra                    Copy5_FSR0_FSR1_L1
-                       return
-;
-;=========================================================================================
-; Copy 5 bytes from (FSR1) to (FSR0)
-;
-Copy5_FSR1_FSR0        movlw                  0x05
-                       movwf                  Param78
-Copy5_FSR1_FSR0_L1     moviw                  FSR1++
-                       movwi                  FSR0++
-                       decfsz                 Param78,F
-                       bra                    Copy5_FSR1_FSR0_L1
-                       return
 ;
 ;*******************************************************************
 ; Send and Receive
@@ -107,7 +80,7 @@ SPI_SendRecWord_L1	nop
 	btfss	SSP1STAT,BF
 	bra	SPI_SendRecWord_L1
 	movf	SSP1BUF,W
-	moviw	FSR0++                 ;In Buffer
+	movwi	FSR0++                 ;In Buffer
 	decfsz                 Param78,F
 	bra                    SPI_SendRecWord_L2
 ;

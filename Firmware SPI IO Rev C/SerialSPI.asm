@@ -94,7 +94,7 @@
 	constant	UseAltSerialPort=1
 	constant	RP_LongAddr=0
 	constant	RP_AddressBytes=1
-	constant	RP_DataBytes=4
+	constant	RP_DataBytes=6
 	constant	UseRS232SyncBytes=1
 kRS232SyncByteValue	EQU	0xDD
 	constant	UseRS232Chksum=1
@@ -250,17 +250,7 @@ kMaxMode	EQU	.0
 #Define	DataSentFlag	SerFlags,2
 ;
 ;----ssStatus bits
-#Define	MD3_FFwd	ssStatus,0
-#Define	MD3_FRev	ssStatus,1
-#Define	ssio_OverCurSD	ssStatus,2	;Servo stopped for over-current
 #Define	ssRX_Timeout	ssStatus,3	;cleared by host read
-#Define	ssGripOCur	ssStatus,4	;cleared by host read
-#Define	ssGripMCur	ssStatus,5	;cleared by host read
-;
-; all bits of ssStatus+1 are cleared by a host kCmd_GetStatus command.
-#Define	ssEncParityError	ssStatus+1,0	;cleared by host read
-#Define	ssEncCmdError	ssStatus+1,1	;cleared by host read	
-#Define                ssCmdPosVerified       ssStatus+1,2
 ;
 ;---------------
 #Define	FirstRAMParam	SysMode
@@ -344,12 +334,6 @@ kMaxMode	EQU	.0
 ;Conditions
 HasISR	EQU	0x80	;used to enable interupts 0x80=true 0x00=false
 ;
-AS5047D_Flags	EQU	Param70	;Check that Param70 is OK to use
-;
-#Define	ParityErrFlag	AS5047D_Flags,0
-#Define	AngleReadFlag	AS5047D_Flags,1
-#define	ContinueReadFlag	AS5047D_Flags,2
-#Define	CmdErrorFlag	AS5047D_Flags,3
 ;
 ;=========================================================================================
 ;=========================================================================================
@@ -371,11 +355,11 @@ AS5047D_Flags	EQU	Param70	;Check that Param70 is OK to use
 ;
 	cblock	0x0000
 ;
-;
 	nvSysMode
 	nvRS232_MasterAddr
 	nvRS232_SlaveAddr
 	nvSysFlags
+;
 	endc
 ;
 #Define	nvFirstParamByte	nvSysMode
@@ -495,6 +479,7 @@ ML_1:
 ;
 ;---------------------
 ; Handle Serial Communications
+                       movlb                  0                      ;bank 0
 	BTFSC	PIR1,TXIF	;TX done?
 	CALL	TX_TheByte	; Yes
 ;
