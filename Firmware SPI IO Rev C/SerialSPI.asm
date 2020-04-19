@@ -452,6 +452,14 @@ SystemBlink_end:
 SystemTick_end:
 ;
 ;-----------------------------------------------------------------------------------------
+;AUSART Serial ISR
+;
+IRQ_Ser	BTFSS	PIR1,RCIF	;RX has a byte?
+	BRA	IRQ_Ser_End
+	CALL	RX_TheByte
+;
+IRQ_Ser_End:
+;-----------------------------------------------------------------------------------------
 	retfie		; return from interrupt
 ;
 ;
