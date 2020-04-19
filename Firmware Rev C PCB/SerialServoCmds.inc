@@ -739,7 +739,7 @@ Cmd_GetCalPot_end:
 	movwi	FSR0++
 	movf	ssStatus+2,W
 	movwi	FSR0++
-	movf	ssStatus+2,W
+	movf	ssStatus+3,W
 	movwi	FSR0++
 ;reset flags
 	bcf	ssRX_Timeout
