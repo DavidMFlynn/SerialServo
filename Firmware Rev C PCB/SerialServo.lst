@@ -2809,10 +2809,10 @@ SerialServo.asm                                                       Page: 1
 01691 044E 	;=========================================================================================
 01692 044E 	; Setup or Read AN0 or Read AN4
 01693 044E 007C 	ANNumMask	EQU	0x7C
-01694 044E 0000 	AN0_Val	EQU	0x00
-01695 044E 0004 	AN1_Val	EQU	0x04
-01696 044E 0008 	AN2_Val	EQU	0x08
-01697 044E 000C 	AN3_Val	EQU	0x0C
+01694 044E 0000 	AN0_Val	EQU	0x00                   ;Current
+01695 044E 0004 	AN1_Val	EQU	0x04                   ;Volts
+01696 044E 0008 	AN2_Val	EQU	0x08                   ;SW1/LED1/Aux0
+01697 044E 000C 	AN3_Val	EQU	0x0C                   ;SW2/LED2/Aux1
 01698 044E 	;AN4_Val	EQU	0x10
 01699 044E 	;AN7_Val	EQU	0x1C
 01700 044E 	;
@@ -2830,293 +2830,298 @@ SerialServo.asm                                                       Page: 1
 01712 0457 397C 		andlw	ANNumMask
 01713 0458 		SKPNZ
 01713 0458 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
-01714 0459 321E 		bra	ReadAN_AN0
+01714 0459 3222 		bra	ReadAN_AN0
 01715 045A 	;
 01716 045A 00F8 		movwf	Param78	;AN select bits
-01717 045B 	;Aux0 SW1_LED1
-01718 045B 085C 		movf	ssAux0Config,W
-01719 045C 390F 		andlw	0x0F
-01720 045D 3C04 		sublw	kAuxIOAnalogIn
-01721 045E 		SKPZ
-01721 045E 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-01722 045F 3204 		bra	ReadAN_TryAN2
-01723 0460 3008 		movlw	AN2_Val
-01724 0461 0278 		subwf	Param78,W	;AN select bits
-01725 0462 		SKPNZ
-01725 0462 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
-01726 0463 3233 		bra	ReadAN_AN2
-01727 0464 	;Aux1 SW2_LED2
-01728 0464 085D 	ReadAN_TryAN2	movf	ssAux1Config,W
-01729 0465 390F 		andlw	0x0F
-01730 0466 3C04 		sublw	kAuxIOAnalogIn
-01731 0467 		SKPZ
-01731 0467 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-01732 0468 3204 		bra	ReadAN_TryAN0
-01733 0469 3008 		movlw	AN2_Val
-01734 046A 0278 		subwf	Param78,W	;AN select bits
+01717 045B 3004 		movlw                  AN1_Val
+01718 045C 0278 		subwf                  Param78,W
+01719 045D 		SKPNZ
+01719 045D 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
+01720 045E 3235 		bra                    ReadAN_AN1             ;Batt Volts
+01721 045F 	;
+01722 045F 	;Aux0 SW1_LED1
+01723 045F 085C 		movf	ssAux0Config,W
+01724 0460 390F 		andlw	0x0F
+01725 0461 3C04 		sublw	kAuxIOAnalogIn
+01726 0462 		SKPZ
+01726 0462 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+01727 0463 3204 		bra	ReadAN_TryAN2
+01728 0464 3008 		movlw	AN2_Val
+01729 0465 0278 		subwf	Param78,W	;AN select bits
+01730 0466 		SKPNZ
+01730 0466 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
+01731 0467 322F 		bra	ReadAN_AN2
+01732 0468 	;Aux1 SW2_LED2
+01733 0468 085D 	ReadAN_TryAN2	movf	ssAux1Config,W
+01734 0469 390F 		andlw	0x0F
 SerialServo.asm                                                       Page: 29
 /Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
 
-01735 046B 		SKPNZ
-01735 046B 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
-01736 046C 322A 		bra	ReadAN_AN2
-01737 046D 	;IServo
-01738 046D 3000 	ReadAN_TryAN0	movlw	AN0_Val
-01739 046E 0278 		subwf	Param78,W
+01735 046A 3C04 		sublw	kAuxIOAnalogIn
+01736 046B 		SKPZ
+01736 046B 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+01737 046C 3204 		bra	ReadAN_TryAN0
+01738 046D 3008 		movlw	AN2_Val
+01739 046E 0278 		subwf	Param78,W	;AN select bits
 01740 046F 		SKPNZ
 01740 046F 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
-01741 0470 3207 		bra	ReadAN_AN0
-01742 0471 	;
-01743 0471 3000 		movlw	AN0_Val	;next to read
-01744 0472 00F8 		movwf	Param78
-01745 0473 30B3 		movlw	LOW Cur_AN0
-01746 0474 0084 		movwf	FSR0L
-01747 0475 0021  a		MOVLB	Cur_AN0	;banksel
-01746 0476 		BankSel	Cur_AN0	;where the analog stuff is
-01748 0476 1432 		bsf	NewDataAN0
-01749 0477 3225 		bra	ReadAN_1
-01750 0478 	;
-01751 0478 30B3 	ReadAN_AN0	movlw	low Cur_AN0
-01752 0479 0084 		movwf	FSR0L
-01753 047A 0021  a		MOVLB	Cur_AN0	;banksel
-01752 047B 		BankSel	Cur_AN0	;where the analog stuff is
-01754 047B 1432 		bsf	NewDataAN0
-01755 047C 3004 		movlw	AN1_Val	;next to read
-01756 047D 00F8 		movwf	Param78
-01757 047E 085C 		movf	ssAux0Config,W
-01758 047F 390F 		andlw	0x0F
-01759 0480 3C04 		sublw	kAuxIOAnalogIn
-01760 0481 		SKPNZ
-01760 0481 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
-01761 0482 321A 		bra	ReadAN_1
-01762 0483 	;
-01763 0483 3008 	ReadAN_AN0_1	movlw	AN2_Val	;next to read
-01764 0484 00F8 		movwf	Param78
-01765 0485 085D 		movf	ssAux1Config,W
-01766 0486 390F 		andlw	0x0F
-01767 0487 3C04 		sublw	kAuxIOAnalogIn
-01768 0488 		SKPNZ
-01768 0488 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
-01769 0489 3213 		bra	ReadAN_1
-01770 048A 	;
-01771 048A 300C 	ReadAN_AN0_2	movlw	AN3_Val	;next to read
-01772 048B 00F8 		movwf	Param78
-01773 048C 085E 		movf	ssAux2Config,W
-01774 048D 390F 		andlw	0x0F
-01775 048E 3C04 		sublw	kAuxIOAnalogIn
-01776 048F 		SKPNZ
-01776 048F 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
-01777 0490 320C 		bra	ReadAN_1
-01778 0491 	;
-01779 0491 3000 	ReadAN_AN0_3	movlw	AN0_Val	;next to read
-01780 0492 00F8 		movwf	Param78
-01781 0493 3209 		bra	ReadAN_1
-01782 0494 	;
-01783 0494 30B5 	ReadAN_AN1	movlw	low Cur_AN1
-01784 0495 0084 		movwf	FSR0L
-01785 0496 33EC 		bra	ReadAN_AN0_1
-01786 0497 	;
-01787 0497 30B7 	ReadAN_AN2	movlw	low Cur_AN2
-01788 0498 0084 		movwf	FSR0L
-01789 0499 33F0 		bra	ReadAN_AN0_2
-01790 049A 	;
-01791 049A 30B9 	ReadAN_AN3	movlw	low Cur_AN3
-01792 049B 0084 		movwf	FSR0L
-01793 049C 33F4 		bra	ReadAN_AN0_3
-01794 049D 	;
-01795 049D 0021 	ReadAN_1	movlb	0x01	;bank 1
-01796 049E 081B 		MOVF	ADRESL,W
-01797 049F 001A 		MOVWI	FSR0++
-01798 04A0 081C 		MOVF	ADRESH,W
-01799 04A1 001A 		MOVWI	FSR0++
-01800 04A2 	;
-01801 04A2 0878 		movf	Param78,W
-01802 04A3 1409 		BSF	WREG,0	;ADC ON
-01803 04A4 009D 		MOVWF	ADCON0
-01804 04A5 3004 		movlw	0x04	;Acquisition time 5uS
-01805 04A6 212D 		call	DelayWuS
-01806 04A7 149D 		BSF	ADCON0,ADGO	;Start next conversion.
-01807 04A8 0020 		movlb	0x00	; bank 0
-01808 04A9 0008 		return
-01809 04AA 	;
-01810 04AA 0021 	ReadAN0_ColdStart	MOVLB	1
-01811 04AB 30E0 		MOVLW	b'11100000'	;Right Just, fosc/64
-01812 04AC 	;	MOVLW	b'11110000'	;Right Just, Frc
-01813 04AC 009E 		MOVWF	ADCON1
-01814 04AD 3000 		MOVLW	AN0_Val	;Select AN0
-01815 04AE 1409 		BSF	WREG,0	;ADC ON
-01816 04AF 009D 		MOVWF	ADCON0
-01817 04B0 3004 		movlw	0x04	;Acquisition time 5uS
-01818 04B1 212D 		call	DelayWuS
-01819 04B2 149D 	ReadAN_3	BSF	ADCON0,GO
-01820 04B3 	ReadAN_Rtn:
-01821 04B3 0020 	Bank0_Rtn	MOVLB	0
-01822 04B4 0008 		Return
-01823 04B5 	;
-01824 04B5 	;=========================================================================================
-01825 04B5 	;
-01826 04B5 	; Don't disable interrupts if you don't need to...
+01741 0470 3226 		bra	ReadAN_AN2
+01742 0471 	;IServo
+01743 0471 3000 	ReadAN_TryAN0	movlw	AN0_Val
+01744 0472 0278 		subwf	Param78,W
+01745 0473 		SKPNZ
+01745 0473 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
+01746 0474 3207 		bra	ReadAN_AN0
+01747 0475 	;
+01748 0475 3000 		movlw	AN0_Val	;next to read
+01749 0476 00F8 		movwf	Param78
+01750 0477 30B3 		movlw	LOW Cur_AN0
+01751 0478 0084 		movwf	FSR0L
+01752 0479 0021  a		MOVLB	Cur_AN0	;banksel
+01751 047A 		BankSel	Cur_AN0	;where the analog stuff is
+01753 047A 1432 		bsf	NewDataAN0
+01754 047B 3221 		bra	ReadAN_1
+01755 047C 	;
+01756 047C 30B3 	ReadAN_AN0	movlw	low Cur_AN0
+01757 047D 0084 		movwf	FSR0L
+01758 047E 0021  a		MOVLB	Cur_AN0	;banksel
+01757 047F 		BankSel	Cur_AN0	;where the analog stuff is
+01759 047F 1432 		bsf	NewDataAN0
+01760 0480 3004 		movlw	AN1_Val	;next to read
+01761 0481 00F8 		movwf	Param78
+01762 0482 	;	movf	ssAux0Config,W
+01763 0482 	;	andlw	0x0F
+01764 0482 	;	sublw	kAuxIOAnalogIn
+01765 0482 	;	SKPNZ
+01766 0482 321A 		bra	ReadAN_1
+01767 0483 	;
+01768 0483 3008 	ReadAN_AN0_1	movlw	AN2_Val	;next to read
+01769 0484 00F8 		movwf	Param78
+01770 0485 085C 		movf	ssAux0Config,W
+01771 0486 390F 		andlw	0x0F
+01772 0487 3C04 		sublw	kAuxIOAnalogIn
+01773 0488 		SKPNZ
+01773 0488 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
+01774 0489 3213 		bra	ReadAN_1
+01775 048A 	;
+01776 048A 300C 	ReadAN_AN0_2	movlw	AN3_Val	;next to read
+01777 048B 00F8 		movwf	Param78
+01778 048C 085D 		movf	ssAux1Config,W
+01779 048D 390F 		andlw	0x0F
+01780 048E 3C04 		sublw	kAuxIOAnalogIn
+01781 048F 		SKPNZ
+01781 048F 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
+01782 0490 320C 		bra	ReadAN_1
+01783 0491 	;
+01784 0491 3000 	ReadAN_AN0_3	movlw	AN0_Val	;next to read
+01785 0492 00F8 		movwf	Param78
+01786 0493 3209 		bra	ReadAN_1
+01787 0494 	;
+01788 0494 30B5 	ReadAN_AN1	movlw	low Cur_AN1
+01789 0495 0084 		movwf	FSR0L
+01790 0496 33EC 		bra	ReadAN_AN0_1
+01791 0497 	;
+01792 0497 30B7 	ReadAN_AN2	movlw	low Cur_AN2
+01793 0498 0084 		movwf	FSR0L
+01794 0499 33F0 		bra	ReadAN_AN0_2
+01795 049A 	;
+01796 049A 30B9 	ReadAN_AN3	movlw	low Cur_AN3
+01797 049B 0084 		movwf	FSR0L
+01798 049C 33F4 		bra	ReadAN_AN0_3
+01799 049D 	;
+01800 049D 0021 	ReadAN_1	movlb	0x01	;bank 1
+01801 049E 081B 		MOVF	ADRESL,W
+01802 049F 001A 		MOVWI	FSR0++
+01803 04A0 081C 		MOVF	ADRESH,W
+01804 04A1 001A 		MOVWI	FSR0++
+01805 04A2 	;
+01806 04A2 0878 		movf	Param78,W
+01807 04A3 1409 		BSF	WREG,0	;ADC ON
+01808 04A4 009D 		MOVWF	ADCON0
+01809 04A5 3004 		movlw	0x04	;Acquisition time 5uS
+01810 04A6 212D 		call	DelayWuS
+01811 04A7 149D 		BSF	ADCON0,ADGO	;Start next conversion.
+01812 04A8 0020 		movlb	0x00	; bank 0
+01813 04A9 0008 		return
+01814 04AA 	;
+01815 04AA 0021 	ReadAN0_ColdStart	MOVLB	1
+01816 04AB 30E0 		MOVLW	b'11100000'	;Right Just, fosc/64
+01817 04AC 	;	MOVLW	b'11110000'	;Right Just, Frc
+01818 04AC 009E 		MOVWF	ADCON1
+01819 04AD 3000 		MOVLW	AN0_Val	;Select AN0
+01820 04AE 1409 		BSF	WREG,0	;ADC ON
+01821 04AF 009D 		MOVWF	ADCON0
+01822 04B0 3004 		movlw	0x04	;Acquisition time 5uS
+01823 04B1 212D 		call	DelayWuS
+01824 04B2 149D 	ReadAN_3	BSF	ADCON0,GO
+01825 04B3 	ReadAN_Rtn:
+01826 04B3 0020 	Bank0_Rtn	MOVLB	0
 SerialServo.asm                                                       Page: 30
 /Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
 
-01827 04B5 0025 	Copy7CToSig	MOVLB	0x05	;bank 5
-01828 04B6 087C 		MOVF	Param7C,W
-01829 04B7 0220 		SUBWF	SigOutTime,W
-01830 04B8 		SKPZ
-01830 04B8 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-01831 04B9 3204 		bra	Copy7CToSig_1
-01832 04BA 087D 		MOVF	Param7D,W
-01833 04BB 0221 		SUBWF	SigOutTimeH,W
-01834 04BC 		SKPNZ
-01834 04BC 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
-01835 04BD 3208 		bra	Copy7CToSig_Done
-01836 04BE 	;
-01837 04BE 138B 	Copy7CToSig_1	bcf	INTCON,GIE
-01838 04BF 1B8B 		btfsc	INTCON,GIE
-01839 04C0 33FD 		bra	Copy7CToSig_1
-01840 04C1 087C 		MOVF	Param7C,W
-01841 04C2 00A0 		MOVWF	SigOutTime
-01842 04C3 087D 		MOVF	Param7D,W
-01843 04C4 00A1 		MOVWF	SigOutTimeH
-01844 04C5 178B 		bsf	INTCON,GIE
-01845 04C6 0020 	Copy7CToSig_Done	movlb	0	;bank 0
-01846 04C7 113B 		BCF	ServoIdle
-01847 04C8 0008 		return
-01848 04C9 	;
-01849 04C9 	;=========================================================================================
-01850 04C9 	;=========================================================================================
-01851 04C9 	; Set CCP1 to go high is 0x100 clocks
-01852 04C9 	;
-01853 04C9 0020 	StartServo	MOVLB	0	;bank 0
-01854 04CA 1CBB 		BTFSS	ServoOff
-01855 04CB 0008 		RETURN
-01856 04CC 10BB 		BCF	ServoOff
-01857 04CD 	;
-01858 04CD 24E0 		CALL	SetMiddlePosition
-01859 04CE 24B5 		CALL	Copy7CToSig
-01860 04CF 	;
-01861 04CF 0025 		movlb	0x05	;bank 5
-01862 04D0 3040 		MOVLW	LOW kServoDwellTime
-01863 04D1 00A2 		MOVWF	CalcdDwell
-01864 04D2 309C 		MOVLW	HIGH kServoDwellTime
-01865 04D3 00A3 		MOVWF	CalcdDwellH
-01866 04D4 0020 		movlb	0	;bank 0
-01867 04D5 	;
-01868 04D5 3000 		MOVLW	0x00	;start in 0x100 clocks
-01869 04D6 0096 		MOVWF	TMR1L
-01870 04D7 30FF 		MOVLW	0xFF
-01871 04D8 0097 		MOVWF	TMR1H
-01872 04D9 	;
-01873 04D9 0025 		MOVLB	0x05
-01874 04DA 0192 		CLRF	CCPR1H
-01875 04DB 0191 		CLRF	CCPR1L
-01876 04DC 3008 		MOVLW	CCP1CON_Set
-01877 04DD 0093 		MOVWF	CCP1CON	;go high on match
-01878 04DE 0020 		MOVLB	0x00	;Bank 0
-01879 04DF 0008 		RETURN
-01880 04E0 	;
-01881 04E0 	;=========
-01882 04E0 	;
-01883 04E0 30B8 	SetMiddlePosition	MOVLW	LOW kMidPulseWidth
-01884 04E1 00FC 		MOVWF	Param7C
-01885 04E2 300B 		MOVLW	HIGH kMidPulseWidth
-01886 04E3 00FD 		MOVWF	Param7D
-01887 04E4 0008 		Return
-01888 04E5 	;
-01889 04E5 	;=========================================================================================
-01890 04E5 0020 	StopServo	movlb	0	;bank 0
-01891 04E6 18BB 		BTFSC	ServoOff
-01892 04E7 0008 		RETURN
-01893 04E8 	;
-01894 04E8 0025 		movlb	0x05	;bank 5
-01895 04E9 3040 		MOVLW	LOW kServoDwellTime
-01896 04EA 00A2 		MOVWF	CalcdDwell
-01897 04EB 309C 		MOVLW	HIGH kServoDwellTime
-01898 04EC 00A3 		MOVWF	CalcdDwellH
-01899 04ED 0020 		movlb	0	;bank 0
-01900 04EE 153B 		BSF	ServoIdle
-01901 04EF 14BB 		BSF	ServoOff
-01902 04F0 0008 		return
-01903 04F1 	;
-01904 04F1 	;=========================================================================================
-01905 04F1 	; ClampInt(Param7D:Param7C,ServoFastReverse,ServoFastForward)
-01906 04F1 	;
-01907 04F1 	ClampIntMD3            mMOVLF                 ServoFastReverse,FSR0
-01907 04F1 304A      M		movlw	low ServoFastReverse	                       movlw                  low ADDRESS
-01907 04F2 0084      M		movwf	FSR0	                       movwf                  DEST
-01907 04F3 3000      M		movlw	high ServoFastReverse	                       movlw                  high ADDRESS
-01907 04F4 0085      M		movwf	FSR0+1	                       movwf                  DEST+1
-01908 04F5 3204 	                       bra                    ClampInt_E2
-01909 04F6 	;
-01910 04F6 	; ClampInt(Param7D:Param7C,ServoMin_uS,ServoMax_uS)
-01911 04F6 	;
-01912 04F6 	; Entry: Param7D:Param7C
-01913 04F6 	; Exit: Param7D:Param7C=ClampInt(Param7D:Param7C,ServoMin_uS,ServoMax_uS)
-01914 04F6 	; Ram Used: FSR0
-01915 04F6 	;
-01916 04F6 	ClampInt	mMOVLF                 ServoMin_uS,FSR0
-01916 04F6 3050      M		movlw	low ServoMin_uS	                       movlw                  low ADDRESS
-01916 04F7 0084      M		movwf	FSR0	                       movwf                  DEST
-01916 04F8 3000      M		movlw	high ServoMin_uS	                       movlw                  high ADDRESS
+01827 04B4 0008 		Return
+01828 04B5 	;
+01829 04B5 	;=========================================================================================
+01830 04B5 	;
+01831 04B5 	; Don't disable interrupts if you don't need to...
+01832 04B5 0025 	Copy7CToSig	MOVLB	0x05	;bank 5
+01833 04B6 087C 		MOVF	Param7C,W
+01834 04B7 0220 		SUBWF	SigOutTime,W
+01835 04B8 		SKPZ
+01835 04B8 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+01836 04B9 3204 		bra	Copy7CToSig_1
+01837 04BA 087D 		MOVF	Param7D,W
+01838 04BB 0221 		SUBWF	SigOutTimeH,W
+01839 04BC 		SKPNZ
+01839 04BC 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
+01840 04BD 3208 		bra	Copy7CToSig_Done
+01841 04BE 	;
+01842 04BE 138B 	Copy7CToSig_1	bcf	INTCON,GIE
+01843 04BF 1B8B 		btfsc	INTCON,GIE
+01844 04C0 33FD 		bra	Copy7CToSig_1
+01845 04C1 087C 		MOVF	Param7C,W
+01846 04C2 00A0 		MOVWF	SigOutTime
+01847 04C3 087D 		MOVF	Param7D,W
+01848 04C4 00A1 		MOVWF	SigOutTimeH
+01849 04C5 178B 		bsf	INTCON,GIE
+01850 04C6 0020 	Copy7CToSig_Done	movlb	0	;bank 0
+01851 04C7 113B 		BCF	ServoIdle
+01852 04C8 0008 		return
+01853 04C9 	;
+01854 04C9 	;=========================================================================================
+01855 04C9 	;=========================================================================================
+01856 04C9 	; Set CCP1 to go high is 0x100 clocks
+01857 04C9 	;
+01858 04C9 0020 	StartServo	MOVLB	0	;bank 0
+01859 04CA 1CBB 		BTFSS	ServoOff
+01860 04CB 0008 		RETURN
+01861 04CC 10BB 		BCF	ServoOff
+01862 04CD 	;
+01863 04CD 24E0 		CALL	SetMiddlePosition
+01864 04CE 24B5 		CALL	Copy7CToSig
+01865 04CF 	;
+01866 04CF 0025 		movlb	0x05	;bank 5
+01867 04D0 3040 		MOVLW	LOW kServoDwellTime
+01868 04D1 00A2 		MOVWF	CalcdDwell
+01869 04D2 309C 		MOVLW	HIGH kServoDwellTime
+01870 04D3 00A3 		MOVWF	CalcdDwellH
+01871 04D4 0020 		movlb	0	;bank 0
+01872 04D5 	;
+01873 04D5 3000 		MOVLW	0x00	;start in 0x100 clocks
+01874 04D6 0096 		MOVWF	TMR1L
+01875 04D7 30FF 		MOVLW	0xFF
+01876 04D8 0097 		MOVWF	TMR1H
+01877 04D9 	;
+01878 04D9 0025 		MOVLB	0x05
+01879 04DA 0192 		CLRF	CCPR1H
+01880 04DB 0191 		CLRF	CCPR1L
+01881 04DC 3008 		MOVLW	CCP1CON_Set
+01882 04DD 0093 		MOVWF	CCP1CON	;go high on match
+01883 04DE 0020 		MOVLB	0x00	;Bank 0
+01884 04DF 0008 		RETURN
+01885 04E0 	;
+01886 04E0 	;=========
+01887 04E0 	;
+01888 04E0 30B8 	SetMiddlePosition	MOVLW	LOW kMidPulseWidth
+01889 04E1 00FC 		MOVWF	Param7C
+01890 04E2 300B 		MOVLW	HIGH kMidPulseWidth
+01891 04E3 00FD 		MOVWF	Param7D
+01892 04E4 0008 		Return
+01893 04E5 	;
+01894 04E5 	;=========================================================================================
+01895 04E5 0020 	StopServo	movlb	0	;bank 0
+01896 04E6 18BB 		BTFSC	ServoOff
+01897 04E7 0008 		RETURN
+01898 04E8 	;
+01899 04E8 0025 		movlb	0x05	;bank 5
+01900 04E9 3040 		MOVLW	LOW kServoDwellTime
+01901 04EA 00A2 		MOVWF	CalcdDwell
+01902 04EB 309C 		MOVLW	HIGH kServoDwellTime
+01903 04EC 00A3 		MOVWF	CalcdDwellH
+01904 04ED 0020 		movlb	0	;bank 0
+01905 04EE 153B 		BSF	ServoIdle
+01906 04EF 14BB 		BSF	ServoOff
+01907 04F0 0008 		return
+01908 04F1 	;
+01909 04F1 	;=========================================================================================
+01910 04F1 	; ClampInt(Param7D:Param7C,ServoFastReverse,ServoFastForward)
+01911 04F1 	;
+01912 04F1 	ClampIntMD3            mMOVLF                 ServoFastReverse,FSR0
+01912 04F1 304A      M		movlw	low ServoFastReverse	                       movlw                  low ADDRESS
+01912 04F2 0084      M		movwf	FSR0	                       movwf                  DEST
+01912 04F3 3000      M		movlw	high ServoFastReverse	                       movlw                  high ADDRESS
+01912 04F4 0085      M		movwf	FSR0+1	                       movwf                  DEST+1
+01913 04F5 3204 	                       bra                    ClampInt_E2
+01914 04F6 	;
+01915 04F6 	; ClampInt(Param7D:Param7C,ServoMin_uS,ServoMax_uS)
+01916 04F6 	;
+01917 04F6 	; Entry: Param7D:Param7C
+01918 04F6 	; Exit: Param7D:Param7C=ClampInt(Param7D:Param7C,ServoMin_uS,ServoMax_uS)
+01919 04F6 	; Ram Used: FSR0
 SerialServo.asm                                                       Page: 31
 /Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
 
-01916 04F9 0085      M		movwf	FSR0+1	                       movwf                  DEST+1
-01917 04FA 0020 	ClampInt_E2            movlb	0
-01918 04FB 3F03 	                       moviw                  3[FRS0]                ;ServoMax_uS+1,W
-01919 04FC 027D 		SUBWF	Param7D,W	;7D-ServoMax_uS
-01920 04FD 		SKPNB		;7D<Max?
-01920 04FD 1C03      M		BTFSS	STATUS,C		BTFSS	STATUS,C
-01921 04FE 2D08 		GOTO	ClampInt_1	; Yes
-01922 04FF 		SKPZ		;7D=Max?
-01922 04FF 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-01923 0500 2D17 		GOTO	ClampInt_tooHigh	; No, its greater.
-01924 0501 3F02 		moviw                  2[FRS0]	; Yes, MSB was equal check LSB
-01925 0502 027C 		SUBWF	Param7C,W	;7C-ServoMax_uS
-01926 0503 		SKPNZ		;=ServoMax_uS
-01926 0503 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
-01927 0504 0008 		RETURN		;Yes
-01928 0505 		SKPB		;7C<Max?
-01928 0505 1803      M		BTFSC	STATUS,C		BTFSC	STATUS,C
-01929 0506 2D17 		GOTO	ClampInt_tooHigh	; No
-01930 0507 0008 		RETURN		; Yes
-01931 0508 	;
-01932 0508 3F01 	ClampInt_1	moviw                  1[FRS0]	;ServoMin_uS+1,W
-01933 0509 027D 		SUBWF	Param7D,W	;7D-ServoMin_uS
-01934 050A 		SKPNB		;7D<Min?
-01934 050A 1C03      M		BTFSS	STATUS,C		BTFSS	STATUS,C
-01935 050B 2D12 		GOTO	ClampInt_tooLow	; Yes
-01936 050C 		SKPZ		;=Min?
-01936 050C 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-01937 050D 0008 		RETURN		; No, 7D>ServoMin_uS
-01938 050E 3F00 		moviw                  0[FRS0]	; Yes, MSB is a match
-01939 050F 027C 		SUBWF	Param7C,W	;7C-ServoMin_uS
-01940 0510 		SKPB		;7C>=Min?
-01940 0510 1803      M		BTFSC	STATUS,C		BTFSC	STATUS,C
-01941 0511 0008 		RETURN		; Yes
-01942 0512 	;
-01943 0512 3F00 	ClampInt_tooLow	moviw                  0[FRS0]
-01944 0513 00FC 		MOVWF	Param7C
-01945 0514 3F01 		moviw                  1[FRS0]
-01946 0515 00FD 		MOVWF	Param7D
-01947 0516 0008 		RETURN
-01948 0517 	;
-01949 0517 3F02 	ClampInt_tooHigh	moviw                  2[FRS0]
-01950 0518 00FC 		MOVWF	Param7C
-01951 0519 3F03 		moviw                  3[FRS0]
-01952 051A 00FD 		MOVWF	Param7D
-01953 051B 0008 		RETURN
-01954 051C 	;
-01955 051C 	;=========================================================================================
-01956 051C 	;=========================================================================================
-01957 051C 	;
-01958 051C 	                       if UsePID
-01961 051C 		endif
+01920 04F6 	;
+01921 04F6 	ClampInt	mMOVLF                 ServoMin_uS,FSR0
+01921 04F6 3050      M		movlw	low ServoMin_uS	                       movlw                  low ADDRESS
+01921 04F7 0084      M		movwf	FSR0	                       movwf                  DEST
+01921 04F8 3000      M		movlw	high ServoMin_uS	                       movlw                  high ADDRESS
+01921 04F9 0085      M		movwf	FSR0+1	                       movwf                  DEST+1
+01922 04FA 0020 	ClampInt_E2            movlb	0
+01923 04FB 3F03 	                       moviw                  3[FRS0]                ;ServoMax_uS+1,W
+01924 04FC 027D 		SUBWF	Param7D,W	;7D-ServoMax_uS
+01925 04FD 		SKPNB		;7D<Max?
+01925 04FD 1C03      M		BTFSS	STATUS,C		BTFSS	STATUS,C
+01926 04FE 2D08 		GOTO	ClampInt_1	; Yes
+01927 04FF 		SKPZ		;7D=Max?
+01927 04FF 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+01928 0500 2D17 		GOTO	ClampInt_tooHigh	; No, its greater.
+01929 0501 3F02 		moviw                  2[FRS0]	; Yes, MSB was equal check LSB
+01930 0502 027C 		SUBWF	Param7C,W	;7C-ServoMax_uS
+01931 0503 		SKPNZ		;=ServoMax_uS
+01931 0503 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
+01932 0504 0008 		RETURN		;Yes
+01933 0505 		SKPB		;7C<Max?
+01933 0505 1803      M		BTFSC	STATUS,C		BTFSC	STATUS,C
+01934 0506 2D17 		GOTO	ClampInt_tooHigh	; No
+01935 0507 0008 		RETURN		; Yes
+01936 0508 	;
+01937 0508 3F01 	ClampInt_1	moviw                  1[FRS0]	;ServoMin_uS+1,W
+01938 0509 027D 		SUBWF	Param7D,W	;7D-ServoMin_uS
+01939 050A 		SKPNB		;7D<Min?
+01939 050A 1C03      M		BTFSS	STATUS,C		BTFSS	STATUS,C
+01940 050B 2D12 		GOTO	ClampInt_tooLow	; Yes
+01941 050C 		SKPZ		;=Min?
+01941 050C 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
+01942 050D 0008 		RETURN		; No, 7D>ServoMin_uS
+01943 050E 3F00 		moviw                  0[FRS0]	; Yes, MSB is a match
+01944 050F 027C 		SUBWF	Param7C,W	;7C-ServoMin_uS
+01945 0510 		SKPB		;7C>=Min?
+01945 0510 1803      M		BTFSC	STATUS,C		BTFSC	STATUS,C
+01946 0511 0008 		RETURN		; Yes
+01947 0512 	;
+01948 0512 3F00 	ClampInt_tooLow	moviw                  0[FRS0]
+01949 0513 00FC 		MOVWF	Param7C
+01950 0514 3F01 		moviw                  1[FRS0]
+01951 0515 00FD 		MOVWF	Param7D
+01952 0516 0008 		RETURN
+01953 0517 	;
+01954 0517 3F02 	ClampInt_tooHigh	moviw                  2[FRS0]
+01955 0518 00FC 		MOVWF	Param7C
+01956 0519 3F03 		moviw                  3[FRS0]
+01957 051A 00FD 		MOVWF	Param7D
+01958 051B 0008 		RETURN
+01959 051C 	;
+01960 051C 	;=========================================================================================
+01961 051C 	;=========================================================================================
 01962 051C 	;
-01963 051C 	;
-01964 051C 	;
-01965 051C 		org 0x800
-01966 0800 		include <SerialServoCmds.inc>
+01963 051C 	                       if UsePID
+01966 051C 		endif
+01967 051C 	;
+01968 051C 	;
+01969 051C 	;
+01970 051C 		org 0x800
+01971 0800 		include <SerialServoCmds.inc>
 00001 0800 	;=========================================================================================
 00002 0800 	;
 00003 0800 	;    Filename:      SerialServoCmds.inc
@@ -3155,14 +3160,14 @@ SerialServo.asm                                                       Page: 1
 00036 0800 0008 	kCmd_GetRevDir	EQU	0x08
 00037 0800 0089 	kCmd_SetEnaOvrCur	EQU	0x89	;+1 data (ssEnableOverCur), return ACK
 00038 0800 0009 	kCmd_GetEnaOvrCur	EQU	0x09
+SerialServo.asm                                                       Page: 32
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00039 0800 	;
 00040 0800 008B 	kCmd_SetStopCenter	EQU	0x8B	;+2 data (ServoStopCenter), return ACK
 00041 0800 000B 	kCmd_GetStopCenter	EQU	0x0B
 00042 0800 008C 	kCmd_SetSpeed	EQU	0x8C	;+1 data (ServoSpeed), return ACK
 00043 0800 000C 	kCmd_GetSpeed	EQU	0x0C
-SerialServo.asm                                                       Page: 32
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00044 0800 008D 	kCmd_SetUseIdleCenter	EQU	0x8D	;+1 data (ssMode3IdleCenter), return ACK
 00045 0800 000D 	kCmd_GetUseIdleCenter	EQU	0x0D
 00046 0800 008E 	kCmd_SetDeadBand	EQU	0x8E	;+1 data (DeadBand), return ACK
@@ -3257,14 +3262,14 @@ SerialServo.asm                                                       Page: 1
 00122 0821 	;
 00123 0821 	Cmd_SetMode_end:
 00124 0821 	;---kCmd_GetMode------------------
+SerialServo.asm                                                       Page: 33
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00125 0821 3001 		movlw	kCmd_GetMode
 00126 0822 0278 		subwf	Param78,W	;aka RX_Data
 00127 0823 		SKPZ
 00127 0823 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
 00128 0824 3203 		bra	Cmd_GetMode_end
-SerialServo.asm                                                       Page: 33
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00129 0825 	; Get Mode
 00130 0825 0855 		movf	SysMode,W
 00131 0826 001A 		movwi	FSR0++
@@ -3359,14 +3364,14 @@ SerialServo.asm                                                       Page: 1
 00213 085D 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
 00214 085E 3205 		bra	Cmd_SetFRev_end
 00215 085F 	; Set ServoFastReverse
+SerialServo.asm                                                       Page: 34
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00216 085F 0016 		moviw	FSR1++
 00217 0860 00CA 		movwf	ServoFastReverse
 00218 0861 0016 		moviw	FSR1++
 00219 0862 00CB 		movwf	ServoFastReverse+1
 00220 0863 2A36 		goto	TX_ACK
-SerialServo.asm                                                       Page: 34
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00221 0864 	;
 00222 0864 	Cmd_SetFRev_end:
 00223 0864 	;---kCmd_GetFRev------------------
@@ -3461,14 +3466,14 @@ SerialServo.asm                                                       Page: 1
 00304 089E 3203 		bra	Cmd_GetRevDir_End
 00305 089F 18D8 		btfsc	ssReverseDir
 00306 08A0 1400 		bsf	INDF0,0
+SerialServo.asm                                                       Page: 35
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00307 08A1 2800 		goto	RS232_Send_S0
 00308 08A2 	Cmd_GetRevDir_End:
 00309 08A2 	;---kCmd_SetEnaOvrCur------------
 00310 08A2 3089 		movlw	kCmd_SetEnaOvrCur
 00311 08A3 0278 		subwf	Param78,W	;aka RX_Data
-SerialServo.asm                                                       Page: 35
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00312 08A4 		SKPZ
 00312 08A4 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
 00313 08A5 3206 		bra	Cmd_SetEnaOvrCur_End
@@ -3563,14 +3568,14 @@ SerialServo.asm                                                       Page: 1
 00393 08E5 	;---kCmd_SetDeadBand------------
 00394 08E5 308E 		movlw	kCmd_SetDeadBand
 00395 08E6 0278 		subwf	Param78,W	;aka RX_Data
+SerialServo.asm                                                       Page: 36
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00396 08E7 		SKPZ
 00396 08E7 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
 00397 08E8 3203 		bra	Cmd_SetDeadBand_End
 00398 08E9 0016 		moviw	FSR1++
 00399 08EA 00DA 		movwf	DeadBand
-SerialServo.asm                                                       Page: 36
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00400 08EB 2A36 		goto	TX_ACK	
 00401 08EC 	Cmd_SetDeadBand_End:
 00402 08EC 	;---kCmd_GetDeadBand------------
@@ -3665,14 +3670,14 @@ SerialServo.asm                                                       Page: 1
 00482 0927 3C02 		sublw	0x02	;2-AuxNum
 00483 0928 		SKPNB		;<=2?
 00483 0928 1C03      M		BTFSS	STATUS,C		BTFSS	STATUS,C
+SerialServo.asm                                                       Page: 37
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00484 0929 2808 		goto	HandleRXData_Rtn	; no
 00485 092A 	;
 00486 092A 0801 		movf	INDF1,W
 00487 092B 3E5C 		addlw	low ssAux0Config
 00488 092C 0086 		movwf	FSR1L
-SerialServo.asm                                                       Page: 37
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00489 092D 3000 		movlw	high ssAux0Config
 00490 092E 0087 		movwf	FSR1H
 00491 092F 	;
@@ -3767,14 +3772,14 @@ SerialServo.asm                                                       Page: 1
 00576 0974 001A 		movwi	FSR0++
 00577 0975 2800 		goto	RS232_Send_S0
 00578 0976 	;
+SerialServo.asm                                                       Page: 38
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00579 0976 	; Send the value of the port bit 0x00 or 0x01
 00580 0976 0878 	Cmd_GetAuxNValue_Dig	movf	Param78,W	;AuxNum
 00581 0977 		SKPZ
 00581 0977 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
 00582 0978 3204 		bra	Cmd_GetAuxNValue_Dig1
-SerialServo.asm                                                       Page: 38
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00583 0979 190C 		btfsc	SW1_In
 00584 097A 3001 		movlw	0x01
 00585 097B 001A 		movwi	FSR0++
@@ -3869,14 +3874,14 @@ SerialServo.asm                                                       Page: 1
 00667 09B6 2800 		goto	RS232_Send_S0
 00668 09B7 	;
 00669 09B7 	Cmd_GetEnc_end:
+SerialServo.asm                                                       Page: 39
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00670 09B7 	;---kCmd_GetEncAbs-------------------
 00671 09B7 3093 		movlw	kCmd_GetEncAbs
 00672 09B8 0278 		subwf	Param78,W	;aka RX_Data
 00673 09B9 		SKPZ
 00673 09B9 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
-SerialServo.asm                                                       Page: 39
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00674 09BA 320B 		bra	Cmd_GetEncAbs_end
 00675 09BB 	; Get Encoder Accumulated Position
 00676 09BB 0840 		movf	EncoderAccum,W
@@ -3956,7 +3961,7 @@ SerialServo.asm                                                       Page: 1
 00739 09E7 001A 		movwi	FSR0++
 00740 09E8 083E 		movf	ssStatus+2,W
 00741 09E9 001A 		movwi	FSR0++
-00742 09EA 083E 		movf	ssStatus+2,W
+00742 09EA 083F 		movf	ssStatus+3,W
 00743 09EB 001A 		movwi	FSR0++
 00744 09EC 	;reset flags
 00745 09EC 11BC 		bcf	ssRX_Timeout
@@ -3971,14 +3976,14 @@ SerialServo.asm                                                       Page: 1
 00754 09F1 3099 		movlw	kCmd_ReBoot
 00755 09F2 0278 		subwf	Param78,W	;aka RX_Data
 00756 09F3 		SKPZ
+SerialServo.asm                                                       Page: 40
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00756 09F3 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
 00757 09F4 3201 		bra	Cmd_ReBoot_end
 00758 09F5 0001 		reset		;Does not return anything
 00759 09F6 	Cmd_ReBoot_end:
 00760 09F6 	;---kCmd_RunBootloader--------------
-SerialServo.asm                                                       Page: 40
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00761 09F6 309A 		movlw	kCmd_RunBootloader
 00762 09F7 0278 		subwf	Param78,W
 00763 09F8 		SKPZ
@@ -4071,16 +4076,16 @@ SerialServo.asm                                                       Page: 1
 00833 0A3B 	;
 00834 0A3B 	;=========================================================================================
 00835 0A3B 	;=========================================================================================
-01967 0A3B 		include <MagEncoder.inc>
+01972 0A3B 		include <MagEncoder.inc>
 00001 0A3B 	;*****************************************************************************************
+SerialServo.asm                                                       Page: 41
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00002 0A3B 	;    Filename:      MagEncoder.inc
 00003 0A3B 	;    Date:          8/11/2019
 00004 0A3B 	;    File Version:  1.1.1
 00005 0A3B 	;    
 00006 0A3B 	;    Author:        David M. Flynn
-SerialServo.asm                                                       Page: 41
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00007 0A3B 	;    Company:       Oxford V.U.E., Inc.
 00008 0A3B 	;    E-Mail:        dflynn@oxfordvue.com
 00009 0A3B 	;    Web Site:      http://www.oxfordvue.com/
@@ -4175,14 +4180,14 @@ SerialServo.asm                                                       Page: 1
 00097 0A53 15C5 		bsf	MagEnc_IndexLatch	;crossed zero
 00098 0A54 320A 		bra	ReadEncoder_2
 00099 0A55 	;
+SerialServo.asm                                                       Page: 42
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00100 0A55 	; handle underflow, goes from <0x0400 to <=0x3C00
 00101 0A55 1CC5 	ReadEncoder_1	btfss	MagEnc_LowZone
 00102 0A56 3208 		bra	ReadEncoder_2
 00103 0A57 303C 		movlw	kUpper4Bits
 00104 0A58 0577 		andwf	Param77,W
-SerialServo.asm                                                       Page: 42
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00105 0A59 3A3C 		xorlw	kUpper4Bits
 00106 0A5A 		SKPZ		;>=0x3C00?
 00106 0A5A 1D03      M		BTFSS	STATUS,Z		BTFSS	STATUS,Z
@@ -4277,14 +4282,14 @@ SerialServo.asm                                                       Page: 1
 00192 0A80 076C 	kMaxT                  EQU                    .1900                  ;Less than a half turn
 00193 0A80 	;
 00194 0A80 22EA 	Home_Absolute	call                   Home_Here
+SerialServo.asm                                                       Page: 43
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00195 0A81 1E45 	                       btfss                  MagEnc_Homed           ;First boot?
 00196 0A82 324E 	                       bra                    SaveHomePos            ; Yes
 00197 0A83 	;
 00198 0A83 	;  ' tests for Current Position > HM
 00199 0A83 	;if HM + kMaxT >= 4096 then 'Dual zone
-SerialServo.asm                                                       Page: 43
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00200 0A83 306C 	                       movlw                  low kMaxT
 00201 0A84 0746 	                       addwf                  EncoderHome,W
 00202 0A85 00F8 	                       movwf                  Param78
@@ -4379,14 +4384,14 @@ SerialServo.asm                                                       Page: 1
 00290 0AC7 3007 	                       movlw                  high kMaxT
 00291 0AC8 3B47 	                       subwfb                 EncoderHome+1,W
 00292 0AC9 00F9 	                       movwf                  Param79
+SerialServo.asm                                                       Page: 44
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00293 0ACA 0843 	                       movf                   EncoderVal,W
 00294 0ACB 0278 	                       subwf                  Param78,W
 00295 0ACC 0844 	                       movf                   EncoderVal+1,W
 00296 0ACD 3B79 	                       subwfb                 Param79,W
 00297 0ACE 1B89 	                       btfsc                  WREG,7                 ;EncoderVal > HM - kMaxT?
-SerialServo.asm                                                       Page: 44
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00298 0ACF 320F 	                       bra                    HA_SetIt               ; Yes
 00299 0AD0 0008 	                       return                                        ; No, must be zero
 00300 0AD1 	;
@@ -4461,7 +4466,7 @@ SerialServo.asm                                                       Page: 1
 00366 0AEF 		
 00367 0AEF 		
 00368 0AEF 		
-01968 0AEF 		include <AS5047D_Lib.inc>
+01973 0AEF 		include <AS5047D_Lib.inc>
 00001 0AEF 	;******************************************************************
 00002 0AEF 	; AS5047D Library for PIC16F1847
 00003 0AEF 	; Filename: AS5047D_Lib.inc
@@ -4481,14 +4486,14 @@ SerialServo.asm                                                       Page: 1
 00017 0AEF 	;
 00018 0AEF 	;******************************************************************
 00019 0AEF 	; Rotines:	(Stack Words Used)
+SerialServo.asm                                                       Page: 45
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00020 0AEF 	; Init_AS5047D	(0) Call once to setup SSP1
 00021 0AEF 	;
 00022 0AEF 	; AS5047D_WrtZPOSM	(1) call AS5047_Write with AS5047_ZPOSM and Prog_AS5047_ZPOSM
 00023 0AEF 	; AS5047D_WrtZPOSL	(1) call AS5047_Write with AS5047_ZPOSL and Prog_AS5047_ZPOSL
 00024 0AEF 	; AS5047D_WrtSettings2 (1) call AS5047_Write with AS5047_Settings2 and Prog_AS5047_Settings2
-SerialServo.asm                                                       Page: 45
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00025 0AEF 	; AS5047D_WrtSettings1 (1) call AS5047_Write with AS5047_Settings1 and Prog_AS5047_Settings1
 00026 0AEF 	;
 00027 0AEF 	; AS5047_Write	(1) Write data to AS5047D
@@ -4583,14 +4588,14 @@ SerialServo.asm                                                       Page: 1
 00117 0AFD 		if kStandAlone
 00194 0AFD 		endif
 00195 0AFD 	;*******************************************************************
+SerialServo.asm                                                       Page: 46
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00196 0AFD 	; Write data to AS5047D
 00197 0AFD 	;  Write address, dicard dummy data
 00198 0AFD 	;  Write data, save old data
 00199 0AFD 	;  Send NOP, save new data
 00200 0AFD 	;
-SerialServo.asm                                                       Page: 46
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00201 0AFD 	; Entry: Param79:Param78 = Address, Param7B:Param7A = Data
 00202 0AFD 	; Exit: Param79:Param78 = Data read back 14 bit value, ParityErrFlag, CmdErrorFlag,
 00203 0AFD 	;   Param7B:Param7A = old data 16 bits including error and parity bits
@@ -4685,14 +4690,14 @@ SerialServo.asm                                                       Page: 1
 00292 0B32 	; RAM Used: Param76, Param77, Param78, Param79
 00293 0B32 	; calls: AS5047_Read
 00294 0B32 	;
+SerialServo.asm                                                       Page: 47
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00295 0B32 30FC 	AS5047_ReadDIAAGCReg	movlw	low AS5047_DIAAGCReg
 00296 0B33 00F8 		movwf	Param78
 00297 0B34 303F 		movlw	high AS5047_DIAAGCReg
 00298 0B35 00F9 		movwf	Param79
 00299 0B36 2B4F 		goto	AS5047_ReadReg
-SerialServo.asm                                                       Page: 47
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00300 0B37 	;
 00301 0B37 	;*******************************************************************
 00302 0B37 	; Read the Zero position MSB Register
@@ -4787,14 +4792,14 @@ SerialServo.asm                                                       Page: 1
 00391 0B57 	;  Send a read command, dicards dummy data
 00392 0B57 	;  Send NOP, returns data
 00393 0B57 	;
+SerialServo.asm                                                       Page: 48
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00394 0B57 	; Entry: Param79:Param78 = 14 bit Address
 00395 0B57 	; Exit: Param79:Param78 = Parity+EF+data
 00396 0B57 	; RAM Used: Param76,Param77,Param78, Param79
 00397 0B57 	; Calls: CalcParity,SPI_SendRecWord
 00398 0B57 	;
-SerialServo.asm                                                       Page: 48
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00399 0B57 1170 	AS5047_Read	bcf	ContinueReadFlag
 00400 0B58 10F0 		bcf	AngleReadFlag
 00401 0B59 	;
@@ -4889,20 +4894,20 @@ SerialServo.asm                                                       Page: 1
 00490 0B93 0DF9 		rlf	Param79,F	;LSb to _C
 00491 0B94 0DF8 		rlf	Param78,F	;_C to LSb
 00492 0B95 0DF9 		rlf	Param79,F
+SerialServo.asm                                                       Page: 49
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00493 0B96 0876 		movf	Param76,W	;get calc'd parity bit
 00494 0B97 0679 		xorwf	Param79,W	;xor w/ parity bit
 00495 0B98 3980 		andlw	0x80
 00496 0B99 1070 		bcf	ParityErrFlag
 00497 0B9A 1B89 		btfsc	WREG,7
-SerialServo.asm                                                       Page: 49
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00498 0B9B 1470 		bsf	ParityErrFlag
 00499 0B9C 0008 		return
 00500 0B9D 	;
 00501 0B9D 	;*************************************************************************
 00502 0B9D 	;*************************************************************************
-01969 0B9D 		include <ssInit.inc>
+01974 0B9D 		include <ssInit.inc>
 00001 0B9D 	;=========================================================================================
 00002 0B9D 	; call once
 00003 0B9D 	;=========================================================================================
@@ -4991,14 +4996,14 @@ SerialServo.asm                                                       Page: 1
 00079 0BD4 		if useRS232
 00080 0BD4 	; setup serial I/O
 00081 0BD4 0023  a		MOVLB	BAUDCON	;banksel
+SerialServo.asm                                                       Page: 50
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00080 0BD5 		BANKSEL	BAUDCON	; bank 3
 00082 0BD5 3008 		movlw	BAUDCON_Value
 00083 0BD6 009F 		movwf	BAUDCON
 00084 0BD7 30CF 		MOVLW	low BaudRate
 00085 0BD8 009B 		MOVWF	SPBRGL
-SerialServo.asm                                                       Page: 50
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00086 0BD9 3000 		MOVLW	high BaudRate
 00087 0BDA 009C 		MOVWF	SPBRGH
 00088 0BDB 3024 		MOVLW	TXSTA_Value
@@ -5038,9 +5043,9 @@ SerialServo.asm                                                       Page: 1
 00122 0BF1 	;
 00123 0BF1 0008 		return
 00124 0BF2 	;
-01970 0BF2 	;
-01971 0BF2 		org BootLoaderStart
-01972 1E00 		include <BootLoader1847.inc>
+01975 0BF2 	;
+01976 0BF2 		org BootLoaderStart
+01977 1E00 		include <BootLoader1847.inc>
 00001 1E00 	;************************************************
 00002 1E00 	; BootLoader for PIC16F1847
 00003 1E00 	; filename: Bootloader1847.inc
@@ -5093,14 +5098,14 @@ SerialServo.asm                                                       Page: 1
 00050 1E00 	;:100020003A100C1E3A14A10B053221000C122000CC
 00051 1E00 	;^ Start code                             ^^ Checksum
 00052 1E00 	; ^^ Bytes of data (0x10)
+SerialServo.asm                                                       Page: 51
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00053 1E00 	;   ^^^^ Address low word (0x0020)
 00054 1E00 	;       ^^ Record type 0x00 = Data
 00055 1E00 	;         ^^^^ LSB MSB of data for Addr / 2
 00056 1E00 	;                                         
 00057 1E00 	; Checksum is 2's complement of all other bytes added together
-SerialServo.asm                                                       Page: 51
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00058 1E00 	; Valid address range 0000 0000 .. 0000 3BFE (bootloader is at 0000 3C00 .. 0000 3FFF, 512 words)
 00059 1E00 	;************************************************
 00060 1E00 	;
@@ -5195,14 +5200,14 @@ SerialServo.asm                                                       Page: 1
 00148 1E12 	;
 00149 1E12 	;=========================================================================================
 00150 1E12 	; Parse incoming data and do stuff
+SerialServo.asm                                                       Page: 52
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00151 1E12 	;
 00152 1E12 10AC 	BL_Parse	bcf	DataInBuffer
 00153 1E13 01AA 	BL_ParseNextLine	clrf	IH_State
 00154 1E14 01A8 		clrf	IH_ByteCount
 00155 1E15 01AD 		clrf	ChkSum
-SerialServo.asm                                                       Page: 52
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00156 1E16 26DE 		call                   FSR0_SerialBuffer
 00157 1E17 	;
 00158 1E17 102C 	BLP_L1	bcf	MSN_Done
@@ -5297,14 +5302,14 @@ SerialServo.asm                                                       Page: 1
 00240 1E5C 00A3 		movwf	IH_Addr_Lo
 00241 1E5D 07AD 		addwf	ChkSum,F
 00242 1E5E 33F6 		bra	BLP_NextState
+SerialServo.asm                                                       Page: 53
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00243 1E5F 	;
 00244 1E5F 082B 	BLP_IHS_DataType	movf	IH_TempVal,W
 00245 1E60 00A9 		movwf	IH_Type
 00246 1E61 07AD 		addwf	ChkSum,F
 00247 1E62 	; Ship IHS_Data if length = 0
-SerialServo.asm                                                       Page: 53
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00248 1E62 08A7 		movf	IH_Bytes,F
 00249 1E63 		SKPNZ		;Expecting zero length data?
 00249 1E63 1903      M		BTFSC	STATUS,Z		BTFSC	STATUS,Z
@@ -5399,14 +5404,14 @@ SerialServo.asm                                                       Page: 1
 00334 1E9A 36A4 		lsrf	IH_Addr_Lo+1,F
 00335 1E9B 0CA3 		rrf	IH_Addr_Lo,F
 00336 1E9C 301E 		movlw	high BootLoaderStart   ;0x0E
+SerialServo.asm                                                       Page: 54
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00337 1E9D 0224 		subwf	IH_Addr_Lo+1,W
 00338 1E9E 		SKPB		;BootLoaderStart > IH_Addr_Lo?
 00338 1E9E 1803      M		BTFSC	STATUS,C		BTFSC	STATUS,C
 00339 1E9F 0008 		return		; No, don't allow overwrite of bootloader
 00340 1EA0 	;
-SerialServo.asm                                                       Page: 54
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00341 1EA0 1CAC 		btfss	DataInBuffer	;Any old data in the buffer?
 00342 1EA1 320D 		bra	BIHD_PutInBuff	; No
 00343 1EA2 	;
@@ -5501,14 +5506,14 @@ SerialServo.asm                                                       Page: 1
 00428 1ED9 1C09 		btfss	WREG,0	;Erased?
 00429 1EDA 2763 		call	EraseProgBlock	; No, Erase it.
 00430 1EDB 	;
+SerialServo.asm                                                       Page: 55
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00431 1EDB 26E8 		call                   FSR1_SourceBuffer	
 00432 1EDC 277A 		call	WriteProgBlock
 00433 1EDD 	;
 00434 1EDD 2F46 	BLP_WriteBuffer_end	goto	EraseSourceBuffer
 00435 1EDE 	;
-SerialServo.asm                                                       Page: 55
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00436 1EDE 	;---------------------
 00437 1EDE 3080 	FSR0_SerialBuffer      movlw	low SerialBuffer
 00438 1EDF 0084 		movwf	FSR0L
@@ -5603,14 +5608,14 @@ SerialServo.asm                                                       Page: 1
 00526 1F14 1515 		BSF	EECON1,WREN
 00527 1F15 3055 		movlw	0x55
 00528 1F16 0096 		movwf	EECON2
+SerialServo.asm                                                       Page: 56
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00529 1F17 30AA 		movlw	0xAA
 00530 1F18 0096 		movwf	EECON2
 00531 1F19 1495 		bsf	EECON1,WR
 00532 1F1A 1895 	WriteEEData_L1	btfsc	EECON1,WR
 00533 1F1B 33FE 		bra	WriteEEData_L1
-SerialServo.asm                                                       Page: 56
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00534 1F1C 1115 		bcf	EECON1,WREN
 00535 1F1D 0020 		movlb	0
 00536 1F1E 0008 		return
@@ -5705,14 +5710,14 @@ SerialServo.asm                                                       Page: 1
 00619 1F51 	; Read Program memory block
 00620 1F51 	;
 00621 1F51 	; Entry: FSR1,PROG_ADDR_HI:PROG_ADDR_LO
+SerialServo.asm                                                       Page: 57
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00622 1F51 	; Exit: FSR1 changed, 32 words >> (FSR1++)
 00623 1F51 	;
 00624 1F51 2772 	ReadProgBlock	call	LoadProgAddr
 00625 1F52 1315 		BCF	EECON1,CFGS	; Do not select Configuration Space
 00626 1F53 1795 		BSF	EECON1,EEPGD	; Select Program Memory
-SerialServo.asm                                                       Page: 57
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00627 1F54 3020 		movlw	BlockWords	;Block is .32 words
 00628 1F55 00F9 		movwf	Param79
 00629 1F56 1415 	ReadProgBlock_L1	BSF	EECON1,RD	; Initiate read
@@ -5807,14 +5812,14 @@ SerialServo.asm                                                       Page: 1
 00718 1F94 3055 		movlw	0x55	; Start of required write sequence:
 00719 1F95 0096 		movwf	EECON2
 00720 1F96 30AA 		movlw	0xAA
+SerialServo.asm                                                       Page: 58
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00721 1F97 0096 		movwf	EECON2
 00722 1F98 1495 		bsf	EECON1,WR	; Set WR bit to begin write
 00723 1F99 0000 		nop
 00724 1F9A 0000 		nop
 00725 1F9B 	;
-SerialServo.asm                                                       Page: 58
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00726 1F9B 1115 		bcf	EECON1,WREN
 00727 1F9C 	;
 00728 1F9C 0020 	WriteProgBlock_end	movlb	0
@@ -5909,19 +5914,19 @@ SerialServo.asm                                                       Page: 1
 00817 1FCC 	 
 00818 1FCC 	 
 00819 1FCC 	 
+SerialServo.asm                                                       Page: 59
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00820 1FCC 	 
 00821 1FCC 	 
 00822 1FCC 	 
 00823 1FCC 	 
 00824 1FCC 	 
-SerialServo.asm                                                       Page: 59
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00825 1FCC 	 
 00826 1FCC 	 
-01973 1FCC 	;
-01974 1FCC 	;
-01975 1FCC 		END
+01978 1FCC 	;
+01979 1FCC 	;
+01980 1FCC 		END
 
 X-Ref Table
 ADCON0	009D 	ReadAN, ReadAN_1, ReadAN0_ColdStart
@@ -5931,7 +5936,7 @@ ADON	0000 	ReadAN
 ADRESH	009C 	ReadAN_1
 ADRESL	009B 	ReadAN_1
 AN0_Val	0000 	ReadAN_TryAN0, ReadAN_AN0_3, ReadAN0_ColdStart
-AN1_Val	0004 	ReadAN_AN0
+AN1_Val	0004 	ReadAN, ReadAN_AN0
 AN2_Val	0008 	ReadAN, ReadAN_TryAN2, ReadAN_AN0_1
 AN3_Val	000C 	ReadAN_AN0_2
 ANFlags	00B2 	ML_1, ReadAN_TryAN0, ReadAN_AN0
@@ -6011,14 +6016,14 @@ BufferIHData ^	1E96 	BLPV_Data
 C	0000 	DM2_NotOverCurrent, DoModeTwo_MovPlus, DM3_CalcCurPos, DM3_GoRev, DM3_ErrIsPos
 		DM4_NotOverCurrent, DoMode4_MovPlus, ClampInt_E2, ClampInt_1, HandleRXData_1, Cmd_GetGripI_end
 		Cmd_SetAuxConfig_end, Cmd_GetAuxConfig_end, Cmd_SetAuxNValue_end, BLP_TestNum, BLP_IHS_Length
+SerialServo.asm   X-Ref Table                                            Page: 60
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 		BufferIHData, BIHD_PutInBuff_L1
 CB_Next ^	1F43 	CompareBlock_L1
 CB_NotBlank ^	1F3B 	CompareBlock_L1
 CCP1CON	0293 	Aux1DigOut_end, IRQ_Servo1_1, IRQ_Servo1_OH, IRQ_Servo1_Idle, IRQ_Servo1_OL
 		StartServo, InitializeIO
-SerialServo.asm   X-Ref Table                                            Page: 60
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 CCP1CON_Clr	0009 	IRQ_Servo1_OH
 CCP1CON_Idle	000A 	Aux1DigOut_end, IRQ_Servo1_Idle
 CCP1CON_Set	0008 	IRQ_Servo1_OL, StartServo
@@ -6113,19 +6118,19 @@ Cmd_SetUseFastPWM_End ^	08FD 	Cmd_GetDeadBand_End
 Cmd_SetUseIdleCenter_End ^	08DE 	Cmd_GetSpeed_End
 CompareBlock ^	1F2C 	BLP_WriteBuffer
 CompareBlock_L1 ^	1F2E 	CB_Next
+SerialServo.asm   X-Ref Table                                            Page: 61
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 ContinueReadFlag	AS5047D_Flags,2	Init_AS5047D, AS5047_ReadPos, AS5047_ReadPos_1, AS5047_Read
 Copy7CToSig ^	04B5 	DoModeZero, DM1_FF, DM1_FR, DoModeTwo_Go, DM3_UpdatePos, DoMode4_Go
 		StartServo
 Copy7CToSig_1 ^	04BE 	Copy7CToSig, Copy7CToSig_1
 Copy7CToSig_Done ^	04C6 	Copy7CToSig
-SerialServo.asm   X-Ref Table                                            Page: 61
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 CopyToRam ^	00E9 	Cmd_SaveParams_end, InitializeIO
 CopyToRam_L1 ^	00EE 	CopyToRam_L1
 Cur_AN0	00B3 	ML_1, CheckCurrent, CheckGripCurrent, ReadAN, ReadAN_TryAN0, ReadAN_AN0
 		Cmd_GetEncoderOffset_End
-Cur_AN1	00B5 	ReadAN_AN0_3, Cmd_GetAuxNValue_Ana, Cmd_RestoreParams_end
+Cur_AN1	00B5 	ReadAN_AN1, Cmd_GetAuxNValue_Ana, Cmd_RestoreParams_end
 Cur_AN2	00B7 	DoModeZero, DoModeOne, ReadAN_AN2
 Cur_AN3	00B9 	ReadAN_AN2
 DM1_FF ^	02C0 	DoModeOne
@@ -6215,14 +6220,14 @@ EraseSourceBuffer ^	1F46 	BootLoaderStart, BLP_WriteBuffer_end
 F	0001 	ProgStartVector, SystemBlink_end, LED1_Blinking, Aux0DigOut_end, LED2_Blinking
 		IRQ_Servo1_OH, IRQ_Servo1_CalcDwell, IRQ_Servo1_Dwell, ClearRam, ClearRam_L2, CopyToRam_L1
 		SaveParams_L1, DecTimer, DelayWuS_Loop, StoreSerIn, GetSerIn, StoreSerOut, GetSerOut
+SerialServo.asm   X-Ref Table                                            Page: 62
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 		RS232_Parse, RS232_Parse_Byte, RS232_Parse_SALo, RS232_Parse_SALo_end, RS232_Parse_DALo_End
 		RS232_Parse_L1, RS232_ClearTXData_L1, RS232_Send, RS232_Send_L1, ML_1, DoModeZero
 		DoModeOne, CheckCurrent, CheckGripCurrent, DM2_NotOverCurrent, DoModeTwo_Minus
 		DoModeTwo_MovPlus, DoModeTwo_Plus, DM3_CPV_End, DM3_CalcCurPos, DM3_GoRev, DM3_SetServoPWM
 		DM3_ErrIsPos, DM4_NotOverCurrent, DoMode4_Minus_1, DoMode4_MovPlus, DoMode4_Plus_1
-SerialServo.asm   X-Ref Table                                            Page: 62
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 		HandleButtons, Cmd_SendIDString_L1, ReadEncoder_1, ReadEncoder_2, Home_Absolute_2
 		SaveHomePos, HA_SetItNeg, Init_AS5047D, AS5047_ReadPos, AS5047_ReadReg, CalcParity_L1
 		CheckParity_L1, BLP_TestNum, BLP_TestNum_1, BLP_TestNum_2, BLP_SaveIH_Length, BLP_NextState
@@ -6238,7 +6243,7 @@ FSR0H	0005 	ClearRam, CopyToRam, SaveParams, DecTimer, StoreSerIn, GetSerIn, Sto
 		Cmd_GetAuxConfig_end, Cmd_SetAuxNDigOut, BLP_WriteBuffer, FSR0_SerialBuffer
 FSR0L	0004 	CopyToRam, CopyToRam_L1, SaveParams, SaveParams_L1, DecTimer, GetSerIn
 		GetSerOut, RS232_Parse_DALo_End, RS232_Parse_Data_end, ReadAN_TryAN0, ReadAN_AN0
-		ReadAN_AN0_3, ReadAN_AN2, Cmd_GetGripI_end, Cmd_GetAuxConfig_end, Cmd_SetAuxNDigOut
+		ReadAN_AN1, ReadAN_AN2, Cmd_GetGripI_end, Cmd_GetAuxConfig_end, Cmd_SetAuxNDigOut
 		BLP_WriteBuffer, FSR0_SerialBuffer
 FSR0_SerialBuffer ^	1EDE 	BL_ParseNextLine, BLPV_HighAddr, BIHD_PutInBuff_E2
 FSR1	0006 	HandleRXData_1
@@ -6317,14 +6322,14 @@ IRQ_Servo1_X ^	00C4 	IRQ_Servo1_CalcDwell
 Init_AS5047D ^	0AEF 	InitializeIO
 InitializeBLIO ^	1F9E 	BootLoaderStart
 InitializeIO ^	0B9D 	start
+SerialServo.asm   X-Ref Table                                            Page: 63
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 LATA	010C 	LED1_Blink_end, Aux0DigOut_1, LED2_Blink_end, Aux1DigOut_1
 LATB	010D 	Init_AS5047D, SPI_SendRecWord, SPI_SendRecWord_L2
 LED1_Bit	0002 	ProgStartVector, SystemBlink_end, LED1_NextBlink, LED1_Blink_end, Aux0DigOut_1
 		Aux0DigOut_2
 LED1_BlinkCount	0026 	SystemBlink_end, LED1_Blinking, LED1_Start
-SerialServo.asm   X-Ref Table                                            Page: 63
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 LED1_Blink_end ^	0042 	SystemBlink_end, LED1_Blinking
 LED1_Blinking ^	002E 	SystemBlink_end
 LED1_Blinks	0024 	SystemBlink_end, LED1_Start, LED1_Blink_end, HandleRXData_1, Cmd_SetAuxNDigOut
@@ -6419,14 +6424,14 @@ Param78	0078 	StoreSerIn, GetSerIn, StoreSerOut, GetSerOut, RS232_Parse_Byte, RS
 		CB_NotBlank
 Param79	0079 	RS232_Send, RS232_Send_L1, DoModeOne, CheckCurrent, CheckGripCurrent
 		DM3_SetServoPWM, DM3_NoDB, DM3_PosLimit, DM3_CalcSCmd, Cmd_SetSlaveAddr_end, Cmd_SendIDString_L1
+SerialServo.asm   X-Ref Table                                            Page: 64
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 		ReadEncoder, ReadEncoder_2, Home_Absolute_1, Home_Absolute_2, Home_Absolute_3, Init_AS5047D
 		AS5047_ReadPos, AS5047_ReadPos_1, AS5047_ReadReg, AS5047_Read, SPI_SendRecWord
 		SPI_SendRecWord_L1, CalcParity_L1, CheckParity_L1, BIHD_PutInBuff_E2, BIHD_PutInBuff_L1
 		TestErased, TestErased_L1, CompareBlock, CB_Next, EraseSourceBuffer, EraseBlock_L1
 		ReadProgBlock, ReadProgBlock_L1, WriteProgBlock
-SerialServo.asm   X-Ref Table                                            Page: 64
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 Param7A	007A 	RS232_Send, RS232_Send_L1, DoModeOne, DM3_SetServoPWM, DM3_NoDB, DM3_PosLimit
 		ReadEncoder, ReadEncoder_2, Init_AS5047D
 Param7B	007B 	Init_AS5047D
@@ -6503,14 +6508,15 @@ RX_TheByte_Err ^	0168 	RX_TheByte
 ReadAN ^	044E 	ML_1
 ReadAN0_ColdStart ^	04AA 	start, ReadAN
 ReadAN_1 ^	049D 	ReadAN_TryAN0, ReadAN_AN0, ReadAN_AN0_1, ReadAN_AN0_2, ReadAN_AN0_3
-ReadAN_AN0 ^	0478 	ReadAN, ReadAN_TryAN0
-ReadAN_AN0_1 ^	0483 	ReadAN_AN0_3
+ReadAN_AN0 ^	047C 	ReadAN, ReadAN_TryAN0
+ReadAN_AN0_1 ^	0483 	ReadAN_AN1
 ReadAN_AN0_2 ^	048A 	ReadAN_AN2
 ReadAN_AN0_3 ^	0491 	ReadAN_AN2
+ReadAN_AN1 ^	0494 	ReadAN
 ReadAN_AN2 ^	0497 	ReadAN, ReadAN_TryAN2
 ReadAN_Rtn ^	04B3 	ReadAN
-ReadAN_TryAN0 ^	046D 	ReadAN_TryAN2
-ReadAN_TryAN2 ^	0464 	ReadAN
+ReadAN_TryAN0 ^	0471 	ReadAN_TryAN2
+ReadAN_TryAN2 ^	0468 	ReadAN
 ReadEEData ^	1F04 	BootLoaderStart
 ReadEncoder ^	0A3B 	No_NewDataAN0
 ReadEncoder_1 ^	0A55 	ReadEncoder
@@ -6520,15 +6526,15 @@ ReadProgBlock_1 ^	1F61 	ReadProgBlock_L1
 ReadProgBlock_L1 ^	1F56 	ReadProgBlock_1
 SDO1SEL	0006 	InitializeIO, InitializeBLIO
 SMP	0007 	Init_AS5047D
+SerialServo.asm   X-Ref Table                                            Page: 65
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 SPBRGH	019C 	InitializeIO, InitializeBLIO
 SPBRGL	019B 	InitializeIO, InitializeBLIO
 SPI_CLK_Tris	TRISB,4	Init_AS5047D
 SPI_CSn	LATB,0	Init_AS5047D, SPI_SendRecWord, SPI_SendRecWord_L2
 SPI_CSn_Tris	TRISB,0	Init_AS5047D
 SPI_MISO_Tris	TRISB,1	Init_AS5047D
-SerialServo.asm   X-Ref Table                                            Page: 65
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 SPI_MOSI_Tris	TRISA,6	Init_AS5047D
 SPI_SendRecWord ^	0B60 	Init_AS5047D, AS5047_ReadPos, AS5047_Read
 SPI_SendRecWord_L1 ^	0B65 	SPI_SendRecWord_L1
@@ -6543,7 +6549,7 @@ STATUS	0003 	ProgStartVector, SystemBlink_end, LED1_Blinking, LED1_Blink_end, Au
 		RS232_Parse_SALo, RS232_Parse_SALo_end, RS232_Parse_DALo_End, RS232_Parse_Data_end
 		MainLoop, DM2_NotOverCurrent, DoModeTwo_MovPlus, DM3_CPV_End, DM3_CalcCurPos, DM3_GoRev
 		DM3_SetServoPWM, DM3_ErrIsPos, DM3_NoDB, DM3_PosLimit, DM4_NotOverCurrent, DoMode4_MovPlus
-		HandleButtons, ReadAN, ReadAN_TryAN2, ReadAN_TryAN0, ReadAN_AN0, ReadAN_AN0_1, ReadAN_AN0_2
+		HandleButtons, ReadAN, ReadAN_TryAN2, ReadAN_TryAN0, ReadAN_AN0_1, ReadAN_AN0_2
 		Copy7CToSig, ClampInt_E2, ClampInt_1, HandleRXData_1, Cmd_SetMode_end, Cmd_GetMode_end
 		Cmd_SetCmdPos_end, Cmd_GetCmdPos_end, Cmd_SetMaxI_end, Cmd_GetMaxI_end, Cmd_SetFFwd_end
 		Cmd_GetFFwd_end, Cmd_SetFRev_end, Cmd_GetFRev_end, Cmd_SetMin_uS_end, Cmd_GetMin_uS_end
@@ -6622,15 +6628,15 @@ SystemTick_end ^	0088 	ProgStartVector
 T1CON	0018 	InitializeIO
 T1CON_Val	0021 	InitializeIO
 T1GCON	0019 	InitializeIO
+SerialServo.asm   X-Ref Table                                            Page: 66
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 T2CON	001C 	InitializeIO
 T2CON_Value	004F 	InitializeIO
 TMR0CS	0005 	InitializeIO, InitializeBLIO
 TMR1GE	0007 	InitializeIO
 TMR1H	0017 	StartServo
 TMR1L	0016 	StartServo
-SerialServo.asm   X-Ref Table                                            Page: 66
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 TMR2IE	0001 	InitializeIO
 TMR2IF	0001 	ProgStartVector
 TRISA	008C 	ProgStartVector, SystemBlink_Std, SystemBlink_end, LED1_NextBlink, Aux0DigOut_2
@@ -6676,7 +6682,7 @@ W	0000 	SystemBlink_Std, SystemBlink_end, LED1_Blinking, LED1_Start, LED1_Blink_
 		DM3_ServoHere, DM3_NotOverCurrent, DM3_ServoThere, DM3_CalcCurPos, DM3_GoRev, DM3_SetServoPWM
 		DM3_ErrIsPos, DM3_NoDB, DM3_PosLimit, DM3_CalcSCmd, DM3_IdleServo, DM4_NotOverCurrent
 		DoMode4_Minus, DoMode4_MovPlus, DoMode4_Plus, DoMode4_Go, ReadAN, ReadAN_TryAN2
-		ReadAN_TryAN0, ReadAN_AN0, ReadAN_AN0_1, ReadAN_AN0_2, ReadAN_1, Copy7CToSig, Copy7CToSig_1
+		ReadAN_TryAN0, ReadAN_AN0_1, ReadAN_AN0_2, ReadAN_1, Copy7CToSig, Copy7CToSig_1
 		ClampInt_E2, ClampInt_1, HandleRXData_1, Cmd_SetMode_end, Cmd_GetMode_end, Cmd_SetCmdPos_end
 		Cmd_GetCmdPos_end, Cmd_SetMaxI_end, Cmd_GetMaxI_end, Cmd_SetFFwd_end, Cmd_GetFFwd_end
 		Cmd_SetFRev_end, Cmd_GetFRev_end, Cmd_SetMin_uS_end, Cmd_GetMin_uS_end, Cmd_SetMax_uS_end
@@ -6717,28 +6723,28 @@ Z	0002 	ProgStartVector, SystemBlink_end, LED1_Blinking, LED1_Blink_end, Aux0Dig
 		RS232_Parse_SALo, RS232_Parse_SALo_end, RS232_Parse_DALo_End, RS232_Parse_Data_end
 		MainLoop, DM2_NotOverCurrent, DoModeTwo_MovPlus, DM3_CPV_End, DM3_CalcCurPos, DM3_SetServoPWM
 		DM3_ErrIsPos, DM3_NoDB, DM3_PosLimit, DM4_NotOverCurrent, DoMode4_MovPlus, HandleButtons
-		ReadAN, ReadAN_TryAN2, ReadAN_TryAN0, ReadAN_AN0, ReadAN_AN0_1, ReadAN_AN0_2, Copy7CToSig
-		ClampInt_E2, ClampInt_1, HandleRXData_1, Cmd_SetMode_end, Cmd_GetMode_end, Cmd_SetCmdPos_end
+		ReadAN, ReadAN_TryAN2, ReadAN_TryAN0, ReadAN_AN0_1, ReadAN_AN0_2, Copy7CToSig, ClampInt_E2
+		ClampInt_1, HandleRXData_1, Cmd_SetMode_end, Cmd_GetMode_end, Cmd_SetCmdPos_end
 		Cmd_GetCmdPos_end, Cmd_SetMaxI_end, Cmd_GetMaxI_end, Cmd_SetFFwd_end, Cmd_GetFFwd_end
 		Cmd_SetFRev_end, Cmd_GetFRev_end, Cmd_SetMin_uS_end, Cmd_GetMin_uS_end, Cmd_SetMax_uS_end
 		Cmd_GetMax_uS_end, Cmd_SetRevDir_End, Cmd_GetRevDir_End, Cmd_SetEnaOvrCur_End, Cmd_GetEnaOvrCur_End
 		Cmd_SetStopCenter_End, Cmd_GetStopCenter_End, Cmd_SetSpeed_End, Cmd_GetSpeed_End
 		Cmd_SetUseIdleCenter_End, Cmd_GetUseIdleCenter_End, Cmd_SetDeadBand_End, Cmd_GetDeadBand_End
+SerialServo.asm   X-Ref Table                                            Page: 67
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 		Cmd_SetUseFastPWM_End, Cmd_GetUseFastPWM_End, Cmd_SetGripI_end, Cmd_GetGripI_end
 		Cmd_SetAuxConfig_end, Cmd_GetAuxConfig_end, Cmd_SetAuxNValue_end, Cmd_GetAuxNValue_Dig
 		Cmd_GetAuxNValue_Btn, Cmd_GetAuxNValue_Btn1, Cmd_GetAuxNValue_end, Cmd_SetEncoderOffset_End
 		Cmd_GetEncoderOffset_End, Cmd_GetI_end, Cmd_GetEnc_end, Cmd_GetEncAbs_end, Cmd_SaveParams_end
 		Cmd_RestoreParams_end, Cmd_GetBattVolts_end, Cmd_GetStatus_end, Cmd_ReBoot_end
 		Cmd_RunBootloader_end, Cmd_SetMasterAddr_end, Cmd_SetSlaveAddr_end, Cmd_SendIDString_L1
-SerialServo.asm   X-Ref Table                                            Page: 67
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 		ReadEncoder, ReadEncoder_1, ReadEncoder_2, BootLoaderStart, BLP_L2, BLP_TestNum
 		BLP_IHS_DataType, BLP_IHS_Data, BLP_IHS_CSum, BLP_Validate, BufferIHData, BIHD_PutInBuff_L1
 		GetChar, TestErased_L1, CompareBlock_L1, CB_NotBlank, WriteProgBlock_L1
 _C	STATUS,C	DM2_NotOverCurrent, DM4_NotOverCurrent
 _Z	STATUS,Z	WriteProgBlock_L1
-kAuxIOAnalogIn	0004 	ReadAN, ReadAN_TryAN2, ReadAN_AN0, ReadAN_AN0_1, ReadAN_AN0_2
+kAuxIOAnalogIn	0004 	ReadAN, ReadAN_TryAN2, ReadAN_AN0_1, ReadAN_AN0_2
 kAuxIODigitalOut	0003 	LED1_Blink_end, LED2_Blink_end
 kAuxIOLEDBtn	0001 	SystemBlink_end, Aux0DigOut_end
 kCmd_GetAuxConfig	0022 	Cmd_SetAuxConfig_end
@@ -6826,22 +6832,21 @@ nvServoMax_uS	000D 	InitializeBLIO
 nvServoMin_uS	000B 	InitializeBLIO
 nvServoSpeed	000F 	InitializeBLIO
 nvServoStopCenter	0009 	InitializeBLIO
+SerialServo.asm   X-Ref Table                                            Page: 68
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 nvSysFlags	001A 	InitializeBLIO
 nvSysMode	0010 	InitializeBLIO
 nvssAux0Config	0017 	InitializeBLIO
 nvssAux1Config	0018 	InitializeBLIO
 nvssAux2Config	0019 	InitializeBLIO
 nvssFlags	0013 	InitializeBLIO
-SerialServo.asm   X-Ref Table                                            Page: 68
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 nvssGripI	0016 	InitializeBLIO
 nvssMaxI	0014 	InitializeBLIO
 oldCode	0000 	DecTimer
-ssAux0Config	005C 	SystemBlink_end, LED1_Blink_end, ReadAN, ReadAN_AN0, Cmd_GetGripI_end
+ssAux0Config	005C 	SystemBlink_end, LED1_Blink_end, ReadAN, ReadAN_AN0_1, Cmd_GetGripI_end
 		Cmd_SetAuxConfig_end, Cmd_GetAuxConfig_end, Cmd_SetAuxNValue_end
-ssAux1Config	005D 	Aux0DigOut_end, LED2_Blink_end, ReadAN_TryAN2, ReadAN_AN0_1
-ssAux2Config	005E 	ReadAN_AN0_2
+ssAux1Config	005D 	Aux0DigOut_end, LED2_Blink_end, ReadAN_TryAN2, ReadAN_AN0_2
 ssCmdPos	0037 	DoModeTwo, DM2_NotOverCurrent, DoModeTwo_NoSpeed, DoModeThree, DM3_NotOverCurrent
 		DM3_ServoThere, DM3_CalcCurPos, DM3_GoRev, DoMode4, DM4_NotOverCurrent, Cmd_GetMode_end
 		Cmd_SetCmdPos_end, InitializeIO
@@ -6902,7 +6907,6 @@ POP_SerOut !	01AB
 RS232_Parse_DALo !	01F8 	
 RS232_Parse_Data !	0206 	
 ReadAN_3 !	04B2 	
-ReadAN_AN1 !	0494 	
 ReadAN_AN3 !	049A 	
 StopServo !	04E5 	
 SystemBlink_DoIt !	0019 	
@@ -6930,13 +6934,13 @@ Memory Usage Map ('X' = Used, '-' = Unused)
 0300  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 0340  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 0380  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+SerialServo.asm   Memory Usage Map                                       Page: 69
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 03C0  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 0400  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 0440  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 0480  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
-SerialServo.asm   Memory Usage Map                                       Page: 69
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 04C0  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 0500  : XXXXXXXXXXXXXXXX XXXXXXXXXXXX---- ---------------- ----------------
 0800  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX

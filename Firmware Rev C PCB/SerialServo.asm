@@ -1691,10 +1691,10 @@ HdlBtn_Btn4:
 ;=========================================================================================
 ; Setup or Read AN0 or Read AN4
 ANNumMask	EQU	0x7C
-AN0_Val	EQU	0x00
-AN1_Val	EQU	0x04
-AN2_Val	EQU	0x08
-AN3_Val	EQU	0x0C
+AN0_Val	EQU	0x00                   ;Current
+AN1_Val	EQU	0x04                   ;Volts
+AN2_Val	EQU	0x08                   ;SW1/LED1/Aux0
+AN3_Val	EQU	0x0C                   ;SW2/LED2/Aux1
 ;AN4_Val	EQU	0x10
 ;AN7_Val	EQU	0x1C
 ;
@@ -1714,6 +1714,11 @@ ReadAN	MOVLB	1	;bank 1
 	bra	ReadAN_AN0
 ;
 	movwf	Param78	;AN select bits
+	movlw                  AN1_Val
+	subwf                  Param78,W
+	SKPNZ
+	bra                    ReadAN_AN1             ;Batt Volts
+;
 ;Aux0 SW1_LED1
 	movf	ssAux0Config,W
 	andlw	0x0F
@@ -1754,15 +1759,15 @@ ReadAN_AN0	movlw	low Cur_AN0
 	bsf	NewDataAN0
 	movlw	AN1_Val	;next to read
 	movwf	Param78
-	movf	ssAux0Config,W
-	andlw	0x0F
-	sublw	kAuxIOAnalogIn
-	SKPNZ
+;	movf	ssAux0Config,W
+;	andlw	0x0F
+;	sublw	kAuxIOAnalogIn
+;	SKPNZ
 	bra	ReadAN_1
 ;
 ReadAN_AN0_1	movlw	AN2_Val	;next to read
 	movwf	Param78
-	movf	ssAux1Config,W
+	movf	ssAux0Config,W
 	andlw	0x0F
 	sublw	kAuxIOAnalogIn
 	SKPNZ
@@ -1770,7 +1775,7 @@ ReadAN_AN0_1	movlw	AN2_Val	;next to read
 ;
 ReadAN_AN0_2	movlw	AN3_Val	;next to read
 	movwf	Param78
-	movf	ssAux2Config,W
+	movf	ssAux1Config,W
 	andlw	0x0F
 	sublw	kAuxIOAnalogIn
 	SKPNZ
