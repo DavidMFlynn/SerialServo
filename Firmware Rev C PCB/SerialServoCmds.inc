@@ -89,13 +89,13 @@ RS232_Send_S0	mLongCall	RS232_Send
 ;=========================================================================================
 ; Entry: RXDataIsNew=1, data in RX_Data
 ;
-HandleRXData	movlb	1	;bank 1
+HandleRXData	movlb	RX_Flags	;bank 1
 	bcf	RXDataIsNew
 	btfsc	RXDataValidFlag	;from master to me?
 	bra	HandleRXData_1
 HandleRXData_Rtn	movlb	0	;bank 0
 	return		; no, ignore this packet
-;---kCmd_SetMode-------------------
+;
 HandleRXData_1	movlb	0	;bank 0
                        mMOVLF	RX_Data,FSR1
 	mMOVLF	TX_Data,FSR0
@@ -103,55 +103,172 @@ HandleRXData_1	movlb	0	;bank 0
 ;
 	moviw	FSR1++
 	movwf	Param78	;aka RX_Data
-	
-;
-	movlw	kCmd_SetMode
-	subwf	Param78,W	;aka RX_Data
+	andlw                  0xF0
 	SKPZ
-	bra	Cmd_SetMode_end
+	bra                    Dispatcher_1
+	movf                   Param78,W
+	andlw                  0x0F
+;Jump table for 0x00 to 0x0F
+                       brw
+                       return                                        ;0x00 not used
+                       bra                    Cmd_GetMode
+                       bra                    Cmd_GetCmdPos
+                       goto                   Cmd_GetMaxI
+                       goto                   Cmd_GetFFwd
+                       goto                   Cmd_GetFRev
+                       goto                   Cmd_GetMin_uS
+                       goto                   Cmd_GetMax_uS
+                       goto                   Cmd_GetRevDir
+                       goto                   Cmd_GetEnaOvrCur       ;9
+                       return
+                       goto                   Cmd_GetStopCenter
+                       goto                   Cmd_GetSpeed
+                       goto                   Cmd_GetUseIdleCenter
+                       goto                   Cmd_GetDeadBand
+                       goto                   Cmd_GetUseFastPWM
+;
+Dispatcher_1           sublw                  0x80
+                       SKPZ
+                       bra                    Dispatcher_2
+                       movf                   Param78,W
+	andlw                  0x0F
+;Jump table for 0x80 to 0x8F
+                       brw
+                       return                                        ;0x80 not used
+                       bra                    Cmd_SetMode
+                       bra                    Cmd_SetCmdPos
+                       goto                   Cmd_SetMaxI
+                       goto                   Cmd_SetFFwd
+                       goto                   Cmd_SetFRev
+                       goto                   Cmd_SetMin_uS
+                       goto                   Cmd_SetMax_uS
+                       goto                   Cmd_SetRevDir
+                       goto                   Cmd_SetEnaOvrCur
+                       return
+                       goto                   Cmd_SetStopCenter
+                       goto                   Cmd_SetSpeed
+                       goto                   Cmd_SetUseIdleCenter
+                       goto                   Cmd_SetDeadBand
+                       goto                   Cmd_SetUseFastPWM
+;
+;Jump table for 0x20 to 0x27
+Dispatcher_2           movf                   Param78,W
+                       andlw                  0xF0
+                       sublw                  0x20
+                       SKPZ
+                       bra                    Dispatcher_3
+                       btfsc                  Param78,3              ;>7?
+                       return                                        ; Yes, oops
+                       movlw                  0x07
+                       andwf                  Param78,W
+                       brw
+                       return
+                       goto                   Cmd_GetGripI
+                       goto                   Cmd_GetAuxConfig
+                       goto                   Cmd_GetAuxNValue
+                       goto                   Cmd_GetEncoderOffset
+                       goto                   Cmd_GetKp
+                       goto                   Cmd_GetKi
+                       goto                   Cmd_GetKd
+;
+Dispatcher_3           movf                   Param78,W
+                       andlw                  0xF0
+                       sublw                  0xB0
+                       SKPZ
+                       bra                    Dispatcher_4
+                       btfsc                  Param78,3              ;>7?
+                       return                                        ; Yes, oops
+                       movlw                  0x07
+                       andwf                  Param78,W
+                       brw
+                       return
+                       goto                   Cmd_SetGripI
+                       goto                   Cmd_SetAuxConfig
+                       goto                   Cmd_SetAuxNValue
+                       goto                   Cmd_SetEncoderOffset
+                       goto                   Cmd_SetKp
+                       goto                   Cmd_SetKi
+                       goto                   Cmd_SetKd
+;
+;Jump table for 0x90 to 0x9F
+Dispatcher_4           movf                   Param78,W
+                       andlw                  0xF0
+                       sublw                  0x90
+                       SKPZ
+                       bra                    Dispatcher_5
+                       movlw                  0x0F
+                       andwf                  Param78,W
+                       brw
+                       return                                        ;0x90 not used
+                       goto                   Cmd_GetI
+                       goto                   Cmd_GetEnc
+                       goto                   Cmd_GetEncAbs
+                       goto                   Cmd_SaveParams
+                       goto                   Cmd_RestoreParams
+                       goto                   Cmd_GetBattVolts
+                       return                                        ;goto                   Cmd_GetCalPot
+                       goto                   Cmd_GetStatus
+                       reset                                         ;Cmd_ReBoot
+                       goto                   Cmd_RunBootloader
+                       return
+                       return
+                       return
+                       return
+                       return
+;
+;Jump table for 0xA0 to 0xAF
+Dispatcher_5           movf                   Param78,W
+                       andlw                  0xF0
+                       sublw                  0xA0
+                       SKPZ
+                       bra                    Dispatcher_6
+                       movlw                  0x0F
+                       andwf                  Param78,W
+                       brw
+Dispatcher_6           return                                        ;0xA0 not used
+                       goto                   Cmd_SetMasterAddr
+                       goto                   Cmd_SetSlaveAddr
+                       return
+                       return
+                       return
+                       return
+                       return
+                       return
+                       return
+                       goto                   Cmd_SendIDString       ;0xAA
+                       return
+                       return
+                       return
+                       return
+                       return
+;
+;---kCmd_SetMode----------------
 ; Set Mode
-	movlw	kMaxMode+1
+Cmd_SetMode	movlw	kMaxMode+1
 	subwf	INDF1,W
 	SKPB		;kMaxMode+1>Data
 	bra	HandleRXData_Rtn
 ;
 	moviw	FSR1++
 	movwf	SysMode
-	movwf	LED1_Blinks
 	goto	TX_ACK
 ;
-Cmd_SetMode_end:
 ;---kCmd_GetMode------------------
-	movlw	kCmd_GetMode
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetMode_end
-; Get Mode
-	movf	SysMode,W
+Cmd_GetMode	movf	SysMode,W
 	movwi	FSR0++
 	goto	RS232_Send_S0
 ;
-Cmd_GetMode_end:
 ;---kCmd_SetCmdPos-------------------
-	movlw	kCmd_SetCmdPos
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SetCmdPos_end
 ; Set Command Position
-	moviw	FSR1++
+Cmd_SetCmdPos	moviw	FSR1++
 	movwf	ssCmdPos
 	moviw	FSR1++
 	movwf	ssCmdPos+1
 	goto	TX_ACK
 ;
-Cmd_SetCmdPos_end:
 ;---kCmd_GetCmdPos------------------
-	movlw	kCmd_GetCmdPos
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetCmdPos_end
 ; Get Command Position
-	movf	ssCmdPos,W
+Cmd_GetCmdPos	movf	ssCmdPos,W
 	movwi	FSR0++
 	movf	ssCmdPos+1,W
 	movwi	FSR0++
@@ -160,304 +277,183 @@ Cmd_SetCmdPos_end:
 ;
 Cmd_GetCmdPos_end:
 ;---kCmd_SetMaxI-------------------
-	movlw	kCmd_SetMaxI
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SetMaxI_end
 ; Set Max Current
-	moviw	FSR1++
+Cmd_SetMaxI	moviw	FSR1++
 	movwf	ssMaxI
 	goto	TX_ACK
 ;
-Cmd_SetMaxI_end:
 ;---kCmd_GetMaxI-------------------
-	movlw	kCmd_GetMaxI
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetMaxI_end
 ; Get Max Current
-	movf	ssMaxI,W
+Cmd_GetMaxI	movf	ssMaxI,W
 	movwi	FSR0++
 	goto	RS232_Send_S0
 ;
-Cmd_GetMaxI_end:
 ;---kCmd_SetFFwd-------------------
-	movlw	kCmd_SetFFwd
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SetFFwd_end
 ; Set ServoFastForward
-	moviw	FSR1++
+Cmd_SetFFwd	moviw	FSR1++
 	movwf	ServoFastForward
 	moviw	FSR1++
 	movwf	ServoFastForward+1
 	goto	TX_ACK
 ;
-Cmd_SetFFwd_end:
 ;---kCmd_GetFFwd-------------------
-	movlw	kCmd_GetFFwd
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetFFwd_end
 ; Get ServoFastForward
-	movf	ServoFastForward,W
+Cmd_GetFFwd	movf	ServoFastForward,W
 	movwi	FSR0++
 	movf	ServoFastForward+1,W
 	movwi	FSR0++
 	goto	RS232_Send_S0
 ;
-Cmd_GetFFwd_end:
 ;---kCmd_SetFRev-------------------
-	movlw	kCmd_SetFRev
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SetFRev_end
 ; Set ServoFastReverse
-	moviw	FSR1++
+Cmd_SetFRev	moviw	FSR1++
 	movwf	ServoFastReverse
 	moviw	FSR1++
 	movwf	ServoFastReverse+1
 	goto	TX_ACK
 ;
-Cmd_SetFRev_end:
 ;---kCmd_GetFRev------------------
-	movlw	kCmd_GetFRev
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetFRev_end
 ; Get ServoFastReverse
-	movf	ServoFastReverse,W
+Cmd_GetFRev	movf	ServoFastReverse,W
 	movwi	FSR0++
 	movf	ServoFastReverse+1,W
 	movwi	FSR0++
 	goto	RS232_Send_S0
 ;
-Cmd_GetFRev_end:
 ;---kCmd_SetMin_uS-------------------
-	movlw	kCmd_SetMin_uS
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SetMin_uS_end
 ; Set ServoMin_uS
-	moviw	FSR1++
+Cmd_SetMin_uS	moviw	FSR1++
 	movwf	ServoMin_uS
 	moviw	FSR1++
 	movwf	ServoMin_uS+1
 	goto	TX_ACK
 ;
-Cmd_SetMin_uS_end:
 ;---kCmd_GetMin_uS----------------
-	movlw	kCmd_GetMin_uS
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetMin_uS_end
 ; Get ServoMin_uS
-	movf	ServoMin_uS,W
+Cmd_GetMin_uS	movf	ServoMin_uS,W
 	movwi	FSR0++
 	movf	ServoMin_uS+1,W
 	movwi	FSR0++
 	goto	RS232_Send_S0
 ;
-Cmd_GetMin_uS_end:
 ;---kCmd_SetMax_uS-------------------
-	movlw	kCmd_SetMax_uS
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SetMax_uS_end
 ; Set ServoMax_uS
-	moviw	FSR1++
+Cmd_SetMax_uS	moviw	FSR1++
 	movwf	ServoMax_uS
 	moviw	FSR1++
 	movwf	ServoMax_uS+1
 	goto	TX_ACK
 ;
-Cmd_SetMax_uS_end:
 ;---kCmd_GetMax_uS-----------------
-	movlw	kCmd_GetMax_uS
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetMax_uS_end
 ; Get ServoMax_uS
-	movf	ServoMax_uS,W
+Cmd_GetMax_uS	movf	ServoMax_uS,W
 	movwi	FSR0++
 	movf	ServoMax_uS+1,W
 	movwi	FSR0++
 	goto	RS232_Send_S0
 ;
-Cmd_GetMax_uS_end:
 ;---kCmd_SetRevDir---------------
-	movlw	kCmd_SetRevDir
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SetRevDir_End
-	bcf	ssReverseDir
+Cmd_SetRevDir	bcf	ssReverseDir
 	movlw	0x01
 	xorwf	INDF1,W
 	SKPNZ		;01h?
 	bsf	ssReverseDir	; Yes
 	goto	TX_ACK
-Cmd_SetRevDir_End:
+;
 ;---kCmd_GetRevDir---------------
-	movlw	kCmd_GetRevDir
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetRevDir_End
-	btfsc	ssReverseDir
+Cmd_GetRevDir	btfsc	ssReverseDir
 	bsf	INDF0,0
 	goto	RS232_Send_S0
-Cmd_GetRevDir_End:
+;
 ;---kCmd_SetEnaOvrCur------------
-	movlw	kCmd_SetEnaOvrCur
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SetEnaOvrCur_End
-	bcf	ssEnableOverCur
+Cmd_SetEnaOvrCur	bcf	ssEnableOverCur
 	movlw	0x01
 	xorwf	INDF1,W
 	SKPNZ
 	bsf	ssEnableOverCur
 	goto	TX_ACK
-Cmd_SetEnaOvrCur_End:
+;
 ;---kCmd_GetEnaOvrCur------------
-	movlw	kCmd_GetEnaOvrCur
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetEnaOvrCur_End
-	btfsc	ssEnableOverCur
+Cmd_GetEnaOvrCur	btfsc	ssEnableOverCur
 	bsf	INDF0,0
 	goto	RS232_Send_S0
-Cmd_GetEnaOvrCur_End:
 ;
 ;---kCmd_SetStopCenter---------
-	movlw	kCmd_SetStopCenter
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SetStopCenter_End
-	moviw	FSR1++
+Cmd_SetStopCenter	moviw	FSR1++
 	movwf	ServoStopCenter
 	moviw	FSR1++
 	movwf	ServoStopCenter+1
 	goto	TX_ACK
-Cmd_SetStopCenter_End:
+;
 ;---kCmd_GetStopCenter---------
-	movlw	kCmd_GetStopCenter
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetStopCenter_End
-	movf	ServoStopCenter,W
+Cmd_GetStopCenter	movf	ServoStopCenter,W
 	movwi	FSR0++
 	movf	ServoStopCenter+1,W
 	movwi	FSR0++
 	goto	RS232_Send_S0
-Cmd_GetStopCenter_End:
+;
 ;---kCmd_SetSpeed--------------
-	movlw	kCmd_SetSpeed
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SetSpeed_End
-	moviw	FSR1++
+Cmd_SetSpeed	moviw	FSR1++
 	andlw	0x3F	;0..63
 	movwf	ServoSpeed
 	goto	TX_ACK
-Cmd_SetSpeed_End:
+;
 ;---kCmd_GetSpeed--------------
-	movlw	kCmd_GetSpeed
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetSpeed_End
-	movf	ServoSpeed,W
+Cmd_GetSpeed	movf	ServoSpeed,W
 	movwi	FSR0++
 	goto	RS232_Send_S0
-Cmd_GetSpeed_End:
+;
 ;---kCmd_SetUseIdleCenter------
-	movlw	kCmd_SetUseIdleCenter
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SetUseIdleCenter_End
-	bcf	ssMode3IdleCenter
+Cmd_SetUseIdleCenter	bcf	ssMode3IdleCenter
 	movlw	0x01
 	xorwf	INDF1,W
 	SKPNZ
 	bsf	ssMode3IdleCenter
 	goto	TX_ACK
-Cmd_SetUseIdleCenter_End:
+;
 ;---kCmd_GetUseIdleCenter------
-	movlw	kCmd_GetUseIdleCenter
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetUseIdleCenter_End
-	btfsc	ssMode3IdleCenter
+Cmd_GetUseIdleCenter	btfsc	ssMode3IdleCenter
 	bsf	INDF0,0
 	goto	RS232_Send_S0
-Cmd_GetUseIdleCenter_End:
+;
 ;---kCmd_SetDeadBand------------
-	movlw	kCmd_SetDeadBand
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SetDeadBand_End
-	moviw	FSR1++
+Cmd_SetDeadBand	moviw	FSR1++
 	movwf	DeadBand
 	goto	TX_ACK	
-Cmd_SetDeadBand_End:
+;
 ;---kCmd_GetDeadBand------------
-	movlw	kCmd_GetDeadBand
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetDeadBand_End
-	movf	DeadBand,W
+Cmd_GetDeadBand	movf	DeadBand,W
 	movwi	FSR0++
 	goto	RS232_Send_S0
-Cmd_GetDeadBand_End:
+;
 ;---kCmd_SetUseFastPWM----------	;+1 data (ssEnableFastPWM), return ACK
-	movlw	kCmd_SetUseFastPWM
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SetUseFastPWM_End
-	bcf	ssEnableFastPWM
+Cmd_SetUseFastPWM	bcf	ssEnableFastPWM
 	movlw	0x01
 	xorwf	INDF1,W
 	SKPNZ
 	bsf	ssEnableFastPWM
 	goto	TX_ACK
-Cmd_SetUseFastPWM_End:
+;
 ;---kCmd_GetUseFastPWM----------
-	movlw	kCmd_GetUseFastPWM
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetUseFastPWM_End
-	btfsc	ssEnableFastPWM
+Cmd_GetUseFastPWM	btfsc	ssEnableFastPWM
 	bsf	INDF0,0
 	goto	RS232_Send_S0
-Cmd_GetUseFastPWM_End:
+;
 ;---kCmd_SetGripI-------------------
-	movlw	kCmd_SetGripI
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SetGripI_end
 ; Set Grip Current
-	moviw	FSR1++
+Cmd_SetGripI	moviw	FSR1++
 	movwf	ssGripI
 	goto	TX_ACK
 ;
-Cmd_SetGripI_end:
 ;---kCmd_GetGripI-------------------
-	movlw	kCmd_GetGripI
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetGripI_end
 ; Get Grip Current
-	movf	ssGripI,W
+Cmd_GetGripI	movf	ssGripI,W
 	movwi	FSR0++
 	goto	RS232_Send_S0
 ;
-Cmd_GetGripI_end:
 ;---kCmd_SetAuxConfig-----------	;+3 data (Aux0Config,Aux1Config,Aux2Config), return ACK
-	movlw	kCmd_SetAuxConfig
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SetAuxConfig_end
 ; Set Aux N Config
-	movf	INDF1,W
+Cmd_SetAuxConfig	movf	INDF1,W
 	sublw	0x02	;2-AuxNum
 	SKPNB		;<=2?
 	goto	HandleRXData_Rtn	; no
@@ -471,14 +467,9 @@ Cmd_GetGripI_end:
 	movwi	FSR0++
 	goto	TX_ACK
 ;
-Cmd_SetAuxConfig_end:
 ;---kCmd_GetAuxConfig-----------
-	movlw	kCmd_GetAuxConfig
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetAuxConfig_end
 ; Get Aux N Config
-	movf	INDF1,W
+Cmd_GetAuxConfig	movf	INDF1,W
 	sublw	0x02	;2-AuxNum
 	SKPNB		;<=2?
 	goto	HandleRXData_Rtn	; no
@@ -493,14 +484,9 @@ Cmd_SetAuxConfig_end:
 	movwi	FSR0++
 	goto	RS232_Send_S0
 ;
-Cmd_GetAuxConfig_end:	
 ;---kCmd_SetAuxNValue-----------	;+2 data (AuxNum,Value), return ACK
-	movlw	kCmd_SetAuxNValue
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SetAuxNValue_end
 ; Set Aux N Value
-	moviw	FSR1++
+Cmd_SetAuxNValue	moviw	FSR1++
 	movwf	Param78	;AuxNum
 	sublw	0x02	;2-AuxNum
 	SKPNB		;<=2?
@@ -534,14 +520,9 @@ Cmd_SetAuxNLED	movf	Param78,W	;AuxNum
 	movwi	FSR0++
 	goto	TX_ACK
 ;
-Cmd_SetAuxNValue_end:
 ;---kCmd_GetAuxNValue-----------	;(AuxN,ValueL,ValueH)
-	movlw	kCmd_GetAuxNValue
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetAuxNValue_end
 ; Get Aux N Value
-	movf	INDF1,W
+Cmd_GetAuxNValue	movf	INDF1,W
 	movwf	Param78	;AuxNum
 	sublw	0x02	;2-AuxNum
 	SKPNB		;<=2?
@@ -615,65 +596,71 @@ Cmd_GetAuxNValue_Btn2	clrw
 	goto	RS232_Send_S0
 ;
 ;
-Cmd_GetAuxNValue_end:
 ;---kCmd_SetEncoderOffset-------  +2 data (EncoderOffset), return ACK
-	movlw	kCmd_SetEncoderOffset
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SetEncoderOffset_End
 ;
-	moviw	FSR1++
+Cmd_SetEncoderOffset	moviw	FSR1++
 	movwf	EncoderOffset
 	moviw	FSR1++
 	movwf	EncoderOffset+1
 	goto	TX_ACK
-Cmd_SetEncoderOffset_End:
-;---kCmd_GetEncoderOffset-------
-	movlw	kCmd_GetEncoderOffset
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetEncoderOffset_End
 ;
-	movf	EncoderOffset,W
+;---kCmd_GetEncoderOffset-------
+;
+Cmd_GetEncoderOffset	movf	EncoderOffset,W
 	movwi	FSR0++
 	movf	EncoderOffset+1,W
 	movwi	FSR0++
 	goto	RS232_Send_S0
-Cmd_GetEncoderOffset_End:
+;
+;---kCmd_SetKp-------------------	;+1 data (Kp), return ACK
+Cmd_SetKp	moviw	FSR1++
+	movwf	Kp
+	goto	TX_ACK
+;
+;---kCmd_GetKp-------------------
+Cmd_GetKp	movf	Kp,W
+	movwi	FSR0++
+	goto	RS232_Send_S0
+;
+;---kCmd_SetKi-------------------	;+1 data (Ki), return ACK
+Cmd_SetKi	moviw	FSR1++
+	movwf	Ki
+	goto	TX_ACK
+;
+;---kCmd_GetKi-------------------
+Cmd_GetKi	movf	Ki,W
+	movwi	FSR0++
+	goto	RS232_Send_S0
+;
+;---kCmd_SetKd-------------------	;+1 data (Kd), return ACK
+Cmd_SetKd	moviw	FSR1++
+	movwf	Kd
+	goto	TX_ACK
+;---kCmd_GetKd-------------------
+Cmd_GetKd	movf	Kd,W
+	movwi	FSR0++
+	goto	RS232_Send_S0
+;
 ;---kCmd_GetI-------------------
-	movlw	kCmd_GetI
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetI_end
 ; Get servo current
-	BankSel	Cur_AN0
+Cmd_GetI	BankSel	Cur_AN0
 	movf	Cur_AN0,W
 	movwi	FSR0++
 	movf	Cur_AN0+1,W
 	movwi	FSR0++
 	goto	RS232_Send_S0
 ;
-Cmd_GetI_end:
 ;---kCmd_GetEnc-------------------
-	movlw	kCmd_GetEnc
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetEnc_end
 ; Get Encoder Raw Position
-	movf	EncoderVal,W
+Cmd_GetEnc	movf	EncoderVal,W
 	movwi	FSR0++
 	movf	EncoderVal+1,W
 	movwi	FSR0++
 	goto	RS232_Send_S0
 ;
-Cmd_GetEnc_end:
 ;---kCmd_GetEncAbs-------------------
-	movlw	kCmd_GetEncAbs
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetEncAbs_end
 ; Get Encoder Accumulated Position
-	movf	EncoderAccum,W
+Cmd_GetEncAbs	movf	EncoderAccum,W
 	movwi	FSR0++
 	movf	EncoderAccum+1,W
 	movwi	FSR0++
@@ -685,55 +672,34 @@ Cmd_GetEnc_end:
 	movwi	FSR0++	;sign extrnded Int24
 	goto	RS232_Send_S0
 ;
-Cmd_GetEncAbs_end:
 ;---kCmd_SaveParams-----------------
-	movlw	kCmd_SaveParams
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SaveParams_end
-	mLongCall	SaveParams
+Cmd_SaveParams	mLongCall	SaveParams
 	goto	TX_ACK
-Cmd_SaveParams_end:
+;
 ;---kCmd_RestoreParams--------------
-	movlw	kCmd_RestoreParams
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_RestoreParams_end
-	mLongCall	CopyToRam
+Cmd_RestoreParams	mLongCall	CopyToRam
 	goto	TX_ACK
-Cmd_RestoreParams_end:
+;
 ;---kCmd_GetBattVolts---------------
-	movlw	kCmd_GetBattVolts
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetBattVolts_end
 ; Get battery volts
-	BankSel	BattVolts
+Cmd_GetBattVolts	BankSel	BattVolts
 	movf	BattVolts,W
 	movwi	FSR0++
 	movf	BattVolts+1,W
 	movwi	FSR0++
 	goto	RS232_Send_S0
-Cmd_GetBattVolts_end:
+;
 ;---kCmd_GetCalPot------------------
-;	movlw	kCmd_GetCalPot
-;	subwf	Param78,W	;aka RX_Data
-;	SKPZ
-;	bra	Cmd_GetCalPot_end
 ; Get calibration pot
-;	BankSel	Cur_AN4
+;Cmd_GetCalPot	movlb	Cur_AN4
 ;	movf	Cur_AN4,W
 ;	movwi	FSR0++
 ;	movf	Cur_AN4+1,W
 ;	movwi	FSR0++
 ;	goto	RS232_Send_S0
-Cmd_GetCalPot_end:
+;
 ;---kCmd_GetStatus----------------
-	movlw	kCmd_GetStatus
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_GetStatus_end
-	movf	ssStatus,W
+Cmd_GetStatus	movf	ssStatus,W
 	movwi	FSR0++
 	movf	ssStatus+1,W
 	movwi	FSR0++
@@ -749,50 +715,27 @@ Cmd_GetCalPot_end:
 	clrf	ssStatus+1
 ;	
 	goto	RS232_Send_S0
-Cmd_GetStatus_end:
-;---kCmd_ReBoot---------------------
-	movlw	kCmd_ReBoot
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_ReBoot_end
-	reset		;Does not return anything
-Cmd_ReBoot_end:
+;
 ;---kCmd_RunBootloader--------------
-	movlw	kCmd_RunBootloader
-	subwf	Param78,W
-	SKPZ
-	bra	Cmd_RunBootloader_end
-	movlw	0xFF
+Cmd_RunBootloader	movlw	0xFF
 	movwf	EEDataTemp
 	mLongCall	EEWriteW	;Write EEPROM address in W
 	reset
-Cmd_RunBootloader_end:
+;
 ;---kCmd_SetMasterAddr------------
-	movlw	kCmd_SetMasterAddr
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SetMasterAddr_end
-	moviw	FSR1++
+Cmd_SetMasterAddr	moviw	FSR1++
 	movwf	RS232_MasterAddr
 	mLongCall	SaveParams
 	goto	RS232_Send_S0
-Cmd_SetMasterAddr_end:
+;
 ;---kCmd_SetSlaveAddr-------------
-	movlw	kCmd_SetSlaveAddr
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SetSlaveAddr_end
-	moviw	FSR1++
+Cmd_SetSlaveAddr	moviw	FSR1++
 	movwf	RS232_SlaveAddr
 	mLongCall	SaveParams
 	goto	RS232_Send_S0
-Cmd_SetSlaveAddr_end:
+;
 ;---kCmd_SendIDString------------
-	movlw	kCmd_SendIDString
-	subwf	Param78,W	;aka RX_Data
-	SKPZ
-	bra	Cmd_SendIDString_end
-	clrf	Param79
+Cmd_SendIDString	clrf	Param79
 Cmd_SendIDString_L1	movf	Param79,W
 	call	IDString
 	iorlw	0x00
@@ -823,7 +766,6 @@ IDString	brw
 	retlw	'\n'
 	retlw	0x00
 ;
-Cmd_SendIDString_end:
 ;--------------------------------
 	return
 ;
