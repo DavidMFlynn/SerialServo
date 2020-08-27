@@ -2,7 +2,7 @@
 ;
 ;    Filename:      SerialServo.asm
 ;    Created:       4/26/2018
-;    File Version:  1.1b3   4/10/2020
+;    File Version:  1.1b4   8/26/2020
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -27,6 +27,7 @@
 ;Mode 4: Gripper force control.
 ;
 ;    History:
+; 1.1b4   8/26/2020    Addded kCmd_SetKp..., Fixed Batt Volts (AN1), ClampInt bug fixed.
 ; 1.1b3   4/10/2020    Improved Mode 3
 ; 1.1b2   8/11/2019	Continue fixes for 14bit encoder. New defaults Mode 3 (2950 ±100, fast, Idle center)
 ; 1.1b1   3/21/2019	Port for Rev C PCB
@@ -312,8 +313,8 @@ kAuxIORevLimit	EQU	0x07
                        EncoderHome:2                                 ;Absolute Home
                        EncoderOffset:2		;Used in mode 2 for single rotation
 ;
-	ServoFastReverse:2
-	ServoFastForward:2
+	ServoFastReverse:2                            ;ServoFastReverse is less than
+	ServoFastForward:2                            ; ServoFastForward
 	ServoStopCenter:2		;Mode 3 Idle position
 	ServoMin_uS:2
 	ServoMax_uS:2
@@ -1443,7 +1444,7 @@ DM3_SetServoPWM	movf	EncoderVal,W
                        movf                   DeadBand,F
                        SKPNZ
                        bra                    DM3_NoDB
-; if error<0 then error=abs(error)
+; if error<0 then Error_a=abs(error), Param7D:Param7C=abs(Param7A:Param79)
                        movf                   Param79,W
                        movwf                  Param7C
                        movf                   Param7A,W
@@ -1457,7 +1458,7 @@ DM3_SetServoPWM	movf	EncoderVal,W
                        movf                   Param7A,W
                        subwfb                 Param7D,F
 ;
-;if Error>255 then ignor DB
+;if Error_a>255 then ignor DB
 DM3_ErrIsPos           movf                   Param7D,F
                        SKPZ                                          ;Error>255?
                        bra                    DM3_NoDB               ; Yes
@@ -1467,36 +1468,45 @@ DM3_ErrIsPos           movf                   Param7D,F
                        bra                    DM3_IdleServo          ; Yes
 ;
 ; if error<-128 then error = -128
-DM3_NoDB               btfss                  Param7A,7              ;Error is negative
-                       bra                    DM3_PosLimit
+DM3_NoDB               btfss                  Param7A,7              ;Error is negative?
+                       bra                    DM3_PosLimit           ; No
                        movlw                  0x7F
                        iorwf                  Param79,W              ;high bit only
                        andwf                  Param7A,W
                        xorlw                  0xFF
                        SKPNZ                                         ;< -128?
                        bra                    DM3_CalcSCmd           ; No
-                       movlw                  0x80
+                       movlw                  0x80                   ;-128
                        movwf                  Param79
                        bra                    DM3_CalcSCmd
 ;
 ; if error >= 128 then error = 127
 DM3_PosLimit           movlw                  0x80
-                       andwf                  Param79,W
-                       iorwf                  Param7A,W
+                       andwf                  Param79,W              ;hi bit only
+                       iorwf                  Param7A,W              ;or w/ hi byte
                        SKPNZ                                         ;>= 128?
                        bra                    DM3_CalcSCmd           ; No
                        movlw                  0x7F
                        movwf                  Param79
 ;
-DM3_CalcSCmd           movf                   Param79,W
-                       btfsc                  ssReverseDir           ;Moves reversed?
+DM3_CalcSCmd           btfss                  ssReverseDir           ;Moves reversed?
+                       bra                    DM3_CalcSCmd_1         ; No
+                       movf                   Param79,W
+                       sublw                  0x80                   ;test for -128
+                       SKPZ                                          ;Is -128?
+                       bra                    DM3_CalcSCmd_2s
+                       movlw                  0x81                   ; Yes, Make it -127
+                       movwf                  Param79
+DM3_CalcSCmd_2s        movf                   Param79,W
                        sublw                  0x00                   ; Yes, 2's comp
                        movwf                  Param79
+DM3_CalcSCmd_1:      
 ;
 ;0.5 x gain
 ;                       asrf                   Param79,W
 ;
 ;
+                       movf                   Param79,W
                        subwf                  ServoStopCenter,W
                        movwf                  Param7C
                        movlw                  0x00
@@ -1907,11 +1917,12 @@ StopServo	movlb	0	;bank 0
 	return
 ;
 ;=========================================================================================
-; ClampInt(Param7D:Param7C,ServoFastReverse,ServoFastForward)
+; ClampIntMD3(Param7D:Param7C,ServoFastReverse,ServoFastForward)
 ;
 ClampIntMD3            mMOVLF                 ServoFastReverse,FSR0
                        bra                    ClampInt_E2
 ;
+;---------------------
 ; ClampInt(Param7D:Param7C,ServoMin_uS,ServoMax_uS)
 ;
 ; Entry: Param7D:Param7C
@@ -1920,30 +1931,23 @@ ClampIntMD3            mMOVLF                 ServoFastReverse,FSR0
 ;
 ClampInt	mMOVLF                 ServoMin_uS,FSR0
 ClampInt_E2            movlb	0
-                       moviw                  3[FRS0]                ;ServoMax_uS+1,W
-	SUBWF	Param7D,W	;7D-ServoMax_uS
-	SKPNB		;7D<Max?
-	GOTO	ClampInt_1	; Yes
-	SKPZ		;7D=Max?
-	GOTO	ClampInt_tooHigh	; No, its greater.
-	moviw                  2[FRS0]	; Yes, MSB was equal check LSB
-	SUBWF	Param7C,W	;7C-ServoMax_uS
-	SKPNZ		;=ServoMax_uS
-	RETURN		;Yes
-	SKPB		;7C<Max?
-	GOTO	ClampInt_tooHigh	; No
-	RETURN		; Yes
+;W = Cmd - Max
+                       moviw                  2[FRS0]
+                       subwf                  Param7C,W
+                       moviw                  3[FRS0]
+                       subwfb                 Param7D,W
+                       SKPB                                          ;Cmd > Max?
+                       bra                    ClampInt_tooHigh       ; Yes, Fix it
+                       bra                    ClampInt_1             ; No, check for < Min
 ;
-ClampInt_1	moviw                  1[FRS0]	;ServoMin_uS+1,W
-	SUBWF	Param7D,W	;7D-ServoMin_uS
-	SKPNB		;7D<Min?
-	GOTO	ClampInt_tooLow	; Yes
-	SKPZ		;=Min?
-	RETURN		; No, 7D>ServoMin_uS
-	moviw                  0[FRS0]	; Yes, MSB is a match
-	SUBWF	Param7C,W	;7C-ServoMin_uS
-	SKPB		;7C>=Min?
-	RETURN		; Yes
+; W=Cmd - Min
+ClampInt_1             moviw                  0[FRS0]
+                       subwf                  Param7C,W
+                       moviw                  1[FSR0]
+                       subwfb                 Param7D,W
+                       SKPB                                          ;Cmd > Min?
+                       return                                        ; Yes
+                       bra                    ClampInt_tooLow        ; No, Fix it
 ;
 ClampInt_tooLow	moviw                  0[FRS0]
 	MOVWF	Param7C

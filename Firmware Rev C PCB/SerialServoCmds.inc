@@ -56,12 +56,14 @@ kCmd_SetAuxNValue	EQU	0xB3	;+2 data (AuxNum,Value), return ACK
 kCmd_GetAuxNValue	EQU	0x23	;(AuxN,ValueL,ValueH)
 kCmd_SetEncoderOffset	EQU	0xB4	;+2 data (EncoderOffset), return ACK
 kCmd_GetEncoderOffset	EQU	0x24
+                       if UsePID
 kCmd_SetKp	EQU	0xB5	;+1 data (Kp), return ACK
 kCmd_GetKp	EQU	0x25
 kCmd_SetKi	EQU	0xB6	;+1 data (Ki), return ACK
 kCmd_GetKi	EQU	0x26
 kCmd_SetKd	EQU	0xB7	;+1 data (Kd), return ACK
 kCmd_GetKd	EQU	0x27
+                       endif
 ;
 kCmd_GetI	EQU	0x91	;return Cur_AN0
 kCmd_GetEnc	EQU	0x92	;return EncoderVal
@@ -167,9 +169,15 @@ Dispatcher_2           movf                   Param78,W
                        goto                   Cmd_GetAuxConfig
                        goto                   Cmd_GetAuxNValue
                        goto                   Cmd_GetEncoderOffset
+                       if UsePID
                        goto                   Cmd_GetKp
                        goto                   Cmd_GetKi
                        goto                   Cmd_GetKd
+                       else
+                       return
+                       return
+                       return
+                       endif
 ;
 Dispatcher_3           movf                   Param78,W
                        andlw                  0xF0
@@ -186,9 +194,15 @@ Dispatcher_3           movf                   Param78,W
                        goto                   Cmd_SetAuxConfig
                        goto                   Cmd_SetAuxNValue
                        goto                   Cmd_SetEncoderOffset
+                       if UsePID
                        goto                   Cmd_SetKp
                        goto                   Cmd_SetKi
                        goto                   Cmd_SetKd
+                       else
+                       return
+                       return
+                       return
+                       endif
 ;
 ;Jump table for 0x90 to 0x9F
 Dispatcher_4           movf                   Param78,W
@@ -612,6 +626,7 @@ Cmd_GetEncoderOffset	movf	EncoderOffset,W
 	movwi	FSR0++
 	goto	RS232_Send_S0
 ;
+                       if UsePID
 ;---kCmd_SetKp-------------------	;+1 data (Kp), return ACK
 Cmd_SetKp	moviw	FSR1++
 	movwf	Kp
@@ -641,6 +656,7 @@ Cmd_GetKd	movf	Kd,W
 	movwi	FSR0++
 	goto	RS232_Send_S0
 ;
+                       endif
 ;---kCmd_GetI-------------------
 ; Get servo current
 Cmd_GetI	BankSel	Cur_AN0
