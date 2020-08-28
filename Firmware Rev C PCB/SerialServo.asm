@@ -150,7 +150,7 @@ ANSELA_Val	EQU	b'00000011'	;RA0/AN0, RA4/AN4
 #Define	RA1_In	PORTA,1	;Battery Volts, Analog Input
 #Define	SW1_In	PORTA,2	;SW1/LED1
 #Define	SW2_In	PORTA,3	;SW2/LED2
-#Define	RA4_In	PORTA,4	;n/c
+#Define	SW3_In	PORTA,4	;n/c on Rev C
 #Define	RA5_In	PORTA,5	;VPP/MCLR*
 #Define	RA6_Out	PORTA,6	;MagEnc_DataBit Encoder MOSI (SPI, Digital Output)
 #Define	RA7_In	PORTA,7	;LED3 (Active Low Output)(System LED)
@@ -406,6 +406,7 @@ MD3_MaxCmd             equ                    ServoMax_uS
 	Cur_AN1:2		;Battery Volts
 	Cur_AN2:2		;SW1_LED1
 	Cur_AN3:2		;SW2_LED2
+	Cur_AN4:2                                     ;SW3_LED3, n/c on Rev C
 ;
 	OldAN0Value:2
 	endc
@@ -1292,7 +1293,6 @@ DoModeTwo_1:
 	bsf	ServoIdle	;power down servo
 	goto	ModeReturn
 ;
-
 ;=========================================================================================
 ;Idle routine for Absolute encoder position control w/ continuous rotation servo.
 ;

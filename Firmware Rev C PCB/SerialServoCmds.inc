@@ -580,12 +580,19 @@ Cmd_GetAuxNValue_Dig	movf	Param78,W	;AuxNum
 	movwi	FSR0++
 	goto	RS232_Send_S0
 ;
-Cmd_GetAuxNValue_Dig1	clrw
+Cmd_GetAuxNValue_Dig1	sublw	0x01
+	SKPZ
+	bra	Cmd_GetAuxNValue_Dig2
 	btfsc	SW2_In
 	movlw	0x01
 	movwi	FSR0++
 	goto	RS232_Send_S0
 ;
+Cmd_GetAuxNValue_Dig2	clrw
+	btfsc	SW3_In
+	movlw	0x01
+	movwi	FSR0++
+	goto	RS232_Send_S0
 ; Send the Button value
 Cmd_GetAuxNValue_Btn	movf	Param78,W	;AuxNum
 	SKPZ
@@ -707,12 +714,12 @@ Cmd_GetBattVolts	BankSel	BattVolts
 ;
 ;---kCmd_GetCalPot------------------
 ; Get calibration pot
-;Cmd_GetCalPot	movlb	Cur_AN4
-;	movf	Cur_AN4,W
-;	movwi	FSR0++
-;	movf	Cur_AN4+1,W
-;	movwi	FSR0++
-;	goto	RS232_Send_S0
+Cmd_GetCalPot	movlb	ModeZeroPot
+	movf	ModeZeroPot,W
+	movwi	FSR0++
+	movf	ModeZeroPot+1,W
+	movwi	FSR0++
+	goto	RS232_Send_S0
 ;
 ;---kCmd_GetStatus----------------
 Cmd_GetStatus	movf	ssStatus,W
@@ -779,6 +786,9 @@ IDString	brw
 	retlw	'r'
 	retlw	'v'
 	retlw	'o'
+	retlw	' '
+	retlw	'r'
+	retlw	'C'
 	retlw	'\n'
 	retlw	0x00
 ;

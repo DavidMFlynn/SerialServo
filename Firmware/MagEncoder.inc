@@ -1,7 +1,7 @@
 ;*****************************************************************************************
 ;    Filename:      MagEncoder.inc
 ;    Date:          5/28/2017
-;    File Version:  1.0.1
+;    File Version:  1.0.2   8/27/2020
 ;    
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -31,6 +31,7 @@ kEncHiBit	EQU	3
 ;kEncHiBit	EQU	1
 ; 
 ; History:
+;   1.0.2   8/27/2020  Fixed to asm w/ MacroPIC.
 ;   1.0.1   5/28/2017  Added Home routines.
 ;   1.0.0   5/27/2017  First Code and it WORKS!
 ;*****************************************************************************************
@@ -178,11 +179,11 @@ ReadEncoder_2	bcf	MagEnc_Index
 ;
 ; add the change to the accumulated value
 	movf	Param76,W
-	addwf	EncoderAccum
+	addwf	EncoderAccum,F
 	movf	Param77,W
-	addwfc	EncoderAccum+1
+	addwfc	EncoderAccum+1,F
 	movf	Param78,W
-	addwfc	EncoderAccum+2
+	addwfc	EncoderAccum+2,F
 ;
 	return
 ;
@@ -337,7 +338,7 @@ SaveHomePos            bsf                    MagEnc_Homed
                        movwf                  EncoderHome
                        movf                   EncoderVal+1,W
                        movwf                  EncoderHome+1
-                       mCall1To0              SaveParams
+                       mLongCall              SaveParams
                        return
 ;======================
 ;EncoderAccum = EncoderVal + 4096 - HM

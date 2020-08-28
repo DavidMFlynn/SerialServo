@@ -41,13 +41,6 @@ InitializeIO	MOVLB	0x01	; select bank 1
 	MOVWF	T1CON
 	bcf	T1GCON,TMR1GE	;always count
 ;
-;SPI MISO >> SDI1 RB1, default
-;SPI CLK >> RB4, default
-	movlb	2	;bank 2
-	bsf	APFCON0,RXDTSEL	;RX >> RB2
-	bsf	APFCON1,TXCKSEL	;TX >> RB5
-	bsf	APFCON0,SDO1SEL	;SPI MOSI >> SDO1 RA6
-;	
 ; clear memory to zero
 	mLongCall	ClearRam
 	CLRWDT
@@ -114,9 +107,6 @@ InitializeIO	MOVLB	0x01	; select bank 1
 	bsf	ssCmdPos+1,7
 ;
 	CLRWDT
-;
-	call	Init_AS5047D	;initialize the SPI encoder I/O
-;
 ;
 	bsf	INTCON,PEIE	; enable periferal interupts
 	bsf	INTCON,GIE	; enable interupts

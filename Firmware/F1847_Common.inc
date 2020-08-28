@@ -2,8 +2,8 @@
 ; Commonly used routines PIC16F1847 version
 ;
 ;    Filename:      F1847 Common.inc
-;    Date:          11/21/2015
-;    File Version:  1.0.1
+;    Date:          4/6/2019
+;    File Version:  1.0.2
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -13,6 +13,8 @@
 ;=========================================================================================
 ;    History:
 ;
+; 1.0.2  4/6/2019	Fixes to EERead/EEwrite
+; 1.0.2 2/16/2019	Fix: added FSR0H to DecTimer.
 ; 1.0.1 11/21/2015	Updates DecTimer.
 ; 1.0   11/16/2013	Updated from F648A Common.inc
 ;
@@ -90,7 +92,7 @@ ClearRam_2	MOVLW	0x50	;Clear 120h-16Fh, 80 bytes
 ClearRam_L2	CLRF	INDF0
 	INCF	FSR0,F
 	DECFSZ	Param7F,F
-	GOTO	ClearRam_L2
+	bra	ClearRam_L2
 	RETURN
 ;
 	if UseEEParams
@@ -145,6 +147,8 @@ DecTimer1	movlw	Timer1Hi
 ;DecTimer
 ; entry: FSR=Timer(n)Hi
 DecTimer	MOVWF	FSR0L
+	movlw	High Timer4Hi
+	movwf	FSR0H
 	MOVIW	FSR0--	;TimerNHi
 	IORWF	INDF0,W	;TimerNLo
 	SKPNZ
@@ -160,19 +164,23 @@ DecTimer	MOVWF	FSR0L
 ; Test for 16 bit timers = zero
 ;If Timer is zero return Z flag,1 else Z=0
 ;
-TestT4_Zero	movf	Timer4Lo,W
+TestT4_Zero	movlb	0
+	movf	Timer4Lo,W
 	iorwf	Timer4Hi,W
 	return
 ;
-TestT3_Zero	movf	Timer3Lo,W
+TestT3_Zero	movlb	0
+	movf	Timer3Lo,W
 	iorwf	Timer3Hi,W
 	return
 ;
-TestT2_Zero	movf	Timer2Lo,W
+TestT2_Zero	movlb	0
+	movf	Timer2Lo,W
 	iorwf	Timer2Hi,W
 	return
 ;
-TestT1_Zero	movf	Timer1Lo,W
+TestT1_Zero	movlb	0
+	movf	Timer1Lo,W
 	iorwf	Timer1Hi,W
 	return	
 ;
@@ -226,6 +234,8 @@ EEReadW	movwf	EEAddrTemp
 EERead	movf	EEAddrTemp,W
 	MOVLB	0x03	;Bank 3
 	movwf	EEADR	;Address to read
+	bcf	EECON1,CFGS	;not config mem
+	bcf	EECON1,EEPGD	;Data memory
 	bsf	EECON1,RD
 	movf	EEDAT,W	;W=EEDAT
 	MOVLB	0x00	;Bank 0
@@ -254,6 +264,8 @@ EEWrite	MOVF	EEAddrTemp,W
 	movf	EEDataTemp,W
 	movlb	0x03
 	movwf	EEDAT
+	bcf	EECON1,CFGS	;not config mem
+	bcf	EECON1,EEPGD	;Data memory
 	bsf	EECON1,WREN
 	bcf	INTCON,GIE	;Disale Ints
 	btfsc	INTCON,GIE
