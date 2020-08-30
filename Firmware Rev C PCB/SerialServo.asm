@@ -2,7 +2,7 @@
 ;
 ;    Filename:      SerialServo.asm
 ;    Created:       4/26/2018
-;    File Version:  1.1b4   8/26/2020
+;    File Version:  1.1b5   8/30/2020
 ;
 ;    Author:        David M. Flynn
 ;    Company:       Oxford V.U.E., Inc.
@@ -27,6 +27,7 @@
 ;Mode 4: Gripper force control.
 ;
 ;    History:
+; 1.1b5   8/30/2020    Added support for Rev D PCB, Aux3...
 ; 1.1b4   8/26/2020    Addded kCmd_SetKp..., Fixed Batt Volts (AN1), ClampInt bug fixed.
 ; 1.1b3   4/10/2020    Improved Mode 3
 ; 1.1b2   8/11/2019	Continue fixes for 14bit encoder. New defaults Mode 3 (2950 ±100, fast, Idle center)
@@ -60,7 +61,7 @@
 ;
 ;   Pin 1 (RA2/AN2) SW1/LED1 (Active Low Input/Output)
 ;   Pin 2 (RA3/AN3) SW2/LED2 (Active Low Input/Output)
-;   Pin 3 (RA4/AN4) n/c
+;   Pin 3 (RA4/AN4) SW3/LED3 (Active Low Input/Output) Rev D only
 ;   Pin 4 (RA5/MCLR*) VPP/MCLR*
 ;   Pin 5 (GND) Ground
 ;   Pin 6 (RB0) MagEnc_CSBit (Active Low Output)
@@ -115,6 +116,7 @@
 	constant	oldCode=0
 	constant	useRS232=1
 	constant	UseEEParams=1
+	constant	UseAuxLEDBlinking=0
 ;
 	constant	UseAltSerialPort=1
 	constant	RP_LongAddr=0
@@ -145,23 +147,35 @@ kGripperHC	EQU	0x04	;Gripper hysteresis
 PortADDRBits	EQU	b'10111111'
 PortAValue	EQU	b'00000000'
 ANSELA_Val	EQU	b'00000011'	;RA0/AN0, RA4/AN4
+#Define                Aux0_ANSEL_Bit         ANSELA,2
+#Define                Aux1_ANSEL_Bit         ANSELA,3
+#Define                Aux2_ANSEL_Bit         ANSELA,4
 ;
 #Define	RA0_In	PORTA,0	;Current, Analog Input
 #Define	RA1_In	PORTA,1	;Battery Volts, Analog Input
 #Define	SW1_In	PORTA,2	;SW1/LED1
 #Define	SW2_In	PORTA,3	;SW2/LED2
-#Define	SW3_In	PORTA,4	;n/c on Rev C
+#Define	SW3_In	PORTA,4	;SW3/LED3, n/c on Rev C
 #Define	RA5_In	PORTA,5	;VPP/MCLR*
 #Define	RA6_Out	PORTA,6	;MagEnc_DataBit Encoder MOSI (SPI, Digital Output)
 #Define	RA7_In	PORTA,7	;LED3 (Active Low Output)(System LED)
 LED1_Bit	EQU	2	;LED1 (Active Low Output)
 LED2_Bit	EQU	3	;LED2 (Active Low Output)
-SysLED_Bit	EQU	7	;LED3 (Active Low Output)
-#Define	LED1_Tris	TRISA,LED1_Bit	;LED1 (Active Low Output)
-#Define	LED1_Lat	LATA,LED1_Bit	;LED1 (Active Low Output)
-#Define	LED2_Tris	TRISA,LED2_Bit	;LED2 (Active Low Output)
-#Define	LED2_Lat	LATA,LED2_Bit	;LED2 (Active Low Output)
-#Define	SysLED_Tris	TRISA,SysLED_Bit	;LED3 (Active Low Output)
+LED3_Bit               EQU                    4
+SysLED_Bit	EQU	7	;Sys_LED (Active Low Output)
+#Define	SysLED_Tris	TRISA,SysLED_Bit	;Sys_LED (Active Low Output)
+;
+#Define	Aux0_LED1_TRIS	TRISA,LED1_Bit	;LED1 (Active Low Output)
+#Define                Aux0_SW1_PORT          PORTA,LED1_Bit         
+#Define	Aux0_LED1_Lat	LATA,LED1_Bit	;LED1 (Active Low Output)
+;
+#Define	Aux1_LED2_TRIS	TRISA,LED2_Bit	;LED2 (Active Low Output)
+#Define                Aux1_SW2_PORT          PORTA,LED2_Bit         
+#Define	Aux1_LED2_Lat	LATA,LED2_Bit	;LED2 (Active Low Output)
+;
+#Define	Aux2_LED3_TRIS	TRISA,LED3_Bit	;LED3 (Active Low Output)
+#Define                Aux2_SW3_PORT          PORTA,LED3_Bit         
+#Define	Aux2_LED3_Lat	LATA,LED3_Bit	;LED3 (Active Low Output)
 ;
 Servo_AddrDataMask	EQU	0xF8
 ;
@@ -250,15 +264,15 @@ kGripI	EQU	.40
 DebounceTime	EQU	.10
 kMaxMode	EQU	.4
 ;
-; AuxIO modes
-kAuxIOnone	EQU	0x00
-kAuxIOLEDBtn	EQU	0x01
-kAuxIODigitalIn	EQU	0x02
-kAuxIODigitalOut	EQU	0x03
-kAuxIOAnalogIn	EQU	0x04
-kAuxIOHomeSw	EQU	0x05
-kAuxIOFwdLimit	EQU	0x06
-kAuxIORevLimit	EQU	0x07
+; AuxIO modes, SWn/LEDn setup options
+kAuxIOnone	EQU	0x00                   ;unused
+kAuxIOLEDBtn	EQU	0x01                   ;LED/Button
+kAuxIODigitalIn	EQU	0x02                   ;Digital Input
+kAuxIODigitalOut	EQU	0x03                   ;Digital Output
+kAuxIOAnalogIn	EQU	0x04                   ;Analog Input
+kAuxIOHomeSw	EQU	0x05                   ;Home Switch
+kAuxIOFwdLimit	EQU	0x06                   ;Forward Limit Switch
+kAuxIORevLimit	EQU	0x07                   ;Reverse Limit Switch
 ;
 ;================================================================================================
 ;***** VARIABLE DEFINITIONS
@@ -275,12 +289,20 @@ kAuxIORevLimit	EQU	0x07
 	SysLED_BlinkCount
 	SysLEDCount		;sys LED Timer tick count
 ;
+                       if UseAuxLEDBlinking
 	LED1_Blinks		;0=off,1,2,3
 	LED2_Blinks
+	LED3_Blinks
 	LED1_BlinkCount		;LED1_Blinks..0
 	LED2_BlinkCount
+	LED3_BlinkCount
 	LED1_Count		;tick count
 	LED2_Count
+	LED3_Count
+	endif
+;
+	SysFlags1
+	SysFlags2
 ;
 	EEAddrTemp		;EEProm address to read or write
 	EEDataTemp		;Data to be writen to EEProm
@@ -342,6 +364,19 @@ kAuxIORevLimit	EQU	0x07
 ;
 	endc
 ;--------------------------------------------------------------
+;---SysFlags1 bits---
+#Define	Aux0_SW1_Active	SysFlags1,0
+#Define	Aux0_SW1_Debounce	SysFlags1,1
+#Define	Aux0_LED1_Active	SysFlags1,2
+#Define	Aux1_SW2_Active	SysFlags1,3
+#Define	Aux1_SW2_Debounce	SysFlags1,4
+#Define	Aux1_LED2_Active	SysFlags1,5
+#Define	Aux2_SW3_Active	SysFlags1,6
+#Define	Aux2_SW3_Debounce	SysFlags1,7
+;
+;---SysFlags2 bits---
+#Define	Aux2_LED3_Active	SysFlags2,0
+;
 ;
 MD3_MinCmd             equ                    ServoMin_uS
 MD3_MaxCmd             equ                    ServoMax_uS
@@ -370,6 +405,9 @@ MD3_MaxCmd             equ                    ServoMax_uS
 #Define	ssEncParityError	ssStatus+1,0	;cleared by host read
 #Define	ssEncCmdError	ssStatus+1,1	;cleared by host read	
 #Define                ssCmdPosVerified       ssStatus+1,2
+#Define	ForwardLimit	ssStatus+1,3
+#Define	ReverseLimit	ssStatus+1,4
+#Define	HomeSwitch	ssStatus+1,5
 ;
 ;---------------
 #Define	FirstRAMParam	EncoderFlags
@@ -402,22 +440,51 @@ MD3_MaxCmd             equ                    ServoMax_uS
 	TX_Data:RP_DataBytes
 ;
 	ANFlags
+	ANxActive		;Skip if 0
+	ANCount		;Current AN being serviced
 	Cur_AN0:2		;IServo
 	Cur_AN1:2		;Battery Volts
-	Cur_AN2:2		;SW1_LED1
-	Cur_AN3:2		;SW2_LED2
-	Cur_AN4:2                                     ;SW3_LED3, n/c on Rev C
+	Cur_AN2:2		;Aux0_SW1_LED1
+	Cur_AN3:2		;Aux1_SW2_LED2
+	Cur_AN4:2                                     ;Aux2_SW3_LED3, n/c on Rev C
 ;
 	OldAN0Value:2
 	endc
 ;
+LastAN	EQU	.4	;Sevice 5 AN inputs
+FirstANData	EQU	Cur_AN0
+;
 #Define	ServoCurrent	Cur_AN0
 #Define	BattVolts	Cur_AN1
 #Define	ModeZeroPot	Cur_AN2
+#Define                AN_Aux0                Cur_AN2
+#Define                AN_Aux1                Cur_AN3
+#Define                AN_Aux2                Cur_AN4
 ;
 ;---ANFlags bits---
 #Define	NewDataAN0	ANFlags,0
 #Define	NewDataAN1	ANFlags,1
+#Define	NewDataAN2	ANFlags,1
+#Define	NewDataAN3	ANFlags,1
+#Define	NewDataAN4	ANFlags,1
+;
+;---ANxActive bits---
+#Define	AN0_ActiveBit	ANxActive,0
+#Define	AN1_ActiveBit	ANxActive,1
+#Define	AN2_ActiveBit	ANxActive,2
+#Define	AN3_ActiveBit	ANxActive,3
+#Define	AN4_ActiveBit	ANxActive,4
+#Define	AN_Aux0_ActiveBit	ANxActive,3	;Names used by Serial Comms
+#Define	AN_Aux1_ActiveBit	ANxActive,4
+#Define	AN_Aux2_ActiveBit	ANxActive,5
+;
+ANNumMask	EQU	0x7C
+AN0_Val	EQU	0x00                   ;Current
+AN1_Val	EQU	0x04                   ;Volts
+AN2_Val	EQU	0x08                   ;SW1/LED1/Aux0
+AN3_Val	EQU	0x0C                   ;SW2/LED2/Aux1
+AN4_Val	EQU	0x10                   ;SW2/LED2/Aux2
+;AN7_Val	EQU	0x1C
 ;
 ;================================================================================================
 ;  Bank2 Ram 120h-16Fh 80 Bytes
@@ -437,81 +504,8 @@ MD3_MaxCmd             equ                    ServoMax_uS
 ;
 ;================================================================================================
 ;  Bank3 Ram 1A0h-1EFh 80 Bytes
-; PID vars
-	cblock	0x1A0
-	derivCount		;This value determins how many times the Derivative term is
-			;calculated based on each Integral term.
-	pidOut0		;24-bit Final Result of PID for the "Plant"
-	pidOut1
-	pidOut2
-	error0		;16-bit error, passed to the PID
-	error1
-	a_Error0		;24-bit accumulated error, used for Integral term
-	a_Error1
-	a_Error2
-	p_Error0		;16-bit previous error, used for Derivative term
-	p_Error1
-	d_Error0		;16-bit delta error (error - previous error)
-	d_Error1
-;
-	prop0		;24-bit proportional value
-	prop1
-	prop2
-	integ0		;24-bit Integral value
-	integ1
-	integ2
-	deriv0		;24-bit Derivative value
-	deriv1
-	deriv2
-;
-	pidStat1		;PID bit-status register
-	pidStat2		;PID bit-status register2
-;
-; PIDMath
-	PRODL
-	PRODH
-	AccB0		;LSB
-	AccB1
-	AccB2
-	AccB3		;MSB
-	AArgB0
-	AArgB1
-	AArgB2
-	AArgB3
-	BArgB0
-	BArgB1
-	BArgB2
-	BArgB3
-	RemB0
-	RemB1
-	RemB2
-	RemB3
-	endc
-;
-;___________________________ pidStat1 register ________________________________________________
-;|  bit 7   |   bit 6    |  bit 5 |    bit 4   |   bit 3    |  bit 2   |   bit 1    |  bit 0   |
-;| pid_sign | d_err_sign |        | p_err_sign | a_err_sign | err_sign |  a_err_z   |  err_z   |
-;|__________|____________|________|____________|____________|__________|____________|__________|
-;
-#Define	err_z	pidStat1,0	;error zero flag, Zero = set
-#Define	a_err_z	pidStat1,1	;a_error zero flag, Zero = set
-#Define	err_sign	pidStat1,2	;error sign flag, Pos = set/ Neg = clear
-#Define	a_err_sign	pidStat1,3	;a_error sign flag, Pos = set/ Neg = clear
-#Define	p_err_sign	pidStat1,4	;p_error sign flag, Pos = set/ Neg = clear
-;
-#Define	d_err_sign	pidStat1,6	;d_error sign flag, Pos = set/ Neg = clear
-#Define	pid_sign	pidStat1,7	;PID result sign flag, Pos = set/ Neg = clear
-;
-;________________________________ pidStat2 register______________________________________
-;| bit 7 |  bit 6  |  bit 5   |    bit 4   |   bit 3    |  bit 2    |   bit 1    |  bit 0   |
-;|       |         |          | error_limit| deriv_sign | BArg_sign | AArg_Sign  | d_err_z  |
-;|_______|_________|__________|____________|____________|___________|____________|__________|
-;
-#Define	d_err_z	pidStat2,0	;d_error zero flag, Zero = set
-#Define	AArg_sign	pidStat2,1	;AArg sign flag, Pos = set/ Neg = clear
-#Define	BArg_sign	pidStat2,2	;BArg sign flag, Pos = set/ Neg = clear
-#Define	deriv_sign	pidStat2,3	;deriv sign flag, Pos = set/ Neg = clear
-#Define	error_limit	pidStat2,4	;Error limit exceeded flag, error = set/ no error = clear
+MathAddress	EQU	0x1A0
+	include	MathEQUs.inc
 ;
 ;=========================================================================================
 ;  Bank4 Ram 220h-26Fh 80 Bytes
@@ -684,9 +678,6 @@ ProgStartVector	CLRF	PCLATH
 	movlb	0x01	;bank 1
 	bsf	SysLED_Tris
 ;
-	BSF	LED1_Tris
-	BSF	LED2_Tris
-;
 ; Read Switches
 	movlb	0x00	;bank 0
 ;--------------------
@@ -706,148 +697,9 @@ SystemBlink_DoIt	MOVWF	SysLEDCount
 	movlb	0x01	;bank 1
 	bcf	SysLED_Tris	;LED ON
 SystemBlink_end:
-;--------------------
-; Flash LEDs
-	movlb	0x00	;bank 0
-	movf	ssAux0Config,W
-	andlw	0x0F
-	sublw	kAuxIOLEDBtn
-	SKPZ
-	bra	LED1_Blink_end
-; Get Button Value
-	movlb	0x01	;bank 1
-	BSF	LED1_Tris
-	movlb	0x00	;bank 0
-	BCF	SW1_Flag
-	BTFSS	SW1_In
-	BSF	SW1_Flag
 ;
-	movf	LED1_Blinks,F
-	SKPZ		;LED1 active?
-	bra	LED1_Blinking	; Yes
-	clrf	LED1_BlinkCount
-	clrf	LED1_Count
-	bra	LED1_Blink_end
+	call	HandleAuxIO
 ;
-LED1_Blinking	movf	LED1_Count,W
-	iorwf	LED1_BlinkCount,W
-	SKPNZ		;Startup?
-	bra	LED1_Start
-;
-	decfsz	LED1_Count,F	;Done w/ blink
-	bra	LED1_Blink_end	; no
-;
-	movf	LED1_BlinkCount,F
-	SKPNZ		;Done w/ cycle?
-	bra	LED1_Start	; Yes
-;
-	decfsz	LED1_BlinkCount,F
-	bra	LED1_NextBlink
-	movlw	LEDTIME	;long off time
-	movwf	LED1_Count
-	bra	LED1_Blink_end
-;
-LED1_Start	movf	LED1_Blinks,W
-	movwf	LED1_BlinkCount
-LED1_NextBlink	movlw	LEDFastTime
-	movwf	LED1_Count
-;
-	movlb	0x01
-	BCF	LED1_Tris
-LED1_Blink_end:
-;-------------
-;kAuxIODigitalOut
-	movlb	0x00	;bank 0
-	movf	ssAux0Config,W
-	andlw	0x0F
-	sublw	kAuxIODigitalOut
-	SKPZ
-	bra	Aux0DigOut_end
-;
-	btfss	LED1_Blinks,0
-	bra	Aux0DigOut_1
-	movlb	0x02	;bank 2
-	bsf	LED1_Lat
-	bra	Aux0DigOut_2
-;
-Aux0DigOut_1	movlb	0x02	;bank 2
-	bcf	LED1_Lat
-	bra	Aux0DigOut_2
-;
-Aux0DigOut_2	movlb	0x01	;bank 1
-	BCF	LED1_Tris
-Aux0DigOut_end:
-;-------------
-	movlb	0x00	;bank 0
-	movf	ssAux1Config,W
-	andlw	0x0F
-	sublw	kAuxIOLEDBtn
-	SKPZ
-	bra	LED2_Blink_end
-; Get Button Value
-	movlb	0x01	;bank 1
-	BSF	LED2_Tris
-	movlb	0x00	;bank 0
-	BCF	SW2_Flag
-	BTFSS	SW2_In
-	BSF	SW2_Flag
-;
-	movf	LED2_Blinks,F
-	SKPZ		;LED2 active?
-	bra	LED2_Blinking	; Yes
-	clrf	LED2_BlinkCount
-	clrf	LED2_Count
-	bra	LED2_Blink_end
-;
-LED2_Blinking	movf	LED2_Count,W
-	iorwf	LED2_BlinkCount,W
-	SKPNZ		;Startup?
-	bra	LED2_Start
-;
-	decfsz	LED2_Count,F	;Done w/ blink
-	bra	LED2_Blink_end	; no
-;
-	movf	LED2_BlinkCount,F
-	SKPNZ		;Done w/ cycle?
-	bra	LED2_Start	; Yes
-;
-	decfsz	LED2_BlinkCount,F
-	bra	LED2_NextBlink
-	movlw	LEDTIME	;long off time
-	movwf	LED2_Count
-	bra	LED2_Blink_end
-;
-LED2_Start	movf	LED2_Blinks,W
-	movwf	LED2_BlinkCount
-LED2_NextBlink	movlw	LEDFastTime
-	movwf	LED2_Count
-;
-	movlb	0x01
-	BCF	LED2_Tris
-LED2_Blink_end:
-;-------------
-;kAuxIODigitalOut
-	movlb	0x00	;bank 0
-	movf	ssAux1Config,W
-	andlw	0x0F
-	sublw	kAuxIODigitalOut
-	SKPZ
-	bra	Aux1DigOut_end
-;
-	btfss	LED2_Blinks,0
-	bra	Aux1DigOut_1
-	movlb	0x02	;bank 2
-	bsf	LED2_Lat
-	bra	Aux1DigOut_2
-;
-Aux1DigOut_1	movlb	0x02	;bank 2
-	bcf	LED2_Lat
-	bra	Aux1DigOut_2
-;
-Aux1DigOut_2	movlb	0x01	;bank 1
-	BCF	LED2_Tris
-Aux1DigOut_end:
-;-------------
 ;
 SystemTick_end:
 ;
@@ -1699,142 +1551,89 @@ HdlBtn_Btn4:
 	goto	HdlBtn_DB
 ;
 ;=========================================================================================
-; Setup or Read AN0 or Read AN4
-ANNumMask	EQU	0x7C
-AN0_Val	EQU	0x00                   ;Current
-AN1_Val	EQU	0x04                   ;Volts
-AN2_Val	EQU	0x08                   ;SW1/LED1/Aux0
-AN3_Val	EQU	0x0C                   ;SW2/LED2/Aux1
-;AN4_Val	EQU	0x10
-;AN7_Val	EQU	0x1C
+; Read analog inputs in sequence, Call from main loop
+; Use with PIC16F1847, sets up and manages the ADC
 ;
-ReadAN	MOVLB	1	;bank 1
+; Entry: ANCount, FirstANData.., LastAN, ANFlags, ANxActive
+; Exit: ANCount, ANFlags
+; Ram Used: Param78
+; Calls: ANx_GetADPCHVal
+;
+ReadAN	movlb	ADCON0	;bank 1
 	BTFSS	ADCON0,ADON	;Is the Analog input ON?
 	BRA	ReadAN0_ColdStart	; No, go start it
 ;
 	BTFSC	ADCON0,GO_NOT_DONE	;Conversion done?
 	BRA	ReadAN_Rtn	; No
 ;
-	movlw	HIGH Cur_AN0
+	movlw	HIGH FirstANData
 	movwf	FSR0H
 	movf	ADCON0,W
-	movlb	0x00	;bank 0
-	andlw	ANNumMask
-	SKPNZ
-	bra	ReadAN_AN0
-;
-	movwf	Param78	;AN select bits
-	movlw                  AN1_Val
-	subwf                  Param78,W
-	SKPNZ
-	bra                    ReadAN_AN1             ;Batt Volts
-;
-;Aux0 SW1_LED1
-	movf	ssAux0Config,W
-	andlw	0x0F
-	sublw	kAuxIOAnalogIn
-	SKPZ
-	bra	ReadAN_TryAN2
-	movlw	AN2_Val
-	subwf	Param78,W	;AN select bits
-	SKPNZ
-	bra	ReadAN_AN2
-;Aux1 SW2_LED2
-ReadAN_TryAN2	movf	ssAux1Config,W
-	andlw	0x0F
-	sublw	kAuxIOAnalogIn
-	SKPZ
-	bra	ReadAN_TryAN0
-	movlw	AN2_Val
-	subwf	Param78,W	;AN select bits
-	SKPNZ
-	bra	ReadAN_AN2
-;IServo
-ReadAN_TryAN0	movlw	AN0_Val
-	subwf	Param78,W
-	SKPNZ
-	bra	ReadAN_AN0
-;
-	movlw	AN0_Val	;next to read
-	movwf	Param78
-	movlw	LOW Cur_AN0
-	movwf	FSR0L
-	BankSel	Cur_AN0	;where the analog stuff is
-	bsf	NewDataAN0
-	bra	ReadAN_1
-;
-ReadAN_AN0	movlw	low Cur_AN0
-	movwf	FSR0L
-	BankSel	Cur_AN0	;where the analog stuff is
-	bsf	NewDataAN0
-	movlw	AN1_Val	;next to read
-	movwf	Param78
-;	movf	ssAux0Config,W
-;	andlw	0x0F
-;	sublw	kAuxIOAnalogIn
-;	SKPNZ
-	bra	ReadAN_1
-;
-ReadAN_AN0_1	movlw	AN2_Val	;next to read
-	movwf	Param78
-	movf	ssAux0Config,W
-	andlw	0x0F
-	sublw	kAuxIOAnalogIn
-	SKPNZ
-	bra	ReadAN_1
-;
-ReadAN_AN0_2	movlw	AN3_Val	;next to read
-	movwf	Param78
-	movf	ssAux1Config,W
-	andlw	0x0F
-	sublw	kAuxIOAnalogIn
-	SKPNZ
-	bra	ReadAN_1
-;
-ReadAN_AN0_3	movlw	AN0_Val	;next to read
-	movwf	Param78
-	bra	ReadAN_1
-;
-ReadAN_AN1	movlw	low Cur_AN1
-	movwf	FSR0L
-	bra	ReadAN_AN0_1
-;
-ReadAN_AN2	movlw	low Cur_AN2
-	movwf	FSR0L
-	bra	ReadAN_AN0_2
-;
-ReadAN_AN3	movlw	low Cur_AN3
-	movwf	FSR0L
-	bra	ReadAN_AN0_3
-;
-ReadAN_1	movlb	0x01	;bank 1
-	MOVF	ADRESL,W
+	lslf                   ANCount,W
+	addlw                  LOW FirstANData
+	movwf                  FSR0L
+; move result into ram
+                       MOVF	ADRESL,W
 	MOVWI	FSR0++
 	MOVF	ADRESH,W
 	MOVWI	FSR0++
+; notify app of new data
+                       incf                   ANCount,W
+                       movwf                  Param78
 ;
-	movf	Param78,W
-	BSF	WREG,0	;ADC ON
-	MOVWF	ADCON0
-	movlw	0x04	;Acquisition time 5uS
-	call	DelayWuS
-	BSF	ADCON0,ADGO	;Start next conversion.
-	movlb	0x00	; bank 0
-	return
+                       clrw
+                       bsf                    _C
+ReadAN_L2              rlf                    WREG,F
+                       decfsz                 Param78,F
+                       bra                    ReadAN_L2
+                       iorwf                  ANFlags,F	;set the new data bit
+;
+; setup for next AN
+ReadAN_Next            movlw                  LastAN
+                       subwf	ANCount,W
+                       SKPNZ                                         ;Last one?
+	bra	ReadAN_Start0	; Yes, start over w/ AN0
+	incf	ANCount,F	;AN#++
+	incf	ANCount,W	;W = AN#+1
+	movwf	Param78
+	clrw
+	bsf	_C
+ReadAN_L1	rlf	WREG,F
+	decfsz	Param78,F
+	bra	ReadAN_L1
+	andwf	ANxActive,W	;Is this one active?
+	SKPNZ
+	bra	ReadAN_Next	; No
+;
+	bra	ReadAN_Start
+;
+;===========================================                       
 ;
 ReadAN0_ColdStart	MOVLB	1
 	MOVLW	b'11100000'	;Right Just, fosc/64
 ;	MOVLW	b'11110000'	;Right Just, Frc
 	MOVWF	ADCON1
-	MOVLW	AN0_Val	;Select AN0
-	BSF	WREG,0	;ADC ON
+;
+; Start acquisition of AN0
+ReadAN_Start0	CLRF	ANCount
+ReadAN_Start	call	ANx_GetADPCHVal
+                       BSF	WREG,0	;ADC ON
 	MOVWF	ADCON0
 	movlw	0x04	;Acquisition time 5uS
 	call	DelayWuS
-ReadAN_3	BSF	ADCON0,GO
+                       BSF	ADCON0,GO
 ReadAN_Rtn:
-Bank0_Rtn	MOVLB	0
-	Return
+	movlb	0                      ;bank 0
+	return
+;
+ANx_GetADPCHVal	movf	ANCount,W	;0..LastAN
+                       andlw                  0x07
+	brw
+	retlw	AN0_Val	;Servo Current
+	retlw	AN1_Val	;Batt Volts
+	retlw	AN2_Val	;Aux 0
+	retlw	AN3_Val	;Aux 1
+	retlw	AN4_Val	;Aux 2
 ;
 ;=========================================================================================
 ;
@@ -1960,6 +1759,384 @@ ClampInt_tooHigh	moviw                  2[FRS0]
 	moviw                  3[FRS0]
 	MOVWF	Param7D
 	RETURN
+;
+;=========================================================================================
+; ***************************************************************************************
+;=========================================================================================
+; Interupt Service Routine for Aux IO
+; Call from ISR every 1/100th second.
+;
+HandleAuxIO:
+;-------------------------------
+; Aux0 LED/Switch
+	movlb                  0                      ;bank 0
+	movf	ssAux0Config,W
+	andlw	0x07	;keep mode
+	brw
+	bra	Aux0_ISR_End	;kAuxIOnone
+	bra	Aux0_LEDBtn	;kAuxIOLEDBtn
+	bra	Aux0_Digital_In	;kAuxIODigitalIn
+	bra	Aux0_Digital_Out	;kAuxIODigitalOut
+	bra	Aux0_ISR_End	;kAuxIOAnalogIn
+	bra	Aux0_HomeSW	;kAuxIOHomeSw
+	bra	Aux0_FwdLimit	;kAuxIOFwdLimit
+	bra	Aux0_RevLimit	;kAuxIORevLimit
+	
+;
+Aux0_LEDBtn	movlb                  1                      ;bank 1
+                       bsf	Aux0_LED1_TRIS	;LED off
+	nop
+	nop
+	nop
+	call	Read_Aux0_Sw1
+;
+	btfss	Aux0_LED1_Active	;LED Active?
+	bra	Aux0_ISR_End
+	movlb                  1                      ;bank 1
+	bcf	Aux0_LED1_TRIS	; Yes, LED On
+	bra	Aux0_ISR_End
+;
+Aux0_Digital_In	call	Read_Aux0_Sw1
+	bra	Aux0_ISR_End
+;
+Aux0_Digital_Out       clrw
+                       btfsc                  Aux0_SW1_Active
+                       bsf                    WREG,0
+                       movlb                  2                      ;bank 2
+                       btfsc                  WREG,0
+                       bsf                    Aux0_LED1_Lat
+                       btfss                  WREG,0
+                       bcf                    Aux0_LED1_Lat
+                       movlb                  1                      ;bank 1
+                       bcf                    Aux0_LED1_TRIS         ;output
+                       bra                    Aux0_ISR_End
+;
+Aux0_HomeSW	call	Read_Aux0_Sw1
+;
+	bcf	HomeSwitch
+	btfsc	Aux0_SW1_Active	;Active?
+	bsf	HomeSwitch	; Yes
+	bra	Aux0_ISR_End
+;
+Aux0_FwdLimit	call	Read_Aux0_Sw1
+;
+	bcf	ForwardLimit
+	btfsc	Aux0_SW1_Active	;Active?
+	bsf	ForwardLimit	; Yes
+	bra	Aux0_ISR_End
+;
+Aux0_RevLimit	call	Read_Aux0_Sw1
+;
+	bcf	ReverseLimit
+	btfsc	Aux0_SW1_Active	;Active?
+	bsf	ReverseLimit	; Yes
+	bra	Aux0_ISR_End
+;
+Read_Aux0_Sw1	movlb                  0                      ;bank 0
+                       bcf	Aux0_SW1_Active
+	btfss	Aux0_SW1_PORT	;Switch input low?
+	bsf	Aux0_SW1_Active	; Yes
+	btfss	Aux0_SW1_Active	;Active?
+	bcf	Aux0_SW1_Debounce	; No
+	return
+;
+Aux0_ISR_End:
+;
+;-------------------------------
+; Aux1 LED/Switch
+	movlb                  0                      ;bank 0
+	movf	ssAux1Config,W
+	andlw	0x07	;keep mode
+	brw
+	bra	Aux1_ISR_End	;kAuxIOnone
+	bra	Aux1_LEDBtn	;kAuxIOLEDBtn
+	bra	Aux1_Digital_In	;kAuxIODigitalIn
+	bra	Aux1_Digital_Out	;kAuxIODigitalOut
+	bra	Aux1_ISR_End	;kAuxIOAnalogIn
+	bra	Aux1_HomeSW	;kAuxIOHomeSw
+	bra	Aux1_FwdLimit	;kAuxIOFwdLimit
+	bra	Aux1_RevLimit	;kAuxIORevLimit
+	
+;
+Aux1_LEDBtn	movlb                  1                      ;bank 1
+                       bsf	Aux1_LED2_TRIS	;LED off
+	nop
+	nop
+	nop
+	call	Read_Aux1_Sw2
+;
+	btfss	Aux1_LED2_Active	;LED Active?
+	bra	Aux1_ISR_End
+	movlb                  1                      ;bank 1
+	bcf	Aux1_LED2_TRIS	; Yes, LED On
+	bra	Aux1_ISR_End
+;
+Aux1_Digital_In	call	Read_Aux1_Sw2
+	bra	Aux1_ISR_End
+;
+Aux1_Digital_Out       clrw
+                       btfsc                  Aux1_SW2_Active
+                       bsf                    WREG,0
+                       movlb                  2                      ;bank 2
+                       btfsc                  WREG,0
+                       bsf                    Aux1_LED2_Lat
+                       btfss                  WREG,0
+                       bcf                    Aux1_LED2_Lat
+                       movlb                  1                      ;bank 1
+                       bcf                    Aux1_LED2_TRIS         ;output
+                       bra                    Aux1_ISR_End
+;
+Aux1_HomeSW	call	Read_Aux1_Sw2
+;
+	bcf	HomeSwitch
+	btfsc	Aux1_SW2_Active	;Active?
+	bsf	HomeSwitch	; Yes
+	bra	Aux1_ISR_End
+;
+Aux1_FwdLimit	call	Read_Aux1_Sw2
+;
+	bcf	ForwardLimit
+	btfsc	Aux1_SW2_Active	;Active?
+	bsf	ForwardLimit	; Yes
+	bra	Aux1_ISR_End
+;
+Aux1_RevLimit	call	Read_Aux1_Sw2
+;
+	bcf	ReverseLimit
+	btfsc	Aux1_SW2_Active	;Active?
+	bsf	ReverseLimit	; Yes
+	bra	Aux1_ISR_End
+;
+Read_Aux1_Sw2	movlb                  0                      ;bank 0
+                       bcf	Aux1_SW2_Active
+	btfss	Aux1_SW2_PORT	;Switch input low?
+	bsf	Aux1_SW2_Active	; Yes
+	btfss	Aux1_SW2_Active	;Active?
+	bcf	Aux1_SW2_Debounce	; No
+	return
+;
+Aux1_ISR_End:
+;
+;-------------------------------
+; Aux2 LED/Switch
+	movlb                  0                      ;bank 0
+	movf	ssAux2Config,W
+	andlw	0x07	;keep mode
+	brw
+	bra	Aux2_ISR_End	;kAuxIOnone
+	bra	Aux2_LEDBtn	;kAuxIOLEDBtn
+	bra	Aux2_Digital_In	;kAuxIODigitalIn
+	bra	Aux2_Digital_Out	;kAuxIODigitalOut
+	bra	Aux2_ISR_End	;kAuxIOAnalogIn
+	bra	Aux2_HomeSW	;kAuxIOHomeSw
+	bra	Aux2_FwdLimit	;kAuxIOFwdLimit
+	bra	Aux2_RevLimit	;kAuxIORevLimit
+	
+;
+Aux2_LEDBtn	movlb                  2                      ;bank 2
+                       bsf	Aux2_LED3_TRIS	;LED off
+	nop
+	nop
+	nop
+	call	Read_Aux2_Sw3
+;
+	btfss	Aux2_LED3_Active	;LED Active?
+	bra	Aux2_ISR_End
+	movlb                  1                      ;bank 1
+	bcf	Aux2_LED3_TRIS	; Yes, LED On
+	bra	Aux2_ISR_End
+;
+Aux2_Digital_In	call	Read_Aux2_Sw3
+	bra	Aux2_ISR_End
+;
+Aux2_Digital_Out       clrw
+                       btfsc                  Aux2_SW3_Active
+                       bsf                    WREG,0
+                       movlb                  2                      ;bank 2
+                       btfsc                  WREG,0
+                       bsf                    Aux2_LED3_Lat
+                       btfss                  WREG,0
+                       bcf                    Aux2_LED3_Lat
+                       movlb                  1                      ;bank 1
+                       bcf                    Aux2_LED3_TRIS         ;output
+                       bra                    Aux2_ISR_End
+;
+Aux2_HomeSW	call	Read_Aux2_Sw3
+;
+	bcf	HomeSwitch
+	btfsc	Aux2_SW3_Active	;Active?
+	bsf	HomeSwitch	; Yes
+	bra	Aux2_ISR_End
+;
+Aux2_FwdLimit	call	Read_Aux2_Sw3
+;
+	bcf	ForwardLimit
+	btfsc	Aux2_SW3_Active	;Active?
+	bsf	ForwardLimit	; Yes
+	bra	Aux2_ISR_End
+;
+Aux2_RevLimit	call	Read_Aux2_Sw3
+;
+	bcf	ReverseLimit
+	btfsc	Aux2_SW3_Active	;Active?
+	bsf	ReverseLimit	; Yes
+	bra	Aux2_ISR_End
+;
+Read_Aux2_Sw3	movlb                  0                      ;bank 0
+                       bcf	Aux2_SW3_Active
+	btfss	Aux2_SW3_PORT	;Switch input low?
+	bsf	Aux2_SW3_Active	; Yes
+	btfss	Aux2_SW3_Active	;Active?
+	bcf	Aux2_SW3_Debounce	; No
+	return
+;
+Aux2_ISR_End:
+                       movlb                  0                      ;bank 0
+                       return
+;
+                       if oldCode
+; Flash LEDs
+	movlb	0x00	;bank 0
+	movf	ssAux0Config,W
+	andlw	0x0F
+	sublw	kAuxIOLEDBtn
+	SKPZ
+	bra	LED1_Blink_end
+; Get Button Value
+	movlb	0x01	;bank 1
+	BSF	LED1_Tris
+	movlb	0x00	;bank 0
+	BCF	SW1_Flag
+	BTFSS	SW1_In
+	BSF	SW1_Flag
+;
+	movf	LED1_Blinks,F
+	SKPZ		;LED1 active?
+	bra	LED1_Blinking	; Yes
+	clrf	LED1_BlinkCount
+	clrf	LED1_Count
+	bra	LED1_Blink_end
+;
+LED1_Blinking	movf	LED1_Count,W
+	iorwf	LED1_BlinkCount,W
+	SKPNZ		;Startup?
+	bra	LED1_Start
+;
+	decfsz	LED1_Count,F	;Done w/ blink
+	bra	LED1_Blink_end	; no
+;
+	movf	LED1_BlinkCount,F
+	SKPNZ		;Done w/ cycle?
+	bra	LED1_Start	; Yes
+;
+	decfsz	LED1_BlinkCount,F
+	bra	LED1_NextBlink
+	movlw	LEDTIME	;long off time
+	movwf	LED1_Count
+	bra	LED1_Blink_end
+;
+LED1_Start	movf	LED1_Blinks,W
+	movwf	LED1_BlinkCount
+LED1_NextBlink	movlw	LEDFastTime
+	movwf	LED1_Count
+;
+	movlb	0x01
+	BCF	LED1_Tris
+LED1_Blink_end:
+;-------------
+;kAuxIODigitalOut
+	movlb	0x00	;bank 0
+	movf	ssAux0Config,W
+	andlw	0x0F
+	sublw	kAuxIODigitalOut
+	SKPZ
+	bra	Aux0DigOut_end
+;
+	btfss	LED1_Blinks,0
+	bra	Aux0DigOut_1
+	movlb	0x02	;bank 2
+	bsf	LED1_Lat
+	bra	Aux0DigOut_2
+;
+Aux0DigOut_1	movlb	0x02	;bank 2
+	bcf	LED1_Lat
+	bra	Aux0DigOut_2
+;
+Aux0DigOut_2	movlb	0x01	;bank 1
+	BCF	LED1_Tris
+Aux0DigOut_end:
+;-------------
+	movlb	0x00	;bank 0
+	movf	ssAux1Config,W
+	andlw	0x0F
+	sublw	kAuxIOLEDBtn
+	SKPZ
+	bra	LED2_Blink_end
+; Get Button Value
+	movlb	0x01	;bank 1
+	BSF	LED2_Tris
+	movlb	0x00	;bank 0
+	BCF	SW2_Flag
+	BTFSS	SW2_In
+	BSF	SW2_Flag
+;
+	movf	LED2_Blinks,F
+	SKPZ		;LED2 active?
+	bra	LED2_Blinking	; Yes
+	clrf	LED2_BlinkCount
+	clrf	LED2_Count
+	bra	LED2_Blink_end
+;
+LED2_Blinking	movf	LED2_Count,W
+	iorwf	LED2_BlinkCount,W
+	SKPNZ		;Startup?
+	bra	LED2_Start
+;
+	decfsz	LED2_Count,F	;Done w/ blink
+	bra	LED2_Blink_end	; no
+;
+	movf	LED2_BlinkCount,F
+	SKPNZ		;Done w/ cycle?
+	bra	LED2_Start	; Yes
+;
+	decfsz	LED2_BlinkCount,F
+	bra	LED2_NextBlink
+	movlw	LEDTIME	;long off time
+	movwf	LED2_Count
+	bra	LED2_Blink_end
+;
+LED2_Start	movf	LED2_Blinks,W
+	movwf	LED2_BlinkCount
+LED2_NextBlink	movlw	LEDFastTime
+	movwf	LED2_Count
+;
+	movlb	0x01
+	BCF	LED2_Tris
+LED2_Blink_end:
+;-------------
+;kAuxIODigitalOut
+	movlb	0x00	;bank 0
+	movf	ssAux1Config,W
+	andlw	0x0F
+	sublw	kAuxIODigitalOut
+	SKPZ
+	bra	Aux1DigOut_end
+;
+	btfss	LED2_Blinks,0
+	bra	Aux1DigOut_1
+	movlb	0x02	;bank 2
+	bsf	LED2_Lat
+	bra	Aux1DigOut_2
+;
+Aux1DigOut_1	movlb	0x02	;bank 2
+	bcf	LED2_Lat
+	bra	Aux1DigOut_2
+;
+Aux1DigOut_2	movlb	0x01	;bank 1
+	BCF	LED2_Tris
+Aux1DigOut_end:
+                       return
+                       endif
 ;
 ;=========================================================================================
 ;=========================================================================================

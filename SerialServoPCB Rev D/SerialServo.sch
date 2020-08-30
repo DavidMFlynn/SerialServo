@@ -25,8 +25,11 @@ Connection ~ 3000 6400
 Connection ~ 3200 2850
 Connection ~ 3300 1400
 Connection ~ 3450 6400
+Connection ~ 3550 4800
 Connection ~ 3700 1000
+Connection ~ 4000 5000
 Connection ~ 4000 6750
+Connection ~ 4450 5000
 Connection ~ 4550 1900
 Connection ~ 4550 6300
 Connection ~ 4900 1900
@@ -81,9 +84,17 @@ Wire Wire Line
 Wire Wire Line
 	3400 2900 3400 2850
 Wire Wire Line
+	3950 4800 4000 4800
+Wire Wire Line
+	3950 5000 4000 5000
+Wire Wire Line
+	4000 5000 4050 5000
+Wire Wire Line
 	4000 6100 4000 6050
 Wire Wire Line
 	4000 6750 4000 6700
+Wire Wire Line
+	4450 4550 4500 4550
 Wire Wire Line
 	4500 1900 4550 1900
 Wire Wire Line
@@ -93,9 +104,15 @@ Wire Wire Line
 Wire Wire Line
 	4700 1400 4700 1350
 Wire Wire Line
+	4850 4550 4800 4550
+Wire Wire Line
 	4900 2250 4900 2200
 Wire Wire Line
+	4950 5000 5000 5000
+Wire Wire Line
 	4950 6600 4900 6600
+Wire Wire Line
+	5000 5000 5000 5050
 Wire Wire Line
 	5100 3500 5150 3500
 Wire Wire Line
@@ -125,9 +142,9 @@ Wire Wire Line
 Wire Wire Line
 	8600 2200 8600 2250
 Wire Wire Line
-	8600 2700 8650 2700
-Wire Wire Line
 	8600 2700 8550 2700
+Wire Wire Line
+	8600 2700 8650 2700
 Wire Wire Line
 	8600 3100 8600 3150
 Wire Wire Line
@@ -193,6 +210,10 @@ Wire Wire Line
 Wire Wire Line
 	3350 6400 3450 6400
 Wire Wire Line
+	3550 4700 3550 4800
+Wire Wire Line
+	3550 4800 3650 4800
+Wire Wire Line
 	3550 5000 3650 5000
 Wire Wire Line
 	3600 1000 3700 1000
@@ -202,8 +223,6 @@ Wire Wire Line
 	3700 1100 3700 1000
 Wire Wire Line
 	3700 1400 3700 1300
-Wire Wire Line
-	3950 5000 4050 5000
 Wire Wire Line
 	4100 1900 4100 1800
 Wire Wire Line
@@ -220,6 +239,10 @@ Wire Wire Line
 	4300 4000 4400 4000
 Wire Wire Line
 	4300 4100 4400 4100
+Wire Wire Line
+	4350 5000 4450 5000
+Wire Wire Line
+	4450 5000 4550 5000
 Wire Wire Line
 	4900 2000 4900 1900
 Wire Wire Line
@@ -369,7 +392,7 @@ Wire Wire Line
 Wire Wire Line
 	3550 4800 3550 5000
 Wire Wire Line
-	4350 5000 4550 5000
+	4000 4800 4000 5000
 Wire Wire Line
 	4400 6500 4200 6500
 Wire Wire Line
@@ -382,8 +405,6 @@ Wire Wire Line
 	9150 2050 9150 2250
 Wire Wire Line
 	1150 5100 1400 5100
-Wire Wire Line
-	4550 4200 4300 4200
 Wire Wire Line
 	6500 2000 6500 2250
 Wire Wire Line
@@ -425,6 +446,8 @@ Wire Wire Line
 Wire Wire Line
 	4550 6300 4200 6300
 Wire Wire Line
+	4850 4200 4850 4550
+Wire Wire Line
 	5800 1000 5800 1350
 Wire Wire Line
 	2900 1400 3300 1400
@@ -449,6 +472,8 @@ Wire Wire Line
 Wire Wire Line
 	1400 4900 1850 4900
 Wire Wire Line
+	4450 5000 4450 4550
+Wire Wire Line
 	4550 1000 5000 1000
 Wire Wire Line
 	1600 3800 2100 3800
@@ -462,6 +487,8 @@ Wire Wire Line
 	6600 1900 6100 1900
 Wire Wire Line
 	1250 6400 700  6400
+Wire Wire Line
+	4300 4200 4850 4200
 Wire Wire Line
 	5800 1350 5800 1900
 Wire Wire Line
@@ -486,8 +513,6 @@ Wire Wire Line
 	1150 5200 1850 5200
 Wire Wire Line
 	4300 3500 5100 3500
-Wire Wire Line
-	4550 5000 4550 4200
 Wire Wire Line
 	4550 1000 4550 1900
 Wire Wire Line
@@ -535,7 +560,7 @@ Rev. D  8/29/2020   Added SW3/LED3 for home switch...
 Text Notes 7850 5350 0    50   ~ 0
 C1,C3,C4,C6,C7,C8,C11,C12      0.1uf\nC2                               2.2uf\nC5                               4.7uf\nC9                               220uf\nC10                              1.0uf
 Text Notes 7850 6300 0    50   ~ 0
-R1                                220R\nR2,R3,R7,R12,R14,R16\nR18,R19,R20                       1K0\nR4,R9                             100K\nR5,R11                             10K\nR6                                0R20\nR8                      ?K??  Adj Volts\nR10,R13,R15,R17                   47K\nR21                               120R
+R1                                220R\nR2,R3,R7,R12,R14,R16\nR18,R19,R20,R22                   1K0\nR4,R9                             100K\nR5,R11                             10K\nR6                                0R20\nR8                      ?K??  Adj Volts\nR10,R13,R15,R17,R23              47K\nR21                               120R
 Text Notes 7850 6600 0    50   ~ 0
 U1  PIC16F1847\nU2  LM358A\n
 Text Label 4550 3500 0    60   ~ 0
@@ -654,12 +679,12 @@ $EndComp
 $Comp
 L power:+5V #PWR011
 U 1 1 5AF79104
-P 3550 4800
-F 0 "#PWR011" H 3550 4650 50  0001 C CNN
-F 1 "+5V" H 3565 4973 50  0000 C CNN
-F 2 "" H 3550 4800 50  0001 C CNN
-F 3 "" H 3550 4800 50  0001 C CNN
-	1    3550 4800
+P 3550 4700
+F 0 "#PWR011" H 3550 4550 50  0001 C CNN
+F 1 "+5V" H 3565 4873 50  0000 C CNN
+F 2 "" H 3550 4700 50  0001 C CNN
+F 3 "" H 3550 4700 50  0001 C CNN
+	1    3550 4700
 	1    0    0    -1  
 $EndComp
 $Comp
@@ -850,6 +875,17 @@ F 3 "" H 4950 6750 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 $Comp
+L power:GND #PWR021
+U 1 1 5F4C1BBE
+P 5000 5050
+F 0 "#PWR021" H 5000 4800 50  0001 C CNN
+F 1 "GND" H 5005 4877 50  0000 C CNN
+F 2 "" H 5000 5050 50  0001 C CNN
+F 3 "" H 5000 5050 50  0001 C CNN
+	1    5000 5050
+	1    0    0    -1  
+$EndComp
+$Comp
 L power:GND #PWR018
 U 1 1 5AF02843
 P 5100 3900
@@ -993,6 +1029,17 @@ F 3 "~" H 3200 6400 50  0001 C CNN
 	0    1    1    0   
 $EndComp
 $Comp
+L Device:R R23
+U 1 1 5F4C200D
+P 3800 4800
+F 0 "R23" V 3700 4800 50  0000 C CNN
+F 1 "47K" V 3800 4800 50  0000 C CNN
+F 2 "Resistor_SMD:R_0805_2012Metric" V 3730 4800 50  0001 C CNN
+F 3 "~" H 3800 4800 50  0001 C CNN
+	1    3800 4800
+	0    1    1    0   
+$EndComp
+$Comp
 L Device:R R3
 U 1 1 5AF79064
 P 3800 5000
@@ -1001,6 +1048,17 @@ F 1 "1K0" V 3800 5000 50  0000 C CNN
 F 2 "Resistor_SMD:R_0805_2012Metric" V 3730 5000 50  0001 C CNN
 F 3 "~" H 3800 5000 50  0001 C CNN
 	1    3800 5000
+	0    1    -1   0   
+$EndComp
+$Comp
+L Device:R R22
+U 1 1 5F4C299F
+P 4650 4550
+F 0 "R22" V 4750 4500 50  0000 C CNN
+F 1 "1K0" V 4650 4550 50  0000 C CNN
+F 2 "Resistor_SMD:R_0805_2012Metric" V 4580 4550 50  0001 C CNN
+F 3 "~" H 4650 4550 50  0001 C CNN
+	1    4650 4550
 	0    1    -1   0   
 $EndComp
 $Comp
@@ -1431,6 +1489,17 @@ F 2 "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm" H 3900 6400 50  0001 C CNN
 F 3 "http://www.ti.com/lit/ds/symlink/lm358.pdf" H 3900 6400 50  0001 C CNN
 	3    3900 6400
 	-1   0    0    -1  
+$EndComp
+$Comp
+L Switch:SW_Push SW4
+U 1 1 5F4C16F7
+P 4750 5000
+F 0 "SW4" H 4750 5285 50  0000 C CNN
+F 1 "SW_Push" H 4750 5194 50  0000 C CNN
+F 2 "Button_Switch_SMD:SW_SPST_FSMSM" H 4750 5200 50  0001 C CNN
+F 3 "" H 4750 5200 50  0001 C CNN
+	1    4750 5000
+	1    0    0    -1  
 $EndComp
 $Comp
 L Switch:SW_Push SW1

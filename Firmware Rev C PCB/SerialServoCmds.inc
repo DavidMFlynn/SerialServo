@@ -473,13 +473,159 @@ Cmd_SetAuxConfig	movf	INDF1,W
 	goto	HandleRXData_Rtn	; no
 ;
 	moviw	FSR1++
+	movwf	Param78	;AuxNum
+	sublw	0x02	;2-AuxNum
+	SKPNB		;<=2?
+	goto	HandleRXData_Rtn	; no
+;
+                       movf                   Param78,W              ;AuxNum
 	addlw	low ssAux0Config
 	movwf	FSR0L
 	movlw	high ssAux0Config
 	movwf	FSR0H
 	moviw	FSR1++	;New Config Value
+	andlw                  0x07
 	movwi	FSR0++
-	goto	TX_ACK
+;
+; Configure I/O Port
+                       brw
+                       bra                    Cmd_SetAuxNConfigNone
+                       bra                    Cmd_SetAuxNConfigLEDBtn
+                       bra                    Cmd_SetAuxNConfigDigIn
+                       bra                    Cmd_SetAuxNConfigDigOut
+                       bra                    Cmd_SetAuxNConfigAnalogIn
+                       bra                    Cmd_SetAuxNConfigHomeSw
+                       bra                    Cmd_SetAuxNConfigFwdLimit
+                       bra                    Cmd_SetAuxNConfigRevLimit
+;
+Cmd_SetAuxNConfigNone:
+Cmd_SetAuxNConfigLEDBtn:
+Cmd_SetAuxNConfigDigIn:
+Cmd_SetAuxNConfigHomeSw:
+Cmd_SetAuxNConfigFwdLimit:
+Cmd_SetAuxNConfigRevLimit:
+                       movf                   Param78,W              ;AuxNum
+                       SKPZ
+                       bra                    Cmd_SetAux1ConfigDigIn
+;
+Cmd_SetAux0ConfigDigIn:
+                       movlb                  ANSELA                 ;bank 3
+                       bcf                    Aux0_ANSEL_Bit         ;Digital
+                       movlb                  1                      ;bank 1
+                       bcf                    AN_Aux0_ActiveBit      ;Don't Read AN
+                       bsf                    Aux0_LED1_TRIS         ;Input
+                       movlb                  2                      ;bank 2
+                       bcf                    Aux0_LED1_Lat          ;0
+                       movlb                  0                      ;bank 0
+                       goto	TX_ACK
+;
+Cmd_SetAux1ConfigDigIn:
+                       sublw                  0x01
+                       SKPZ
+                       bra                    Cmd_SetAux2ConfigDigIn
+                       movlb                  ANSELA                 ;bank 3
+                       bcf                    Aux1_ANSEL_Bit         ;Digital
+                       movlb                  1                      ;bank 1
+                       bcf                    AN_Aux1_ActiveBit      ;Don't Read AN
+                       bsf                    Aux1_LED2_TRIS         ;Input
+                       movlb                  2                      ;bank 2
+                       bcf                    Aux1_LED2_Lat          ;0
+                       movlb                  0                      ;bank 0
+                       goto	TX_ACK
+;
+Cmd_SetAux2ConfigDigIn:
+                       movlb                  ANSELA                 ;bank 3
+                       bcf                    Aux2_ANSEL_Bit         ;Digital
+                       movlb                  1                      ;bank 1
+                       bcf                    AN_Aux2_ActiveBit      ;Don't Read AN
+                       bsf                    Aux2_LED3_TRIS         ;Input
+                       movlb                  2                      ;bank 2
+                       bcf                    Aux2_LED3_Lat          ;0
+                       movlb                  0                      ;bank 0
+                       goto	TX_ACK
+;
+Cmd_SetAuxNConfigDigOut:
+                       movf                   Param78,W              ;AuxNum
+                       SKPZ
+                       bra                    Cmd_SetAux1ConfigDigOut
+;
+                       movlb                  ANSELA                 ;bank 3
+                       bcf                    Aux0_ANSEL_Bit         ;Digital
+                       movlb                  1                      ;bank 1
+                       bcf                    AN_Aux0_ActiveBit      ;Don't Read AN
+                       bcf                    Aux0_LED1_TRIS         ;Output
+                       movlb                  2                      ;bank 2
+                       bcf                    Aux0_LED1_Lat          ;0
+                       movlb                  0                      ;bank 0
+                       goto	TX_ACK
+;
+Cmd_SetAux1ConfigDigOut:
+                       sublw                  0x01
+                       SKPZ
+                       bra                    Cmd_SetAux2ConfigDigOut
+;
+                       movlb                  ANSELA                 ;bank 3
+                       bcf                    Aux1_ANSEL_Bit         ;Digital
+                       movlb                  1                      ;bank 1
+                       bcf                    AN_Aux1_ActiveBit      ;Don't Read AN
+                       bcf                    Aux1_LED2_TRIS         ;Output
+                       movlb                  2                      ;bank 2
+                       bcf                    Aux1_LED2_Lat          ;0
+                       movlb                  0                      ;bank 0
+                       goto	TX_ACK
+;        
+Cmd_SetAux2ConfigDigOut:
+                       movlb                  ANSELA                 ;bank 3
+                       bcf                    Aux2_ANSEL_Bit         ;Digital
+                       movlb                  1                      ;bank 1
+                       bcf                    AN_Aux2_ActiveBit      ;Don't Read AN
+                       bcf                    Aux2_LED3_TRIS         ;Output
+                       movlb                  2                      ;bank 2
+                       bcf                    Aux2_LED3_Lat          ;0
+                       movlb                  0                      ;bank 0
+                       goto	TX_ACK
+;
+Cmd_SetAuxNConfigAnalogIn:
+                       movf                   Param78,W              ;AuxNum
+                       SKPZ
+                       bra                    Cmd_SetAux1ConfigAnalogIn
+;
+                       movlb                  ANSELA                 ;bank 3
+                       bsf                    Aux0_ANSEL_Bit         ;Digital
+                       movlb                  1                      ;bank 1
+                       bsf                    AN_Aux0_ActiveBit      ;Don't Read AN
+                       bsf                    Aux0_LED1_TRIS         ;Input
+                       movlb                  2                      ;bank 2
+                       bcf                    Aux0_LED1_Lat          ;0
+                       movlb                  0                      ;bank 0
+                       goto	TX_ACK
+;
+Cmd_SetAux1ConfigAnalogIn:
+                       sublw                  0x01
+                       SKPZ
+                       bra                    Cmd_SetAux2ConfigAnalogIn
+;
+                       movlb                  ANSELA                 ;bank 3
+                       bsf                    Aux1_ANSEL_Bit         ;Digital
+                       movlb                  1                      ;bank 1
+                       bsf                    AN_Aux1_ActiveBit      ;Don't Read AN
+                       bsf                    Aux1_LED2_TRIS         ;Input
+                       movlb                  2                      ;bank 2
+                       bcf                    Aux1_LED2_Lat          ;0
+                       movlb                  0                      ;bank 0
+                       goto	TX_ACK
+;
+Cmd_SetAux2ConfigAnalogIn:
+                       movlb                  ANSELA                 ;bank 3
+                       bsf                    Aux2_ANSEL_Bit         ;Digital
+                       movlb                  1                      ;bank 1
+                       bsf                    AN_Aux2_ActiveBit      ;Don't Read AN
+                       bsf                    Aux2_LED3_TRIS         ;Input
+                       movlb                  2                      ;bank 2
+                       bcf                    Aux2_LED3_Lat          ;0
+                       movlb                  0                      ;bank 0
+                       goto	TX_ACK
+;
 ;
 ;---kCmd_GetAuxConfig-----------
 ; Get Aux N Config
@@ -525,13 +671,49 @@ Cmd_SetAuxNValue	moviw	FSR1++
 	goto	TX_ACK	;kAuxIORevLimit
 ;
 Cmd_SetAuxNDigOut:
-Cmd_SetAuxNLED	movf	Param78,W	;AuxNum
+                       movf	Param78,W	;AuxNum
+                       SKPZ
+	bra	Cmd_SetAuxNValue_Dig1
+;
+	moviw	FSR1++	;AuxVal
+                       bcf                    Aux0_SW1_Active        ;default to 0
+	btfsc                  WREG,0
+	bsf	Aux0_SW1_Active
+	goto	TX_ACK
+;
+Cmd_SetAuxNValue_Dig1:
+                       sublw	0x01                   ;AuxNum=1?
+	SKPZ
+	bra	Cmd_SetAuxNValue_Dig2  ; No
+;
+	moviw	FSR1++	;AuxVal
+                       bcf                    Aux1_SW2_Active        ;default to 0
+	btfsc                  WREG,0
+	bsf	Aux1_SW2_Active
+	goto	TX_ACK
+;
+Cmd_SetAuxNValue_Dig2:
+                       movf	Param78,W	;AuxNum
+                       sublw	0x02                   ;AuxNum=2?
+	SKPZ
+	goto	TX_ACK                 ; No
+;                       
+	moviw	FSR1++	;AuxVal
+                       bcf                    Aux2_SW3_Active        ;default to 0
+	btfsc                  WREG,0
+	bsf	Aux2_SW3_Active
+	goto	TX_ACK
+;
+Cmd_SetAuxNLED:
+	if UseAuxLEDBlinking
+	movf	Param78,W	;AuxNum
 	addlw	low LED1_Blinks
 	movwf	FSR0L
 	movlw	high LED1_Blinks
 	movwf	FSR0H
 	moviw	FSR1++	;AuxVal
 	movwi	FSR0++
+	endif
 	goto	TX_ACK
 ;
 ;---kCmd_GetAuxNValue-----------	;(AuxN,ValueL,ValueH)
@@ -561,9 +743,9 @@ Cmd_GetAuxNValue	movf	INDF1,W
 	bra	Cmd_GetAuxNValue_Dig	;kAuxIORevLimit
 ;
 Cmd_GetAuxNValue_Ana	lslf	Param78,W	;AuxNum X2
-	addlw	low Cur_AN1
+	addlw	low Cur_AN2            ;Aux0 = AN2
 	movwf	FSR1L
-	movlw	high Cur_AN1
+	movlw	high Cur_AN2
 	movwf	FSR1H
 	moviw	FSR1++
 	movwi	FSR0++
@@ -575,7 +757,7 @@ Cmd_GetAuxNValue_Ana	lslf	Param78,W	;AuxNum X2
 Cmd_GetAuxNValue_Dig	movf	Param78,W	;AuxNum
 	SKPZ
 	bra	Cmd_GetAuxNValue_Dig1
-	btfsc	SW1_In
+	btfsc	Aux0_SW1_Active
 	movlw	0x01
 	movwi	FSR0++
 	goto	RS232_Send_S0
@@ -583,13 +765,13 @@ Cmd_GetAuxNValue_Dig	movf	Param78,W	;AuxNum
 Cmd_GetAuxNValue_Dig1	sublw	0x01
 	SKPZ
 	bra	Cmd_GetAuxNValue_Dig2
-	btfsc	SW2_In
+	btfsc	Aux1_SW2_Active
 	movlw	0x01
 	movwi	FSR0++
 	goto	RS232_Send_S0
 ;
 Cmd_GetAuxNValue_Dig2	clrw
-	btfsc	SW3_In
+	btfsc	Aux2_SW3_Active
 	movlw	0x01
 	movwi	FSR0++
 	goto	RS232_Send_S0
@@ -597,7 +779,7 @@ Cmd_GetAuxNValue_Dig2	clrw
 Cmd_GetAuxNValue_Btn	movf	Param78,W	;AuxNum
 	SKPZ
 	bra	Cmd_GetAuxNValue_Btn1
-	btfsc	SW1_Flag
+	btfsc	Aux0_SW1_Active
 	movlw	0x01
 	movwi	FSR0++
 	goto	RS232_Send_S0
@@ -605,15 +787,15 @@ Cmd_GetAuxNValue_Btn	movf	Param78,W	;AuxNum
 Cmd_GetAuxNValue_Btn1	sublw	0x01
 	SKPZ
 	bra	Cmd_GetAuxNValue_Btn2
-	btfsc	SW2_Flag
+	btfsc	Aux1_SW2_Active
 	movlw	0x01
 	movwi	FSR0++
 	goto	RS232_Send_S0
 ;
 Cmd_GetAuxNValue_Btn2	clrw
-;	btfsc	SW3_Flag
-;	movlw	0x01
-;	movwi	FSR0++
+	btfsc	Aux2_SW3_Active
+	movlw	0x01
+	movwi	FSR0++
 	goto	RS232_Send_S0
 ;
 ;

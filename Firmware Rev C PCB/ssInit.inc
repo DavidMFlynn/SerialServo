@@ -19,7 +19,7 @@ InitializeIO	MOVLB	0x01	; select bank 1
 	movlb	4	; bank 4
 	bsf	WPUA,WPUA5	;Put a pull up on the MCLR unused pin.
 ;
-	MOVLB	0x03	; bank 3
+	MOVLB	ANSELA	; bank 3
 	movlw	ANSELA_Val
 	movwf	ANSELA
 	movlw	ANSELB_Val
@@ -107,8 +107,6 @@ InitializeIO	MOVLB	0x01	; select bank 1
 	movlw	.100
 	movwf	Timer4Lo	;ignor buttons for 1st second
 ;
-	movf	SysMode,W
-	movwf	LED1_Blinks
 ;
 ;if mode 3 don't move
 	bsf	ssCmdPos+1,7
