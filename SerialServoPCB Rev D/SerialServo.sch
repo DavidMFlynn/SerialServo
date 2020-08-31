@@ -27,8 +27,8 @@ Connection ~ 3300 1400
 Connection ~ 3450 6400
 Connection ~ 3550 4800
 Connection ~ 3700 1000
-Connection ~ 4000 5000
 Connection ~ 4000 6750
+Connection ~ 4450 4800
 Connection ~ 4450 5000
 Connection ~ 4550 1900
 Connection ~ 4550 6300
@@ -74,21 +74,15 @@ Wire Wire Line
 Wire Wire Line
 	1850 4900 1850 4950
 Wire Wire Line
-	1850 5200 1850 5150
-Wire Wire Line
 	1850 5200 1850 5250
+Wire Wire Line
+	1850 5200 1850 5150
 Wire Wire Line
 	3000 6400 3050 6400
 Wire Wire Line
 	3000 6700 3000 6750
 Wire Wire Line
 	3400 2900 3400 2850
-Wire Wire Line
-	3950 4800 4000 4800
-Wire Wire Line
-	3950 5000 4000 5000
-Wire Wire Line
-	4000 5000 4050 5000
 Wire Wire Line
 	4000 6100 4000 6050
 Wire Wire Line
@@ -142,9 +136,9 @@ Wire Wire Line
 Wire Wire Line
 	8600 2200 8600 2250
 Wire Wire Line
-	8600 2700 8550 2700
-Wire Wire Line
 	8600 2700 8650 2700
+Wire Wire Line
+	8600 2700 8550 2700
 Wire Wire Line
 	8600 3100 8600 3150
 Wire Wire Line
@@ -223,6 +217,8 @@ Wire Wire Line
 	3700 1100 3700 1000
 Wire Wire Line
 	3700 1400 3700 1300
+Wire Wire Line
+	3950 5000 4050 5000
 Wire Wire Line
 	4100 1900 4100 1800
 Wire Wire Line
@@ -392,9 +388,9 @@ Wire Wire Line
 Wire Wire Line
 	3550 4800 3550 5000
 Wire Wire Line
-	4000 4800 4000 5000
-Wire Wire Line
 	4400 6500 4200 6500
+Wire Wire Line
+	4450 5000 4450 4800
 Wire Wire Line
 	5600 1000 5800 1000
 Wire Wire Line
@@ -405,6 +401,8 @@ Wire Wire Line
 	9150 2050 9150 2250
 Wire Wire Line
 	1150 5100 1400 5100
+Wire Wire Line
+	4450 4800 4450 4550
 Wire Wire Line
 	6500 2000 6500 2250
 Wire Wire Line
@@ -454,9 +452,9 @@ Wire Wire Line
 Wire Wire Line
 	3300 1400 3700 1400
 Wire Wire Line
-	5300 2250 5700 2250
-Wire Wire Line
 	5300 2250 4900 2250
+Wire Wire Line
+	5300 2250 5700 2250
 Wire Wire Line
 	6100 2250 5700 2250
 Wire Wire Line
@@ -472,11 +470,11 @@ Wire Wire Line
 Wire Wire Line
 	1400 4900 1850 4900
 Wire Wire Line
-	4450 5000 4450 4550
-Wire Wire Line
 	4550 1000 5000 1000
 Wire Wire Line
 	1600 3800 2100 3800
+Wire Wire Line
+	3950 4800 4450 4800
 Wire Wire Line
 	4400 6500 4400 7000
 Wire Wire Line

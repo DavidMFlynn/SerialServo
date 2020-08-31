@@ -5207,14 +5207,170 @@ SerialServo.asm                                                       Page: 1
 00115 0C41 	;
 00116 0C41 2343 		call	Init_AS5047D	;initialize the SPI encoder I/O
 00117 0C42 	;
-00118 0C42 	;
-00119 0C42 170B 		bsf	INTCON,PEIE	; enable periferal interupts
-00120 0C43 178B 		bsf	INTCON,GIE	; enable interupts
-00121 0C44 	;
-00122 0C44 0008 		return
-00123 0C45 	;
-02156 0C45 	;
-02157 0C45 		org BootLoaderStart
+00118 0C42 0021 		movlb	1	; bank 0
+00119 0C43 1433 		bsf	AN0_ActiveBit
+00120 0C44 14B3 		bsf	AN1_ActiveBit
+00121 0C45 	;
+00122 0C45 2449 	                       call                   DoAuxConfig
+00123 0C46 	;
+00124 0C46 170B 		bsf	INTCON,PEIE	; enable periferal interupts
+00125 0C47 178B 		bsf	INTCON,GIE	; enable interupts
+00126 0C48 	;
+00127 0C48 0008 		return
+00128 0C49 	;=============================================================
+00129 0C49 	;
+00130 0C49 0858 	DoAuxConfig	movf                   ssAux0Config,W              ;AuxNum
+00131 0C4A 000B 	                       brw
+00132 0C4B 3207 	                       bra                    SetAux0ConfigNone
+00133 0C4C 3206 	                       bra                    SetAux0ConfigLEDBtn
+00134 0C4D 3205 	                       bra                    SetAux0ConfigDigIn
+00135 0C4E 320D 	                       bra                    SetAux0ConfigDigOut
+00136 0C4F 3215 	                       bra                    SetAux0ConfigAnalogIn
+00137 0C50 3202 	                       bra                    SetAux0ConfigHomeSw
+00138 0C51 3201 	                       bra                    SetAux0ConfigFwdLimit
+00139 0C52 3200 	                       bra                    SetAux0ConfigRevLimit
+00140 0C53 	;
+00141 0C53 	SetAux0ConfigNone:
+00142 0C53 	SetAux0ConfigLEDBtn:
+00143 0C53 	SetAux0ConfigDigIn:
+00144 0C53 	SetAux0ConfigHomeSw:
+00145 0C53 	SetAux0ConfigFwdLimit:
+00146 0C53 	SetAux0ConfigRevLimit:
+00147 0C53 0023 	                       movlb                  ANSELA                 ;bank 3
+00148 0C54 110C 	                       bcf                    Aux0_ANSEL_Bit         ;Digital
+00149 0C55 0021 	                       movlb                  1                      ;bank 1
+00150 0C56 11B3 	                       bcf                    AN_Aux0_ActiveBit      ;Don't Read AN
+00151 0C57 150C 	                       bsf                    Aux0_LED1_TRIS         ;Input
+00152 0C58 0022 	                       movlb                  2                      ;bank 2
+00153 0C59 110C 	                       bcf                    Aux0_LED1_Lat          ;0
+00154 0C5A 0020 	                       movlb                  0                      ;bank 0
+00155 0C5B 3211 	                       bra                    SetAux1Config
+00156 0C5C 	;
+00157 0C5C 	SetAux0ConfigDigOut:
+00158 0C5C 0023 	                       movlb                  ANSELA                 ;bank 3
+00159 0C5D 110C 	                       bcf                    Aux0_ANSEL_Bit         ;Digital
+00160 0C5E 0021 	                       movlb                  1                      ;bank 1
+00161 0C5F 11B3 	                       bcf                    AN_Aux0_ActiveBit      ;Don't Read AN
+00162 0C60 110C 	                       bcf                    Aux0_LED1_TRIS         ;Output
+00163 0C61 0022 	                       movlb                  2                      ;bank 2
+00164 0C62 110C 	                       bcf                    Aux0_LED1_Lat          ;0
+00165 0C63 0020 	                       movlb                  0                      ;bank 0
+00166 0C64 3208 	                       bra                    SetAux1Config
+00167 0C65 	;
+00168 0C65 	SetAux0ConfigAnalogIn:
+00169 0C65 0023 	                       movlb                  ANSELA                 ;bank 3
+00170 0C66 150C 	                       bsf                    Aux0_ANSEL_Bit         ;Digital
+00171 0C67 0021 	                       movlb                  1                      ;bank 1
+00172 0C68 15B3 	                       bsf                    AN_Aux0_ActiveBit      ;Don't Read AN
+00173 0C69 150C 	                       bsf                    Aux0_LED1_TRIS         ;Input
+00174 0C6A 0022 	                       movlb                  2                      ;bank 2
+00175 0C6B 110C 	                       bcf                    Aux0_LED1_Lat          ;0
+00176 0C6C 0020 	                       movlb                  0                      ;bank 0
+00177 0C6D 	;
+00178 0C6D 0859 	SetAux1Config	movf                   ssAux1Config,W              ;AuxNum
+00179 0C6E 000B 	                       brw
+00180 0C6F 3207 	                       bra                    SetAux1ConfigNone
+00181 0C70 3206 	                       bra                    SetAux1ConfigLEDBtn
+00182 0C71 3205 	                       bra                    SetAux1ConfigDigIn
+00183 0C72 320D 	                       bra                    SetAux1ConfigDigOut
+00184 0C73 3215 	                       bra                    SetAux1ConfigAnalogIn
+00185 0C74 3202 	                       bra                    SetAux1ConfigHomeSw
+00186 0C75 3201 	                       bra                    SetAux1ConfigFwdLimit
+00187 0C76 3200 	                       bra                    SetAux1ConfigRevLimit
+00188 0C77 	;
+00189 0C77 	SetAux1ConfigNone:
+00190 0C77 	SetAux1ConfigLEDBtn:
+00191 0C77 	SetAux1ConfigDigIn:
+00192 0C77 	SetAux1ConfigHomeSw:
+00193 0C77 	SetAux1ConfigFwdLimit:
+00194 0C77 	SetAux1ConfigRevLimit:
+00195 0C77 0023 	                       movlb                  ANSELA                 ;bank 3
+00196 0C78 118C 	                       bcf                    Aux1_ANSEL_Bit         ;Digital
+00197 0C79 0021 	                       movlb                  1                      ;bank 1
+00198 0C7A 1233 	                       bcf                    AN_Aux1_ActiveBit      ;Don't Read AN
+00199 0C7B 158C 	                       bsf                    Aux1_LED2_TRIS         ;Input
+00200 0C7C 0022 	                       movlb                  2                      ;bank 2
+00201 0C7D 118C 	                       bcf                    Aux1_LED2_Lat          ;0
+00202 0C7E 0020 	                       movlb                  0                      ;bank 0
+00203 0C7F 3211 	                       bra                    SetAux2Config
+00204 0C80 	;
+00205 0C80 	SetAux1ConfigDigOut:
+00206 0C80 0023 	                       movlb                  ANSELA                 ;bank 3
+00207 0C81 118C 	                       bcf                    Aux1_ANSEL_Bit         ;Digital
+00208 0C82 0021 	                       movlb                  1                      ;bank 1
+00209 0C83 1233 	                       bcf                    AN_Aux1_ActiveBit      ;Don't Read AN
+00210 0C84 118C 	                       bcf                    Aux1_LED2_TRIS         ;Output
+00211 0C85 0022 	                       movlb                  2                      ;bank 2
+00212 0C86 118C 	                       bcf                    Aux1_LED2_Lat          ;0
+SerialServo.asm                                                       Page: 53
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
+00213 0C87 0020 	                       movlb                  0                      ;bank 0
+00214 0C88 3208 	                       bra                    SetAux2Config
+00215 0C89 	;
+00216 0C89 	SetAux1ConfigAnalogIn:
+00217 0C89 0023 	                       movlb                  ANSELA                 ;bank 3
+00218 0C8A 158C 	                       bsf                    Aux1_ANSEL_Bit         ;Digital
+00219 0C8B 0021 	                       movlb                  1                      ;bank 1
+00220 0C8C 1633 	                       bsf                    AN_Aux1_ActiveBit      ;Don't Read AN
+00221 0C8D 158C 	                       bsf                    Aux1_LED2_TRIS         ;Input
+00222 0C8E 0022 	                       movlb                  2                      ;bank 2
+00223 0C8F 118C 	                       bcf                    Aux1_LED2_Lat          ;0
+00224 0C90 0020 	                       movlb                  0                      ;bank 0
+00225 0C91 	;
+00226 0C91 085A 	SetAux2Config	movf                   ssAux2Config,W              ;AuxNum
+00227 0C92 000B 	                       brw
+00228 0C93 3207 	                       bra                    SetAux2ConfigNone
+00229 0C94 3206 	                       bra                    SetAux2ConfigLEDBtn
+00230 0C95 3205 	                       bra                    SetAux2ConfigDigIn
+00231 0C96 320D 	                       bra                    SetAux2ConfigDigOut
+00232 0C97 3215 	                       bra                    SetAux2ConfigAnalogIn
+00233 0C98 3202 	                       bra                    SetAux2ConfigHomeSw
+00234 0C99 3201 	                       bra                    SetAux2ConfigFwdLimit
+00235 0C9A 3200 	                       bra                    SetAux2ConfigRevLimit
+00236 0C9B 	;
+00237 0C9B 	SetAux2ConfigNone:
+00238 0C9B 	SetAux2ConfigLEDBtn:
+00239 0C9B 	SetAux2ConfigDigIn:
+00240 0C9B 	SetAux2ConfigHomeSw:
+00241 0C9B 	SetAux2ConfigFwdLimit:
+00242 0C9B 	SetAux2ConfigRevLimit:
+00243 0C9B 0023 	                       movlb                  ANSELA                 ;bank 3
+00244 0C9C 120C 	                       bcf                    Aux2_ANSEL_Bit         ;Digital
+00245 0C9D 0021 	                       movlb                  1                      ;bank 1
+00246 0C9E 12B3 	                       bcf                    AN_Aux2_ActiveBit      ;Don't Read AN
+00247 0C9F 160C 	                       bsf                    Aux2_LED3_TRIS         ;Input
+00248 0CA0 0022 	                       movlb                  2                      ;bank 2
+00249 0CA1 120C 	                       bcf                    Aux2_LED3_Lat          ;0
+00250 0CA2 0020 	                       movlb                  0                      ;bank 0
+00251 0CA3 0008 	                       return
+00252 0CA4 	;
+00253 0CA4 	SetAux2ConfigDigOut:
+00254 0CA4 0023 	                       movlb                  ANSELA                 ;bank 3
+00255 0CA5 120C 	                       bcf                    Aux2_ANSEL_Bit         ;Digital
+00256 0CA6 0021 	                       movlb                  1                      ;bank 1
+00257 0CA7 12B3 	                       bcf                    AN_Aux2_ActiveBit      ;Don't Read AN
+00258 0CA8 120C 	                       bcf                    Aux2_LED3_TRIS         ;Output
+00259 0CA9 0022 	                       movlb                  2                      ;bank 2
+00260 0CAA 120C 	                       bcf                    Aux2_LED3_Lat          ;0
+00261 0CAB 0020 	                       movlb                  0                      ;bank 0
+00262 0CAC 0008 	                       return
+00263 0CAD 	;
+00264 0CAD 	SetAux2ConfigAnalogIn:
+00265 0CAD 0023 	                       movlb                  ANSELA                 ;bank 3
+00266 0CAE 160C 	                       bsf                    Aux2_ANSEL_Bit         ;Digital
+00267 0CAF 0021 	                       movlb                  1                      ;bank 1
+00268 0CB0 16B3 	                       bsf                    AN_Aux2_ActiveBit      ;Don't Read AN
+00269 0CB1 160C 	                       bsf                    Aux2_LED3_TRIS         ;Input
+00270 0CB2 0022 	                       movlb                  2                      ;bank 2
+00271 0CB3 120C 	                       bcf                    Aux2_LED3_Lat          ;0
+00272 0CB4 0020 	                       movlb                  0                      ;bank 0
+00273 0CB5 0008 	                       return
+00274 0CB6 	;
+00275 0CB6 	;
+00276 0CB6 	;
+02156 0CB6 	;
+02157 0CB6 		org BootLoaderStart
 02158 1E00 		include <BootLoader1847.inc>
 00001 1E00 	;************************************************
 00002 1E00 	; BootLoader for PIC16F1847
@@ -5248,6 +5404,9 @@ SerialServo.asm                                                       Page: 1
 00030 1E00 	;  DataEEProm (0xFF) = 0xFF = run bootloader
 00031 1E00 	;
 00032 1E00 	; What happens next:
+SerialServo.asm                                                       Page: 54
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00033 1E00 	;  If Data EEProm address (0xFF) <> 0xFF then goto ProgStartVector
 00034 1E00 	;  Setup  UART for 38.4KBaud
 00035 1E00 	;  Parse incoming text as .hex file
@@ -5302,9 +5461,6 @@ SerialServo.asm                                                       Page: 1
 00084 1E00 0002 	IHT_XSA	EQU	0x02	;extended segment address, not supported
 00085 1E00 0003 	IHT_SSA	EQU	0x03	;start segment address, not supported
 00086 1E00 0004 	IHT_HighAddr	EQU	0x04	;extended linear address, :02000004FFFFFC
-SerialServo.asm                                                       Page: 53
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00087 1E00 0005 	IHT_SLA	EQU	0x05	;start linear address, not supported, :04000005000000CD2A
 00088 1E00 	;
 00089 1E00 	;IH_State values
@@ -5350,6 +5506,9 @@ SerialServo.asm                                                       Page: 1
 00128 1E05 	; Bootloader is active send "**"
 00129 1E05 302A 		movlw	IH_Ack
 00130 1E06 26FE 		call	SendChar
+SerialServo.asm                                                       Page: 55
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00131 1E07 302A 		movlw	IH_Ack
 00132 1E08 26FE 		call	SendChar
 00133 1E09 	;
@@ -5404,9 +5563,6 @@ SerialServo.asm                                                       Page: 1
 00179 1E28 303A 		movlw	0x3A	;':'
 00180 1E29 0278 		subwf	Param78,W
 00181 1E2A 		SKPNB                                         ;>"9"?
-SerialServo.asm                                                       Page: 54
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00181 1E2A 1C03      M		BTFSS	STATUS,C		BTFSS	STATUS,C
 00182 1E2B 320A 		bra	BLP_TestNum_1          ; No, it's 0..9
 00183 1E2C 3041 		movlw	0x41	;'A'
@@ -5452,6 +5608,9 @@ SerialServo.asm                                                       Page: 1
 00221 1E4D 		SKPNB		;<=64?
 00221 1E4D 1C03      M		BTFSS	STATUS,C		BTFSS	STATUS,C
 00222 1E4E 3203 		bra	BLP_SaveIH_Length
+SerialServo.asm                                                       Page: 56
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00223 1E4F 	;
 00224 1E4F 302B 		movlw	IH_ErrorBadLen
 00225 1E50 26FE 		call	SendChar
@@ -5506,9 +5665,6 @@ SerialServo.asm                                                       Page: 1
 00271 1E74 3203 		bra	BLP_Validate           ; Yes
 00272 1E75 	;
 00273 1E75 302D 		movlw	IH_ErrorBadCSum
-SerialServo.asm                                                       Page: 55
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00274 1E76 26FE 		call	SendChar
 00275 1E77 2E13 		goto	BL_ParseNextLine
 00276 1E78 	;
@@ -5554,6 +5710,9 @@ SerialServo.asm                                                       Page: 1
 00315 1E92 26FE 	BLPV_Exit	call	SendChar
 00316 1E93 2E13 		goto	BL_ParseNextLine
 00317 1E94 	;---------------------
+SerialServo.asm                                                       Page: 57
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00318 1E94 303D 	BLPV_BadType           movlw                  IH_ErrorBadType
 00319 1E95 33FC 	                       bra                    BLPV_Exit
 00320 1E96 	;
@@ -5608,9 +5767,6 @@ SerialServo.asm                                                       Page: 1
 00365 1EB0 39E0 		andlw	AddressMask            ; 0xE0
 00366 1EB1 00A0 		movwf	PROG_ADDR_LO
 00367 1EB2 0824 		movf	IH_Addr_Lo+1,W
-SerialServo.asm                                                       Page: 56
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00368 1EB3 00A1 		movwf	PROG_ADDR_HI
 00369 1EB4 	; ProgWordCount = 0x1F & IH_Addr_Lo
 00370 1EB4 30FF 		movlw	0xFF
@@ -5656,6 +5812,9 @@ SerialServo.asm                                                       Page: 1
 00408 1ECD 	;
 00409 1ECD 	; Entry: SourceBuffer, ProgWordCount, PROG_ADDR_HI:PROG_ADDR_LO
 00410 1ECD 	;
+SerialServo.asm                                                       Page: 58
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00411 1ECD 	BLP_WriteBuffer:
 00412 1ECD 	; copy old prog mem to DestBuffer
 00413 1ECD 26E3 		call                   FSR1_DestBuff
@@ -5710,9 +5869,6 @@ SerialServo.asm                                                       Page: 1
 00462 1EED 	;
 00463 1EED 0020 	GetChar	MOVLB	0x00
 00464 1EEE 1E91 		BTFSS	PIR1,RCIF	;RX has a byte?
-SerialServo.asm                                                       Page: 57
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00465 1EEF 33FD 		BRA	GetChar
 00466 1EF0 	;
 00467 1EF0 0023 		movlb	RCSTA	; bank 3
@@ -5758,6 +5914,9 @@ SerialServo.asm                                                       Page: 1
 00506 1F07 	;Address to read ;Deselect Config space
 00507 1F07 1315 		BCF	EECON1,CFGS
 00508 1F08 1395 		BCF	EECON1,EEPGD
+SerialServo.asm                                                       Page: 59
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00509 1F09 	;Point to DATA memory
 00510 1F09 1415 		BSF	EECON1,RD	;EE Read
 00511 1F0A 0813 		MOVF	EEDATL,W	;W = EEDATL
@@ -5812,9 +5971,6 @@ SerialServo.asm                                                       Page: 1
 00558 1F2B 3401 		retlw	0x01                   ;All words are 0x3FFF
 00559 1F2C 	;
 00560 1F2C 	;==============================================
-SerialServo.asm                                                       Page: 58
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00561 1F2C 	; Compare Block
 00562 1F2C 	;
 00563 1F2C 	; Entry: FSR0 -> new data, FSR1 -> current data
@@ -5860,6 +6016,9 @@ SerialServo.asm                                                       Page: 1
 00599 1F46 26E8 	EraseSourceBuffer	call                   FSR1_SourceBuffer
 00600 1F47 10AC 	                       bcf	DataInBuffer           ;mark SourceBuffer as empty
 00601 1F48 	;
+SerialServo.asm                                                       Page: 60
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00602 1F48 	; Fall thru to EraseBlock
 00603 1F48 	;==============================================
 00604 1F48 	; Erase Block (Fill with 0x3FFF)
@@ -5914,9 +6073,6 @@ SerialServo.asm                                                       Page: 1
 00653 1F67 1515 		BSF	EECON1,WREN	;Enable writes
 00654 1F68 3055 		MOVLW	55h	;Start of required sequence to initiate erase
 00655 1F69 0096 		MOVWF	EECON2	;Write 55h
-SerialServo.asm                                                       Page: 59
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00656 1F6A 30AA 		MOVLW	0AAh
 00657 1F6B 0096 		MOVWF	EECON2	;Write AAh
 00658 1F6C 1495 		BSF	EECON1,WR	;Set WR bit to begin erase
@@ -5962,6 +6118,9 @@ SerialServo.asm                                                       Page: 1
 00698 1F83 0016 		moviw	FSR1++
 00699 1F84 0094 		movwf	EEDATH
 00700 1F85 	;
+SerialServo.asm                                                       Page: 61
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00701 1F85 0811 		movf	EEADRL,W
 00702 1F86 3A1F 		xorlw	0x1F
 00703 1F87 391F 		andlw	0x1F
@@ -6016,9 +6175,6 @@ SerialServo.asm                                                       Page: 1
 00752 1FAD 008C 		movwf	ANSELA
 00753 1FAE 3000 		movlw	ANSELB_Val
 00754 1FAF 008D 		movwf	ANSELB
-SerialServo.asm                                                       Page: 60
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 00755 1FB0 	;
 00756 1FB0 	;
 00757 1FB0 		if UseAltSerialPort
@@ -6064,6 +6220,9 @@ SerialServo.asm                                                       Page: 1
 00797 1FCB 0008 		return
 00798 1FCC 	;
 00799 1FCC 	;
+SerialServo.asm                                                       Page: 62
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 00800 1FCC 	 
 00801 1FCC 	 
 00802 1FCC 	 
@@ -6101,7 +6260,9 @@ ADCON1	009E 	ReadAN0_ColdStart
 ADON	0000 	ReadAN
 ADRESH	009C 	ReadAN
 ADRESL	009B 	ReadAN
+AN0_ActiveBit	ANxActive,0	InitializeIO
 AN0_Val	0000 	ANx_GetADPCHVal
+AN1_ActiveBit	ANxActive,1	InitializeIO
 AN1_Val	0004 	ANx_GetADPCHVal
 AN2_Val	0008 	ANx_GetADPCHVal
 AN3_Val	000C 	ANx_GetADPCHVal
@@ -6110,19 +6271,24 @@ ANCount	00B4 	ReadAN, ReadAN_Next, ReadAN_Start0, ANx_GetADPCHVal
 ANFlags	00B2 	ML_1, ReadAN_L2
 ANSELA	018C 	Cmd_SetAuxNConfigDigIn, Cmd_SetAux1ConfigDigIn, Cmd_SetAux2ConfigDigIn
 		Cmd_SetAuxNConfigDigOut, Cmd_SetAux1ConfigDigOut, Cmd_SetAux2ConfigDigOut, Cmd_SetAuxNConfigAnalogIn
-		Cmd_SetAux1ConfigAnalogIn, Cmd_SetAux2ConfigAnalogIn, InitializeIO, InitializeBLIO
+		Cmd_SetAux1ConfigAnalogIn, Cmd_SetAux2ConfigAnalogIn, InitializeIO, SetAux0ConfigDigIn
+		SetAux0ConfigDigOut, SetAux0ConfigAnalogIn, SetAux1ConfigDigIn, SetAux1ConfigDigOut
+		SetAux1ConfigAnalogIn, SetAux2ConfigDigIn, SetAux2ConfigDigOut, SetAux2ConfigAnalogIn
+		InitializeBLIO
 ANSELA_Val	0003 	InitializeIO, InitializeBLIO
 ANSELB	018D 	InitializeIO, InitializeBLIO
 ANSELB_Val	0000 	InitializeIO, InitializeBLIO
 AN_Aux0_ActiveBit	ANxActive,3	Cmd_SetAuxNConfigDigIn, Cmd_SetAuxNConfigDigOut, Cmd_SetAuxNConfigAnalogIn
+		SetAux0ConfigDigIn, SetAux0ConfigDigOut, SetAux0ConfigAnalogIn
 AN_Aux1_ActiveBit	ANxActive,4	Cmd_SetAux1ConfigDigIn, Cmd_SetAux1ConfigDigOut, Cmd_SetAux1ConfigAnalogIn
+		SetAux1ConfigDigIn, SetAux1ConfigDigOut, SetAux1ConfigAnalogIn
 AN_Aux2_ActiveBit	ANxActive,5	Cmd_SetAux2ConfigDigIn, Cmd_SetAux2ConfigDigOut, Cmd_SetAux2ConfigAnalogIn
+		SetAux2ConfigDigIn, SetAux2ConfigDigOut, SetAux2ConfigAnalogIn
 ANxActive	00B3 	ReadAN_L1, Cmd_SetAuxNConfigDigIn, Cmd_SetAux1ConfigDigIn, Cmd_SetAux2ConfigDigIn
-SerialServo.asm   X-Ref Table                                            Page: 61
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 		Cmd_SetAuxNConfigDigOut, Cmd_SetAux1ConfigDigOut, Cmd_SetAux2ConfigDigOut, Cmd_SetAuxNConfigAnalogIn
-		Cmd_SetAux1ConfigAnalogIn, Cmd_SetAux2ConfigAnalogIn
+		Cmd_SetAux1ConfigAnalogIn, Cmd_SetAux2ConfigAnalogIn, InitializeIO, SetAux0ConfigDigIn
+		SetAux0ConfigDigOut, SetAux0ConfigAnalogIn, SetAux1ConfigDigIn, SetAux1ConfigDigOut
+		SetAux1ConfigAnalogIn, SetAux2ConfigDigIn, SetAux2ConfigDigOut, SetAux2ConfigAnalogIn
 ANx_GetADPCHVal ^	041C 	ReadAN_Start
 APFCON0	011D 	InitializeIO, InitializeBLIO
 APFCON1	011E 	InitializeIO, InitializeBLIO
@@ -6146,6 +6312,7 @@ AddressMask	00E0 	BufferIHData, BIHD_PutInBuff
 AllDataRXd	RX_ParseFlags,6	RS232_Parse, RS232_Parse_DALo_End
 AngleReadFlag	AS5047D_Flags,1	Init_AS5047D, AS5047_ReadPos, AS5047_ReadPos_1, AS5047_Read
 Aux0_ANSEL_Bit	ANSELA,2	Cmd_SetAuxNConfigDigIn, Cmd_SetAuxNConfigDigOut, Cmd_SetAuxNConfigAnalogIn
+		SetAux0ConfigDigIn, SetAux0ConfigDigOut, SetAux0ConfigAnalogIn
 Aux0_Digital_In ^	0499 	HandleAuxIO
 Aux0_Digital_Out ^	049B 	HandleAuxIO
 Aux0_FwdLimit ^	04AB 	HandleAuxIO
@@ -6154,9 +6321,13 @@ Aux0_ISR_End ^	04BC 	HandleAuxIO, Aux0_LEDBtn, Aux0_Digital_In, Aux0_Digital_Out
 		Aux0_HomeSW, Aux0_FwdLimit, Aux0_RevLimit
 Aux0_LED1_Active	SysFlags1,2	Aux0_LEDBtn
 Aux0_LED1_Lat	LATA,LED1_Bit	Aux0_Digital_Out, Cmd_SetAuxNConfigDigIn, Cmd_SetAuxNConfigDigOut
-		Cmd_SetAuxNConfigAnalogIn
+		Cmd_SetAuxNConfigAnalogIn, SetAux0ConfigDigIn, SetAux0ConfigDigOut, SetAux0ConfigAnalogIn
+SerialServo.asm   X-Ref Table                                            Page: 63
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 Aux0_LED1_TRIS	TRISA,LED1_Bit	Aux0_LEDBtn, Aux0_Digital_Out, Cmd_SetAuxNConfigDigIn
-		Cmd_SetAuxNConfigDigOut, Cmd_SetAuxNConfigAnalogIn
+		Cmd_SetAuxNConfigDigOut, Cmd_SetAuxNConfigAnalogIn, SetAux0ConfigDigIn, SetAux0ConfigDigOut
+		SetAux0ConfigAnalogIn
 Aux0_LEDBtn ^	048E 	HandleAuxIO
 Aux0_RevLimit ^	04B0 	HandleAuxIO
 Aux0_SW1_Active	SysFlags1,0	Aux0_Digital_Out, Aux0_HomeSW, Aux0_FwdLimit, Aux0_RevLimit
@@ -6164,6 +6335,7 @@ Aux0_SW1_Active	SysFlags1,0	Aux0_Digital_Out, Aux0_HomeSW, Aux0_FwdLimit, Aux0_R
 Aux0_SW1_Debounce	SysFlags1,1	Read_Aux0_Sw1
 Aux0_SW1_PORT	PORTA,LED1_Bit	Read_Aux0_Sw1
 Aux1_ANSEL_Bit	ANSELA,3	Cmd_SetAux1ConfigDigIn, Cmd_SetAux1ConfigDigOut, Cmd_SetAux1ConfigAnalogIn
+		SetAux1ConfigDigIn, SetAux1ConfigDigOut, SetAux1ConfigAnalogIn
 Aux1_Digital_In ^	04D3 	Aux0_ISR_End
 Aux1_Digital_Out ^	04D5 	Aux0_ISR_End
 Aux1_FwdLimit ^	04E5 	Aux0_ISR_End
@@ -6172,9 +6344,10 @@ Aux1_ISR_End ^	04F6 	Aux0_ISR_End, Aux1_LEDBtn, Aux1_Digital_In, Aux1_Digital_Ou
 		Aux1_HomeSW, Aux1_FwdLimit, Aux1_RevLimit
 Aux1_LED2_Active	SysFlags1,5	Aux1_LEDBtn
 Aux1_LED2_Lat	LATA,LED2_Bit	Aux1_Digital_Out, Cmd_SetAux1ConfigDigIn, Cmd_SetAux1ConfigDigOut
-		Cmd_SetAux1ConfigAnalogIn
+		Cmd_SetAux1ConfigAnalogIn, SetAux1ConfigDigIn, SetAux1ConfigDigOut, SetAux1ConfigAnalogIn
 Aux1_LED2_TRIS	TRISA,LED2_Bit	Aux1_LEDBtn, Aux1_Digital_Out, Cmd_SetAux1ConfigDigIn
-		Cmd_SetAux1ConfigDigOut, Cmd_SetAux1ConfigAnalogIn
+		Cmd_SetAux1ConfigDigOut, Cmd_SetAux1ConfigAnalogIn, SetAux1ConfigDigIn, SetAux1ConfigDigOut
+		SetAux1ConfigAnalogIn
 Aux1_LEDBtn ^	04C8 	Aux0_ISR_End
 Aux1_RevLimit ^	04EA 	Aux0_ISR_End
 Aux1_SW2_Active	SysFlags1,3	Aux1_Digital_Out, Aux1_HomeSW, Aux1_FwdLimit, Aux1_RevLimit
@@ -6182,6 +6355,7 @@ Aux1_SW2_Active	SysFlags1,3	Aux1_Digital_Out, Aux1_HomeSW, Aux1_FwdLimit, Aux1_R
 Aux1_SW2_Debounce	SysFlags1,4	Read_Aux1_Sw2
 Aux1_SW2_PORT	PORTA,LED2_Bit	Read_Aux1_Sw2
 Aux2_ANSEL_Bit	ANSELA,4	Cmd_SetAux2ConfigDigIn, Cmd_SetAux2ConfigDigOut, Cmd_SetAux2ConfigAnalogIn
+		SetAux2ConfigDigIn, SetAux2ConfigDigOut, SetAux2ConfigAnalogIn
 Aux2_Digital_In ^	050D 	Aux1_ISR_End
 Aux2_Digital_Out ^	050F 	Aux1_ISR_End
 Aux2_FwdLimit ^	051F 	Aux1_ISR_End
@@ -6190,9 +6364,10 @@ Aux2_ISR_End ^	0530 	Aux1_ISR_End, Aux2_LEDBtn, Aux2_Digital_In, Aux2_Digital_Ou
 		Aux2_HomeSW, Aux2_FwdLimit, Aux2_RevLimit
 Aux2_LED3_Active	SysFlags2,0	Aux2_LEDBtn
 Aux2_LED3_Lat	LATA,LED3_Bit	Aux2_Digital_Out, Cmd_SetAux2ConfigDigIn, Cmd_SetAux2ConfigDigOut
-		Cmd_SetAux2ConfigAnalogIn
+		Cmd_SetAux2ConfigAnalogIn, SetAux2ConfigDigIn, SetAux2ConfigDigOut, SetAux2ConfigAnalogIn
 Aux2_LED3_TRIS	TRISA,LED3_Bit	Aux2_LEDBtn, Aux2_Digital_Out, Cmd_SetAux2ConfigDigIn
-		Cmd_SetAux2ConfigDigOut, Cmd_SetAux2ConfigAnalogIn
+		Cmd_SetAux2ConfigDigOut, Cmd_SetAux2ConfigAnalogIn, SetAux2ConfigDigIn, SetAux2ConfigDigOut
+		SetAux2ConfigAnalogIn
 Aux2_LEDBtn ^	0502 	Aux1_ISR_End
 Aux2_RevLimit ^	0524 	Aux1_ISR_End
 Aux2_SW3_Active	SysFlags1,6	Aux2_Digital_Out, Aux2_HomeSW, Aux2_FwdLimit, Aux2_RevLimit
@@ -6220,9 +6395,6 @@ BLP_IHS_DataType ^	1E5F 	BLP_TestNum_2
 BLP_IHS_Length ^	1E4B 	BLP_TestNum_2
 BLP_L1 ^	1E17 	BLP_L2, BLP_NextState, BLP_IHS_Data
 BLP_L2 ^	1E18 	BLP_TestNum, BLP_TestNum_1
-SerialServo.asm   X-Ref Table                                            Page: 62
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 BLP_NextState ^	1E55 	BLP_IHS_AddrMSB, BLP_IHS_AddrLSB, BLP_IHS_DataType, BLP_IHS_Data
 BLP_SaveIH_Length ^	1E52 	BLP_IHS_Length
 BLP_TestNum ^	1E21 	BLP_L2
@@ -6240,7 +6412,7 @@ BaudRate	00CF 	InitializeIO, InitializeBLIO
 BlockSize	0040 	BootLoaderStart
 BlockWords	0020 	BIHD_PutInBuff_L1, TestErased, CompareBlock, EraseSourceBuffer, ReadProgBlock
 		WriteProgBlock
-BootLoaderStart ^	1E00 	, InitializeIO, BufferIHData
+BootLoaderStart ^	1E00 	, SetAux2ConfigAnalogIn, BufferIHData
 BootLoader_End ^	1E10 	BootLoaderStart
 BufferIHData ^	1E96 	BLPV_Data
 C	0000 	DM2_NotOverCurrent, DoModeTwo_MovPlus, DM3_CalcCurPos, DM3_GoRev, DM3_ErrIsPos
@@ -6252,6 +6424,9 @@ CB_NotBlank ^	1F3B 	CompareBlock_L1
 CCP1CON	0293 	SystemTick_end, IRQ_Servo1_1, IRQ_Servo1_OH, IRQ_Servo1_Idle, IRQ_Servo1_OL
 		StartServo, InitializeIO
 CCP1CON_Clr	0009 	IRQ_Servo1_OH
+SerialServo.asm   X-Ref Table                                            Page: 64
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 CCP1CON_Idle	000A 	SystemTick_end, IRQ_Servo1_Idle
 CCP1CON_Set	0008 	IRQ_Servo1_OL, StartServo
 CCP1IE	0002 	InitializeIO
@@ -6322,9 +6497,6 @@ Cmd_SaveParams ^	0A36 	Dispatcher_4
 Cmd_SendIDString ^	0A69 	Dispatcher_6
 Cmd_SendIDString_L1 ^	0A6A 	Cmd_SendIDString_L1
 Cmd_SetAux1ConfigAnalogIn ^	0981 	Cmd_SetAuxNConfigAnalogIn
-SerialServo.asm   X-Ref Table                                            Page: 63
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 Cmd_SetAux1ConfigDigIn ^	093F 	Cmd_SetAuxNConfigDigIn
 Cmd_SetAux1ConfigDigOut ^	0960 	Cmd_SetAuxNConfigDigOut
 Cmd_SetAux2ConfigAnalogIn ^	098D 	Cmd_SetAux1ConfigAnalogIn
@@ -6354,6 +6526,9 @@ Cmd_SetGripI ^	0913 	Dispatcher_3
 Cmd_SetMasterAddr ^	0A5D 	Dispatcher_6
 Cmd_SetMaxI ^	08AA 	Dispatcher_1
 Cmd_SetMax_uS ^	08CE 	Dispatcher_1
+SerialServo.asm   X-Ref Table                                            Page: 65
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 Cmd_SetMin_uS ^	08C4 	Dispatcher_1
 Cmd_SetMode ^	0895 	Dispatcher_1
 Cmd_SetRevDir ^	08D8 	Dispatcher_1
@@ -6416,6 +6591,7 @@ Dispatcher_3 ^	0853 	Dispatcher_2
 Dispatcher_4 ^	0865 	Dispatcher_3
 Dispatcher_5 ^	087D 	Dispatcher_4
 Dispatcher_6 ^	0885 	Dispatcher_5
+DoAuxConfig ^	0C49 	InitializeIO
 DoMode4 ^	0381 	ML_Ser_End
 DoMode4_1 ^	03C9 	DoMode4
 DoMode4_Go ^	03C0 	DoMode4_Minus_1, DoMode4_Hold
@@ -6424,9 +6600,6 @@ DoMode4_Minus ^	03A8 	DM4_NotOverCurrent
 DoMode4_Minus_1 ^	03A9 	DM4_NotOverCurrent, DoMode4_Hold
 DoMode4_MovPlus ^	03B1 	DM4_NotOverCurrent
 DoMode4_Plus ^	03BC 	DoMode4_MovPlus
-SerialServo.asm   X-Ref Table                                            Page: 64
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 DoMode4_Plus_1 ^	03BD 	DoMode4_MovPlus
 DoModeOne ^	0235 	ML_Ser_End
 DoModeThree ^	02D9 	ML_Ser_End
@@ -6455,6 +6628,9 @@ EEPGD	0007 	EERead, EEWrite, ReadEEData, WriteEEData, ReadProgBlock, EraseProgBl
 		WriteProgBlock
 EERead ^	00C7 	CopyToRam_L1
 EEWrite ^	00D1 	SaveParams_L1
+SerialServo.asm   X-Ref Table                                            Page: 66
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 EEWriteLoop ^	00E3 	EEWriteLoop
 EEWriteW ^	00D0 	Cmd_RunBootloader
 EncoderAccum	003C 	Cmd_GetEncAbs, ReadEncoder_2, HA_SetIt, Home_Here
@@ -6526,9 +6702,6 @@ HandleRXData_1 ^	080A 	HandleRXData
 HandleRXData_Rtn ^	0808 	Cmd_SetMode, Cmd_SetAuxConfig, Cmd_GetAuxConfig, Cmd_SetAuxNValue
 		Cmd_GetAuxNValue
 HdlBtn_1 ^	03DC 	HandleButtons
-SerialServo.asm   X-Ref Table                                            Page: 65
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 HdlBtn_Btn1 ^	03E5 	HdlBtn_1
 HdlBtn_Btn2 ^	03E6 	HdlBtn_1
 HdlBtn_Btn3 ^	03E7 	HdlBtn_1
@@ -6557,6 +6730,9 @@ IH_State	002A 	BootLoaderStart, BL_ParseNextLine, BLP_L2, BLP_TestNum, BLP_TestN
 IH_TempVal	002B 	BootLoaderStart, BLP_TestNum_1, BLP_TestNum_2, BLP_IHS_Length, BLP_SaveIH_Length
 		BLP_IHS_AddrMSB, BLP_IHS_AddrLSB, BLP_IHS_DataType, BLP_IHS_Data, BLP_IHS_CSum
 IH_Type	0029 	BootLoaderStart, BLP_IHS_DataType, BLP_Validate
+SerialServo.asm   X-Ref Table                                            Page: 67
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 INDF0	0000 	ClearRam_L2, DecTimer, StoreSerIn, GetSerIn, StoreSerOut, GetSerOut, RS232_Parse_DALo_End
 		Cmd_GetRevDir, Cmd_GetEnaOvrCur, Cmd_GetUseIdleCenter, Cmd_GetUseFastPWM, Cmd_SetAuxNValue
 INDF1	0001 	Cmd_SetMode, Cmd_SetRevDir, Cmd_SetEnaOvrCur, Cmd_SetUseIdleCenter, Cmd_SetUseFastPWM
@@ -6578,13 +6754,19 @@ InitializeIO ^	0BF1 	start
 LATA	010C 	Aux0_Digital_Out, Aux1_Digital_Out, Aux2_Digital_Out, Cmd_SetAuxNConfigDigIn
 		Cmd_SetAux1ConfigDigIn, Cmd_SetAux2ConfigDigIn, Cmd_SetAuxNConfigDigOut, Cmd_SetAux1ConfigDigOut
 		Cmd_SetAux2ConfigDigOut, Cmd_SetAuxNConfigAnalogIn, Cmd_SetAux1ConfigAnalogIn, Cmd_SetAux2ConfigAnalogIn
+		SetAux0ConfigDigIn, SetAux0ConfigDigOut, SetAux0ConfigAnalogIn, SetAux1ConfigDigIn
+		SetAux1ConfigDigOut, SetAux1ConfigAnalogIn, SetAux2ConfigDigIn, SetAux2ConfigDigOut
+		SetAux2ConfigAnalogIn
 LATB	010D 	Init_AS5047D, SPI_SendRecWord, SPI_SendRecWord_L2
 LED1_Bit	0002 	Aux0_LEDBtn, Aux0_Digital_Out, Read_Aux0_Sw1, Cmd_SetAuxNConfigDigIn
-		Cmd_SetAuxNConfigDigOut, Cmd_SetAuxNConfigAnalogIn
+		Cmd_SetAuxNConfigDigOut, Cmd_SetAuxNConfigAnalogIn, SetAux0ConfigDigIn, SetAux0ConfigDigOut
+		SetAux0ConfigAnalogIn
 LED2_Bit	0003 	Aux1_LEDBtn, Aux1_Digital_Out, Read_Aux1_Sw2, Cmd_SetAux1ConfigDigIn
-		Cmd_SetAux1ConfigDigOut, Cmd_SetAux1ConfigAnalogIn
+		Cmd_SetAux1ConfigDigOut, Cmd_SetAux1ConfigAnalogIn, SetAux1ConfigDigIn, SetAux1ConfigDigOut
+		SetAux1ConfigAnalogIn
 LED3_Bit	0004 	Aux2_LEDBtn, Aux2_Digital_Out, Read_Aux2_Sw3, Cmd_SetAux2ConfigDigIn
-		Cmd_SetAux2ConfigDigOut, Cmd_SetAux2ConfigAnalogIn
+		Cmd_SetAux2ConfigDigOut, Cmd_SetAux2ConfigAnalogIn, SetAux2ConfigDigIn, SetAux2ConfigDigOut
+		SetAux2ConfigAnalogIn
 LEDErrorTime	000A 	ML_1
 LEDTIME	0064 	ML_1, InitializeIO
 LWLO	0005 	WriteProgBlock, WriteProgBlock_Wr
@@ -6628,9 +6810,6 @@ PR2_Value	007D 	InitializeIO
 PROG_ADDR_HI	0021 	BootLoaderStart, BufferIHData, BIHD_PutInBuff, LoadProgAddr
 PROG_ADDR_LO	0020 	BootLoaderStart, BufferIHData, BIHD_PutInBuff, LoadProgAddr
 PS0	0000 	InitializeIO, InitializeBLIO
-SerialServo.asm   X-Ref Table                                            Page: 66
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 PS1	0001 	InitializeIO, InitializeBLIO
 PS2	0002 	InitializeIO, InitializeBLIO
 PSA	0003 	InitializeIO, InitializeBLIO
@@ -6653,6 +6832,9 @@ Param78	0078 	StoreSerIn, GetSerIn, StoreSerOut, GetSerOut, RS232_Parse_Byte, RS
 Param79	0079 	RS232_Send, RS232_Send_L1, DoModeOne, CheckCurrent, CheckGripCurrent
 		DM3_SetServoPWM, DM3_NoDB, DM3_PosLimit, DM3_CalcSCmd, DM3_CalcSCmd_2s, DM3_CalcSCmd_1
 		Cmd_SendIDString, Cmd_SendIDString_L1, ReadEncoder, ReadEncoder_2, Home_Absolute_1
+SerialServo.asm   X-Ref Table                                            Page: 68
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 		Home_Absolute_2, Home_Absolute_3, Init_AS5047D, AS5047_ReadPos, AS5047_ReadPos_1
 		AS5047_ReadReg, AS5047_Read, SPI_SendRecWord, SPI_SendRecWord_L1, CalcParity_L1
 		CheckParity_L1, BIHD_PutInBuff_E2, BIHD_PutInBuff_L1, TestErased, TestErased_L1
@@ -6730,9 +6912,6 @@ RX_SrcAdd	00A4 	RS232_Parse_SALo
 RX_TempData	00A6 	RS232_Parse_DALo_End, RS232_Parse_Data_end
 RX_TheByte ^	00F1 	IRQ_Servo1_End
 RX_TheByte_Err ^	00FB 	RX_TheByte
-SerialServo.asm   X-Ref Table                                            Page: 67
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 ReadAN ^	03E9 	ML_1
 ReadAN0_ColdStart ^	0410 	start, ReadAN
 ReadAN_L1 ^	0409 	ReadAN_L1
@@ -6755,6 +6934,9 @@ ReverseLimit	ssStatus+1,4	Aux0_RevLimit, Aux1_RevLimit, Aux2_RevLimit
 SDO1SEL	0006 	InitializeIO, InitializeBLIO
 SMP	0007 	Init_AS5047D
 SPBRGH	019C 	InitializeIO, InitializeBLIO
+SerialServo.asm   X-Ref Table                                            Page: 69
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 SPBRGL	019B 	InitializeIO, InitializeBLIO
 SPI_CLK_Tris	TRISB,4	Init_AS5047D
 SPI_CSn	LATB,0	Init_AS5047D, SPI_SendRecWord, SPI_SendRecWord_L2
@@ -6816,6 +6998,32 @@ ServoSpeed	0050 	DM2_NotOverCurrent, DoModeTwo_Minus, DoModeTwo_MovPlus, DoModeT
 		DM3_CPV_End, DM3_CalcCurPos, DM3_GoRev, DM4_NotOverCurrent, DoMode4_Minus, DoMode4_MovPlus
 		DoMode4_Plus, Cmd_SetSpeed, Cmd_GetSpeed
 ServoStopCenter	004A 	DM3_CalcSCmd_1, DM3_IdleServo, Cmd_SetStopCenter, Cmd_GetStopCenter
+SetAux0ConfigAnalogIn ^	0C65 	DoAuxConfig
+SetAux0ConfigDigIn ^	0C53 	DoAuxConfig
+SetAux0ConfigDigOut ^	0C5C 	DoAuxConfig
+SetAux0ConfigFwdLimit ^	0C53 	DoAuxConfig
+SetAux0ConfigHomeSw ^	0C53 	DoAuxConfig
+SetAux0ConfigLEDBtn ^	0C53 	DoAuxConfig
+SetAux0ConfigNone ^	0C53 	DoAuxConfig
+SetAux0ConfigRevLimit ^	0C53 	DoAuxConfig
+SetAux1Config ^	0C6D 	SetAux0ConfigDigIn, SetAux0ConfigDigOut
+SetAux1ConfigAnalogIn ^	0C89 	SetAux1Config
+SetAux1ConfigDigIn ^	0C77 	SetAux1Config
+SetAux1ConfigDigOut ^	0C80 	SetAux1Config
+SetAux1ConfigFwdLimit ^	0C77 	SetAux1Config
+SetAux1ConfigHomeSw ^	0C77 	SetAux1Config
+SetAux1ConfigLEDBtn ^	0C77 	SetAux1Config
+SetAux1ConfigNone ^	0C77 	SetAux1Config
+SetAux1ConfigRevLimit ^	0C77 	SetAux1Config
+SetAux2Config ^	0C91 	SetAux1ConfigDigIn, SetAux1ConfigDigOut
+SetAux2ConfigAnalogIn ^	0CAD 	SetAux2Config
+SetAux2ConfigDigIn ^	0C9B 	SetAux2Config
+SetAux2ConfigDigOut ^	0CA4 	SetAux2Config
+SetAux2ConfigFwdLimit ^	0C9B 	SetAux2Config
+SetAux2ConfigHomeSw ^	0C9B 	SetAux2Config
+SetAux2ConfigLEDBtn ^	0C9B 	SetAux2Config
+SetAux2ConfigNone ^	0C9B 	SetAux2Config
+SetAux2ConfigRevLimit ^	0C9B 	SetAux2Config
 SetMiddlePosition ^	044F 	StartServo
 SigOutTime	02A0 	IRQ_Servo1_OH, IRQ_Servo1_CalcDwell, Copy7CToSig, Copy7CToSig_1
 SigOutTimeH	02A1 	Copy7CToSig, Copy7CToSig_1
@@ -6828,13 +7036,13 @@ StoreSerOut ^	0130 	RS232_Send, RS232_Send_L1, StoreSerOut_S0
 StoreSerOut_S0 ^	0A8B 	Cmd_SendIDString_L1
 SyncByte1RXd	RX_ParseFlags,0	RS232_Parse, RS232_Parse_Byte
 SyncByte2RXd	RX_ParseFlags,1	RS232_Parse, RS232_Parse_Sync2
+SerialServo.asm   X-Ref Table                                            Page: 70
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 SysFlags	005B 	CopyToRam_L1, SaveParams_L1, HandleButtons, HdlBtn_1
 SysFlags1	0024 	Aux0_LEDBtn, Aux0_Digital_Out, Aux0_HomeSW, Aux0_FwdLimit, Aux0_RevLimit
 		Read_Aux0_Sw1, Aux1_LEDBtn, Aux1_Digital_Out, Aux1_HomeSW, Aux1_FwdLimit, Aux1_RevLimit
 		Read_Aux1_Sw2, Aux2_Digital_Out, Aux2_HomeSW, Aux2_FwdLimit, Aux2_RevLimit, Read_Aux2_Sw3
-SerialServo.asm   X-Ref Table                                            Page: 68
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 		Cmd_SetAuxNDigOut, Cmd_SetAuxNValue_Dig1, Cmd_SetAuxNValue_Dig2, Cmd_GetAuxNValue_Dig
 		Cmd_GetAuxNValue_Dig1, Cmd_GetAuxNValue_Dig2, Cmd_GetAuxNValue_Btn, Cmd_GetAuxNValue_Btn1
 		Cmd_GetAuxNValue_Btn2
@@ -6864,7 +7072,9 @@ TRISA	008C 	ProgStartVector, SystemBlink_Std, Aux0_LEDBtn, Aux0_Digital_Out, Aux
 		Aux1_Digital_Out, Aux2_LEDBtn, Aux2_Digital_Out, Cmd_SetAuxNConfigDigIn, Cmd_SetAux1ConfigDigIn
 		Cmd_SetAux2ConfigDigIn, Cmd_SetAuxNConfigDigOut, Cmd_SetAux1ConfigDigOut, Cmd_SetAux2ConfigDigOut
 		Cmd_SetAuxNConfigAnalogIn, Cmd_SetAux1ConfigAnalogIn, Cmd_SetAux2ConfigAnalogIn
-		Init_AS5047D, InitializeIO, InitializeBLIO
+		Init_AS5047D, InitializeIO, SetAux0ConfigDigIn, SetAux0ConfigDigOut, SetAux0ConfigAnalogIn
+		SetAux1ConfigDigIn, SetAux1ConfigDigOut, SetAux1ConfigAnalogIn, SetAux2ConfigDigIn
+		SetAux2ConfigDigOut, SetAux2ConfigAnalogIn, InitializeBLIO
 TRISB	008D 	Init_AS5047D, InitializeIO, InitializeBLIO
 TXByte	0030 	TX_TheByte, ML_Ser_Out
 TXCKSEL	0000 	InitializeIO, InitializeBLIO
@@ -6921,22 +7131,22 @@ W	0000 	SystemBlink_Std, IRQ_Servo1_OH, IRQ_Servo1_CalcDwell, IRQ_Servo1_Dwell, 
 		Cmd_GetEncAbs, Cmd_GetBattVolts, Cmd_GetStatus, Cmd_SendIDString_L1, ReadEncoder
 		ReadEncoder_1, ReadEncoder_2, Home_Absolute_1, Home_Absolute_2, Home_Absolute_3
 		SaveHomePos, HA_SetIt, Init_AS5047D, SPI_SendRecWord, SPI_SendRecWord_L1, SPI_SendRecWord_L2
-		CalcParity_L1, CheckParity_L1, BLP_L2, BLP_TestNum, BLP_TestNum_1, BLP_TestNum_2
-		BLP_IHS_Length, BLP_SaveIH_Length, BLP_IHS_AddrMSB, BLP_IHS_AddrLSB, BLP_IHS_DataType
-		BLP_IHS_Data, BLP_IHS_CSum, BLP_Validate, BufferIHData, BIHD_PutInBuff, BIHD_PutInBuff_E2
-		BIHD_PutInBuff_L1, GetChar, GetChar_Err, ReadEEData, CompareBlock_L1, CB_NotBlank
-		ReadProgBlock_L1, LoadProgAddr, WriteProgBlock_L1
+		CalcParity_L1, CheckParity_L1, DoAuxConfig, SetAux1Config, SetAux2Config, BLP_L2
+		BLP_TestNum, BLP_TestNum_1, BLP_TestNum_2, BLP_IHS_Length, BLP_SaveIH_Length, BLP_IHS_AddrMSB
+		BLP_IHS_AddrLSB, BLP_IHS_DataType, BLP_IHS_Data, BLP_IHS_CSum, BLP_Validate, BufferIHData
+		BIHD_PutInBuff, BIHD_PutInBuff_E2, BIHD_PutInBuff_L1, GetChar, GetChar_Err, ReadEEData
+		CompareBlock_L1, CB_NotBlank, ReadProgBlock_L1, LoadProgAddr, WriteProgBlock_L1
 WDTCON	0097 	InitializeIO, InitializeBLIO
 WPUA	020C 	InitializeIO, InitializeBLIO
+SerialServo.asm   X-Ref Table                                            Page: 71
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 WPUA5	0005 	InitializeIO, InitializeBLIO
 WR	0001 	EEWrite, EEWriteLoop, WriteEEData, WriteEEData_L1, EraseProgBlock, WriteProgBlock_L1
 		WriteProgBlock_Wr
 WREG	0009 	ReadAN_L2, ReadAN_L1, ReadAN_Start, Aux0_Digital_Out, Aux1_Digital_Out
 		Aux2_Digital_Out, Cmd_SetAuxNDigOut, Cmd_SetAuxNValue_Dig1, Cmd_SetAuxNValue_Dig2
 		ReadEncoder_2, Home_Absolute_1, Home_Absolute_2, Home_Absolute_3, CheckParity_L1
-SerialServo.asm   X-Ref Table                                            Page: 69
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 		BLP_WriteBuffer
 WREN	0002 	EEWrite, EEWriteLoop, WriteEEData, WriteEEData_L1, EraseProgBlock, WriteProgBlock
 		WriteProgBlock_Wr
@@ -7008,9 +7218,9 @@ nvssGripI	0016 	InitializeBLIO
 nvssMaxI	0014 	InitializeBLIO
 oldCode	0000 	DecTimer, Aux2_ISR_End
 ssAux0Config	0058 	HandleAuxIO, Cmd_SetAuxConfig, Cmd_GetAuxConfig, Cmd_SetAuxNValue
-		Cmd_GetAuxNValue
-ssAux1Config	0059 	Aux0_ISR_End
-ssAux2Config	005A 	Aux1_ISR_End
+		Cmd_GetAuxNValue, DoAuxConfig
+ssAux1Config	0059 	Aux0_ISR_End, SetAux1Config
+ssAux2Config	005A 	Aux1_ISR_End, SetAux2Config
 ssCmdPos	0033 	DoModeTwo, DM2_NotOverCurrent, DoModeTwo_NoSpeed, DoModeThree, DM3_NotOverCurrent
 		DM3_ServoThere, DM3_CalcCurPos, DM3_GoRev, DoMode4, DM4_NotOverCurrent, Cmd_SetCmdPos
 		Cmd_GetCmdPos, InitializeIO
@@ -7030,15 +7240,15 @@ ssGripMCur	ssStatus,5	CheckGripCurrent, Cmd_GetStatus
 ssGripOCur	ssStatus,4	CheckGripCurrent, Cmd_GetStatus
 ssMaxI	0055 	CheckCurrent, Cmd_SetMaxI, Cmd_GetMaxI
 ssMode3IdleCenter	ssFlags,3	DM3_IdleServo, Cmd_SetUseIdleCenter, Cmd_GetUseIdleCenter
+SerialServo.asm   X-Ref Table                                            Page: 72
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 ssRX_Timeout	ssStatus,3	RS232_Parse, Cmd_GetStatus
 ssReverseDir	ssFlags,1	DM3_CalcSCmd, Cmd_SetRevDir, Cmd_GetRevDir
 ssStatus	0038 	RS232_Parse, ML_1, CheckGripCurrent, DoModeTwo, DM2_NotOverCurrent
 		DoModeThree, DM3_NotOverCurrent, DM3_CalcCurPos, DM3_GoRev, DM3_IdleServo, DM3_IdleInactive
 		DoMode4, DM4_NotOverCurrent, Aux0_HomeSW, Aux0_FwdLimit, Aux0_RevLimit, Aux1_HomeSW
 		Aux1_FwdLimit, Aux1_RevLimit, Aux2_HomeSW, Aux2_FwdLimit, Aux2_RevLimit, Cmd_GetCmdPos
-SerialServo.asm   X-Ref Table                                            Page: 70
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 		Cmd_GetStatus, ReadEncoder
 ssTempFlags	0037 	SystemTick_end, IRQ_Servo1_1, DoModeOne, CheckCurrent, CheckGripCurrent
 		DoModeTwo, DM2_NotOverCurrent, DoModeTwo_1, DoModeThree, DM3_CalcCurPos, DM3_IdleServo
@@ -7125,22 +7335,23 @@ Memory Usage Map ('X' = Used, '-' = Unused)
 0B80  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 0BC0  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 0C00  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
-0C40  : XXXXX----------- ---------------- ---------------- ----------------
+0C40  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0C80  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXX----------
 1E00  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 1E40  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 1E80  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 1EC0  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 1F00  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+SerialServo.asm   Memory Usage Map                                       Page: 73
+/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
+
 1F40  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 1F80  : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
 1FC0  : XXXXXXXXXXXX---- ---------------- ---------------- ----------------
  
-Program Memory Words Used:2883
-Program Memory Words Free:5309
+Program Memory Words Used:2996
+Program Memory Words Free:5196
  
-SerialServo.asm   Memory Usage Map                                       Page: 71
-/Users/davidflynn/Projects/SerialServo/Firmware Rev C PCB/
-
 UserID
 8000  :XXXX
  

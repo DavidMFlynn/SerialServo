@@ -115,9 +115,161 @@ InitializeIO	MOVLB	0x01	; select bank 1
 ;
 	call	Init_AS5047D	;initialize the SPI encoder I/O
 ;
+	movlb	1	; bank 0
+	bsf	AN0_ActiveBit
+	bsf	AN1_ActiveBit
+;
+                       call                   DoAuxConfig
 ;
 	bsf	INTCON,PEIE	; enable periferal interupts
 	bsf	INTCON,GIE	; enable interupts
 ;
 	return
+;=============================================================
+;
+DoAuxConfig	movf                   ssAux0Config,W              ;AuxNum
+                       brw
+                       bra                    SetAux0ConfigNone
+                       bra                    SetAux0ConfigLEDBtn
+                       bra                    SetAux0ConfigDigIn
+                       bra                    SetAux0ConfigDigOut
+                       bra                    SetAux0ConfigAnalogIn
+                       bra                    SetAux0ConfigHomeSw
+                       bra                    SetAux0ConfigFwdLimit
+                       bra                    SetAux0ConfigRevLimit
+;
+SetAux0ConfigNone:
+SetAux0ConfigLEDBtn:
+SetAux0ConfigDigIn:
+SetAux0ConfigHomeSw:
+SetAux0ConfigFwdLimit:
+SetAux0ConfigRevLimit:
+                       movlb                  ANSELA                 ;bank 3
+                       bcf                    Aux0_ANSEL_Bit         ;Digital
+                       movlb                  1                      ;bank 1
+                       bcf                    AN_Aux0_ActiveBit      ;Don't Read AN
+                       bsf                    Aux0_LED1_TRIS         ;Input
+                       movlb                  2                      ;bank 2
+                       bcf                    Aux0_LED1_Lat          ;0
+                       movlb                  0                      ;bank 0
+                       bra                    SetAux1Config
+;
+SetAux0ConfigDigOut:
+                       movlb                  ANSELA                 ;bank 3
+                       bcf                    Aux0_ANSEL_Bit         ;Digital
+                       movlb                  1                      ;bank 1
+                       bcf                    AN_Aux0_ActiveBit      ;Don't Read AN
+                       bcf                    Aux0_LED1_TRIS         ;Output
+                       movlb                  2                      ;bank 2
+                       bcf                    Aux0_LED1_Lat          ;0
+                       movlb                  0                      ;bank 0
+                       bra                    SetAux1Config
+;
+SetAux0ConfigAnalogIn:
+                       movlb                  ANSELA                 ;bank 3
+                       bsf                    Aux0_ANSEL_Bit         ;Digital
+                       movlb                  1                      ;bank 1
+                       bsf                    AN_Aux0_ActiveBit      ;Don't Read AN
+                       bsf                    Aux0_LED1_TRIS         ;Input
+                       movlb                  2                      ;bank 2
+                       bcf                    Aux0_LED1_Lat          ;0
+                       movlb                  0                      ;bank 0
+;
+SetAux1Config	movf                   ssAux1Config,W              ;AuxNum
+                       brw
+                       bra                    SetAux1ConfigNone
+                       bra                    SetAux1ConfigLEDBtn
+                       bra                    SetAux1ConfigDigIn
+                       bra                    SetAux1ConfigDigOut
+                       bra                    SetAux1ConfigAnalogIn
+                       bra                    SetAux1ConfigHomeSw
+                       bra                    SetAux1ConfigFwdLimit
+                       bra                    SetAux1ConfigRevLimit
+;
+SetAux1ConfigNone:
+SetAux1ConfigLEDBtn:
+SetAux1ConfigDigIn:
+SetAux1ConfigHomeSw:
+SetAux1ConfigFwdLimit:
+SetAux1ConfigRevLimit:
+                       movlb                  ANSELA                 ;bank 3
+                       bcf                    Aux1_ANSEL_Bit         ;Digital
+                       movlb                  1                      ;bank 1
+                       bcf                    AN_Aux1_ActiveBit      ;Don't Read AN
+                       bsf                    Aux1_LED2_TRIS         ;Input
+                       movlb                  2                      ;bank 2
+                       bcf                    Aux1_LED2_Lat          ;0
+                       movlb                  0                      ;bank 0
+                       bra                    SetAux2Config
+;
+SetAux1ConfigDigOut:
+                       movlb                  ANSELA                 ;bank 3
+                       bcf                    Aux1_ANSEL_Bit         ;Digital
+                       movlb                  1                      ;bank 1
+                       bcf                    AN_Aux1_ActiveBit      ;Don't Read AN
+                       bcf                    Aux1_LED2_TRIS         ;Output
+                       movlb                  2                      ;bank 2
+                       bcf                    Aux1_LED2_Lat          ;0
+                       movlb                  0                      ;bank 0
+                       bra                    SetAux2Config
+;
+SetAux1ConfigAnalogIn:
+                       movlb                  ANSELA                 ;bank 3
+                       bsf                    Aux1_ANSEL_Bit         ;Digital
+                       movlb                  1                      ;bank 1
+                       bsf                    AN_Aux1_ActiveBit      ;Don't Read AN
+                       bsf                    Aux1_LED2_TRIS         ;Input
+                       movlb                  2                      ;bank 2
+                       bcf                    Aux1_LED2_Lat          ;0
+                       movlb                  0                      ;bank 0
+;
+SetAux2Config	movf                   ssAux2Config,W              ;AuxNum
+                       brw
+                       bra                    SetAux2ConfigNone
+                       bra                    SetAux2ConfigLEDBtn
+                       bra                    SetAux2ConfigDigIn
+                       bra                    SetAux2ConfigDigOut
+                       bra                    SetAux2ConfigAnalogIn
+                       bra                    SetAux2ConfigHomeSw
+                       bra                    SetAux2ConfigFwdLimit
+                       bra                    SetAux2ConfigRevLimit
+;
+SetAux2ConfigNone:
+SetAux2ConfigLEDBtn:
+SetAux2ConfigDigIn:
+SetAux2ConfigHomeSw:
+SetAux2ConfigFwdLimit:
+SetAux2ConfigRevLimit:
+                       movlb                  ANSELA                 ;bank 3
+                       bcf                    Aux2_ANSEL_Bit         ;Digital
+                       movlb                  1                      ;bank 1
+                       bcf                    AN_Aux2_ActiveBit      ;Don't Read AN
+                       bsf                    Aux2_LED3_TRIS         ;Input
+                       movlb                  2                      ;bank 2
+                       bcf                    Aux2_LED3_Lat          ;0
+                       movlb                  0                      ;bank 0
+                       return
+;
+SetAux2ConfigDigOut:
+                       movlb                  ANSELA                 ;bank 3
+                       bcf                    Aux2_ANSEL_Bit         ;Digital
+                       movlb                  1                      ;bank 1
+                       bcf                    AN_Aux2_ActiveBit      ;Don't Read AN
+                       bcf                    Aux2_LED3_TRIS         ;Output
+                       movlb                  2                      ;bank 2
+                       bcf                    Aux2_LED3_Lat          ;0
+                       movlb                  0                      ;bank 0
+                       return
+;
+SetAux2ConfigAnalogIn:
+                       movlb                  ANSELA                 ;bank 3
+                       bsf                    Aux2_ANSEL_Bit         ;Digital
+                       movlb                  1                      ;bank 1
+                       bsf                    AN_Aux2_ActiveBit      ;Don't Read AN
+                       bsf                    Aux2_LED3_TRIS         ;Input
+                       movlb                  2                      ;bank 2
+                       bcf                    Aux2_LED3_Lat          ;0
+                       movlb                  0                      ;bank 0
+                       return
+;
 ;
