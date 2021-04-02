@@ -25,7 +25,6 @@
 ; CopyToRam	(1+0) copy param memory (EEPROM) to ram, call once, FSR0
 ; SaveParams	(1+0) copy ram to param memory (EEPROM), FSR0
 ;
-;  Set FSR0H before calling these routines
 ; DecTimer4	(0+0) Decrement routine for 16 bit timers, FSR0
 ; DecTimer3
 ; DecTimer2
