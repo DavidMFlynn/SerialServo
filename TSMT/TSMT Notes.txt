@@ -1,0 +1,27 @@
+Terran Space Marine Transporter Notes (TSMT)
+==========================================================================================
+Body Jacks (Lifters)
+	Home Switch is center of travel
+	Positive rotation turns CW, CCW (Looking at the output shaft)
+	Seek Home: Find the edge. Set zero. Go positive to turn the home switch off.
+	Home sensor: OPB490P11Z, Active Low when light is blocked. (Positive, CW to unblock)
+	Motor:iPower GBM5208H-200T a.k.a. GM5208-24, 11 pole pairs, 66 counts per rotation.
+	Gear ratio 183:1, 12078 Counts per Rotation (33.55 per degree), 
+		Safe zone: ±5368 (±160°) Counts from home
+	
+Addresses: (Serial Port/Device)
+	01/03	Left front body mounted lifter (Sensored BLDC Drive, Position Mode)
+	01/04	Left front track unit mounted lifter (Sensored BLDC Drive, Position Mode)
+	01/05	Left front track unit drive (Sensored BLDC Drive, Torque Mode)
+	
+	01/06	Right front body mounted lifter (Sensored BLDC Drive, Position Mode)
+	01/07	Right front track unit mounted lifter (Sensored BLDC Drive, Position Mode)
+	01/08	Right front track unit drive (Sensored BLDC Drive, Torque Mode)
+	
+	??/??	Left rear body mounted lifter (Sensored BLDC Drive, Position Mode)
+	??/??	Left rear track unit mounted lifter (Sensored BLDC Drive, Position Mode)
+	??/??	Left rear track unit drive (Sensored BLDC Drive, Torque Mode)
+	
+	??/??	Right rear body mounted lifter (Sensored BLDC Drive, Position Mode)
+	??/??	Right rear track unit mounted lifter (Sensored BLDC Drive, Position Mode)
+	??/??	Right rear track unit drive (Sensored BLDC Drive, Torque Mode)
